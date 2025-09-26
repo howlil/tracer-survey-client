@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { SoalTeks } from "@/components/SoalTeks"
+import { SoalSingleChoice } from "@/components/SoalSingleChoice"
 import * as React from "react"
 
 export function ComponentsDemo() {
@@ -16,6 +18,12 @@ export function ComponentsDemo() {
   })
   const [inputValue, setInputValue] = React.useState("")
   const [radioValue, setRadioValue] = React.useState("option1")
+  const [teks, setTeks] = React.useState("")
+  const [singleChoice, setSingleChoice] = React.useState("")
+  const opsiJawaban = [
+    { value: "laki-laki", label: "Laki-laki" },
+    { value: "perempuan", label: "Perempuan" }
+  ]
 
   // Progress demo - simulate loading
   React.useEffect(() => {
@@ -314,6 +322,26 @@ export function ComponentsDemo() {
               <Button variant="outline">Cancel</Button>
             </div>
           </div>
+        </section>
+        {/* Soal example */}
+        <section>
+          <h2>Soal example</h2>
+          <SoalTeks 
+            label="Nama Lengkap" 
+            placeholder="Masukkan nama lengkap anda" 
+            value={teks}
+            onChange={setTeks}
+            required
+          />
+          <br />
+          <SoalSingleChoice
+            label="Jenis Kelamin"
+            opsiJawaban={opsiJawaban}
+            value={singleChoice}
+            onChange={setSingleChoice}
+            required
+            layout="vertical"
+          />
         </section>
       </div>
     </div>
