@@ -1,7 +1,7 @@
-import * as React from "react"
-import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
+import * as React from "react"
 
 interface SoalTeksProps {
   label: string
@@ -14,6 +14,7 @@ interface SoalTeksProps {
   inputClassName?: string
   labelClassName?: string
   type?: "text" | "email" | "number" | "tel" | "url"
+  variant?: "text" | "email" | "number"
 }
 
 function SoalTeks({
@@ -27,10 +28,45 @@ function SoalTeks({
   inputClassName,
   labelClassName,
   type = "text",
+  variant,
   ...props
 }: SoalTeksProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange?.(e.target.value)
+  }
+
+  // Tentukan tipe input berdasarkan variant atau type
+  const getInputType = () => {
+    if (variant) {
+      switch (variant) {
+        case "email":
+          return "email"
+        case "number":
+          return "number"
+        case "text":
+        default:
+          return "text"
+      }
+    }
+    return type
+  }
+
+  // Tentukan placeholder berdasarkan variant jika tidak ada placeholder
+  const getPlaceholder = () => {
+    if (placeholder) return placeholder
+    
+    if (variant) {
+      switch (variant) {
+        case "email":
+          return "Masukkan alamat email"
+        case "number":
+          return "Masukkan angka"
+        case "text":
+        default:
+          return "Masukkan teks"
+      }
+    }
+    return placeholder
   }
 
   return (
@@ -38,7 +74,7 @@ function SoalTeks({
       <Label 
         htmlFor={`soal-${label.toLowerCase().replace(/\s+/g, '-')}`}
         className={cn(
-          "text-base font-medium text-gray-700",
+          "text-base font-medium text-black",
           required && "after:content-['*'] after:text-red-500",
           labelClassName
         )}
@@ -47,9 +83,9 @@ function SoalTeks({
       </Label>
       <Input
         id={`soal-${label.toLowerCase().replace(/\s+/g, '-')}`}
-        type={type}
+        type={getInputType()}
         variant="default"
-        placeholder={placeholder}
+        placeholder={getPlaceholder()}
         value={value}
         onChange={handleChange}
         required={required}
@@ -66,3 +102,4 @@ function SoalTeks({
 
 export { SoalTeks }
 export type { SoalTeksProps }
+

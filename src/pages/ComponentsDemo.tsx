@@ -1,3 +1,8 @@
+import { SoalComboBox } from "@/components/SoalComboBox"
+import { SoalMultiChoice } from "@/components/SoalMultiChoice"
+import { SoalRating } from "@/components/SoalRating"
+import { SoalSingleChoice } from "@/components/SoalSingleChoice"
+import { SoalTeks } from "@/components/SoalTeks"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ExampleCombobox } from "@/components/ui/combobox"
@@ -5,8 +10,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { SoalTeks } from "@/components/SoalTeks"
-import { SoalSingleChoice } from "@/components/SoalSingleChoice"
 import * as React from "react"
 
 export function ComponentsDemo() {
@@ -19,11 +22,160 @@ export function ComponentsDemo() {
   const [inputValue, setInputValue] = React.useState("")
   const [radioValue, setRadioValue] = React.useState("option1")
   const [teks, setTeks] = React.useState("")
+  const [number, setNumber] = React.useState("")
   const [singleChoice, setSingleChoice] = React.useState("")
+  const [otherValue, setOtherValue] = React.useState("")
+  const [showValidation, setShowValidation] = React.useState(false)
   const opsiJawaban = [
     { value: "laki-laki", label: "Laki-laki" },
-    { value: "perempuan", label: "Perempuan" }
+    { value: "perempuan", label: "Perempuan" },
+    { value: "other", label: "Lainnya", isOther: true }
   ]
+  const [multiChoice, setMultiChoice] = React.useState<string[]>([])
+  const [otherMultiValue, setOtherMultiValue] = React.useState("")
+  const [comboBoxValues, setComboBoxValues] = React.useState<Record<string, string>>({})
+  const [ratingValues, setRatingValues] = React.useState<Record<string, string>>({})
+
+  // Handler untuk tombol Next
+  const handleNext = () => {
+    setShowValidation(true)
+    
+    // Simulasi validasi
+    const errors = []
+    
+    if (!teks.trim()) {
+      errors.push("Nama lengkap harus diisi")
+    }
+    
+    if (!number.trim()) {
+      errors.push("Umur harus diisi")
+    }
+    
+    if (!singleChoice) {
+      errors.push("Jenis kelamin harus dipilih")
+    }
+    
+    if (singleChoice === "other" && !otherValue.trim()) {
+      errors.push("Jenis kelamin lainnya harus diisi")
+    }
+    
+    if (multiChoice.length === 0) {
+      errors.push("Minimal pilih satu olahraga")
+    }
+    
+    if (multiChoice.includes("other") && !otherMultiValue.trim()) {
+      errors.push("Olahraga lainnya harus diisi")
+    }
+    
+    if (!comboBoxValues.provinsi) {
+      errors.push("Provinsi harus dipilih")
+    }
+    
+    if (!comboBoxValues.kabupaten) {
+      errors.push("Kabupaten/Kota harus dipilih")
+    }
+    
+    // Validasi rating - minimal 3 item harus diisi
+    const filledRatings = Object.values(ratingValues).filter(value => value).length
+    if (filledRatings < 3) {
+      errors.push("Minimal 3 fasilitas harus dinilai")
+    }
+    
+    if (errors.length > 0) {
+      alert("Validasi gagal:\n" + errors.join("\n"))
+    } else {
+      alert("Form valid! Data berhasil disimpan.")
+      setShowValidation(false)
+    }
+  }
+  const opsiJawabanMulti = [
+    { value: "Basket", label: "Basket"},
+    { value: "Bola", label: "Bola"},
+    { value: "Tenis", label: "Tenis"},
+    { value: "other", label: "Lainnya", isOther: true},
+  ]
+
+  // Data untuk ComboBox
+  const opsiProvinsi = [
+    { value: "dki-jakarta", label: "DKI Jakarta" },
+    { value: "jawa-barat", label: "Jawa Barat" },
+    { value: "jawa-tengah", label: "Jawa Tengah" },
+    { value: "jawa-timur", label: "Jawa Timur" },
+    { value: "banten", label: "Banten" },
+    { value: "bali", label: "Bali" },
+    { value: "sumatera-utara", label: "Sumatera Utara" },
+    { value: "sumatera-selatan", label: "Sumatera Selatan" },
+    { value: "kepulauan-bangka-belitung", label: "Kepulauan Bangka Belitung" },
+    { value: "kalimantan-timur", label: "Kalimantan Timur" },
+    { value: "sulawesi-selatan", label: "Sulawesi Selatan" },
+    { value: "papua", label: "Papua" }
+  ]
+
+  const opsiKabupaten = [
+    { value: "jakarta-pusat", label: "Jakarta Pusat" },
+    { value: "jakarta-selatan", label: "Jakarta Selatan" },
+    { value: "jakarta-utara", label: "Jakarta Utara" },
+    { value: "jakarta-barat", label: "Jakarta Barat" },
+    { value: "jakarta-timur", label: "Jakarta Timur" },
+    { value: "kabupaten-tangerang", label: "Kabupaten Tangerang" },
+    { value: "kota-tangerang", label: "Kota Tangerang" },
+    { value: "kabupaten-bekasi", label: "Kabupaten Bekasi" },
+    { value: "kota-bekasi", label: "Kota Bekasi" },
+    { value: "kabupaten-belitung", label: "Kabupaten Belitung" },
+    { value: "kota-pangkal-pinang", label: "Kota Pangkal Pinang" },
+    { value: "kabupaten-bangka", label: "Kabupaten Bangka" }
+  ]
+
+  const comboboxItems = [
+    {
+      id: "provinsi",
+      label: "Provinsi",
+      placeholder: "Pilih provinsi...",
+      searchPlaceholder: "Cari provinsi...",
+      required: true,
+      opsiComboBox: opsiProvinsi
+    },
+    {
+      id: "kabupaten",
+      label: "Kab/Kota",
+      placeholder: "Pilih kabupaten/kota...",
+      searchPlaceholder: "Cari kabupaten/kota...",
+      required: true,
+      opsiComboBox: opsiKabupaten
+    }
+  ]
+
+  // Data untuk Rating
+  const ratingItems = [
+    { id: "perpustakaan", label: "Perpustakaan" },
+    { id: "tik", label: "Teknologi Informasi dan Komunikasi" },
+    { id: "modul-belajar", label: "Modul belajar" },
+    { id: "ruang-belajar", label: "Ruang belajar" },
+    { id: "laboratorium", label: "Laboratorium" },
+    { id: "variasi-matakuliah", label: "Variasi matakuliah yang ditawarkan" },
+    { id: "akomodasi-transportasi", label: "Akomodasi dan transportasi" },
+    { id: "kantin", label: "Kantin" },
+    { id: "pusat-kegiatan", label: "Pusat kegiatan mahasiswa dan fasilitasnya, ruang rekreasi" },
+    { id: "layanan-kesehatan", label: "Fasilitas layanan kesehatan" }
+  ]
+
+  // Rating options yang bisa dikustomisasi
+  const customRatingOptions = [
+    { value: "sangat-buruk", label: "Sangat Buruk" },
+    { value: "buruk", label: "Buruk" },
+    { value: "cukup", label: "Cukup" },
+    { value: "baik", label: "Baik" },
+    { value: "sangat-baik", label: "Sangat Baik" }
+  ]
+
+  // Contoh rating options alternatif (untuk referensi)
+  // const alternativeRatingOptions = [
+  //   { value: "tidak-setuju", label: "Tidak Setuju" },
+  //   { value: "kurang-setuju", label: "Kurang Setuju" },
+  //   { value: "netral", label: "Netral" },
+  //   { value: "setuju", label: "Setuju" },
+  //   { value: "sangat-setuju", label: "Sangat Setuju" }
+  // ]
 
   // Progress demo - simulate loading
   React.useEffect(() => {
@@ -329,8 +481,18 @@ export function ComponentsDemo() {
           <SoalTeks 
             label="Nama Lengkap" 
             placeholder="Masukkan nama lengkap anda" 
+            variant="text"
             value={teks}
             onChange={setTeks}
+            required
+          />
+          <br />
+          <SoalTeks 
+            label="Umur" 
+            placeholder="Berapa umur anda" 
+            variant="number"
+            value={number}
+            onChange={setNumber}
             required
           />
           <br />
@@ -339,9 +501,72 @@ export function ComponentsDemo() {
             opsiJawaban={opsiJawaban}
             value={singleChoice}
             onChange={setSingleChoice}
+            otherValue={otherValue}
+            onOtherValueChange={setOtherValue}
+            otherInputPlaceholder="Masukkan jenis kelamin lainnya..."
+            validateOther={showValidation}
+            errorMessage="Harap isi jenis kelamin lainnya"
             required
             layout="vertical"
           />
+          <br />
+          <SoalMultiChoice
+            label="Olahraga apa yang anda sukai"
+            opsiJawaban={opsiJawabanMulti}
+            value={multiChoice}
+            onChange={setMultiChoice}
+            otherValue={otherMultiValue}
+            onOtherValueChange={setOtherMultiValue}
+            otherInputPlaceholder="Masukkan olahraga lainnya..."
+            validateOther={showValidation}
+            errorMessage="Harap isi olahraga lainnya"
+            required
+            layout="vertical"
+          />
+          <br />
+          
+          {/* SoalComboBox - Multiple Combobox */}
+          <SoalComboBox
+            label="Pilihlah spesifikasi daerah asal anda?"
+            comboboxItems={comboboxItems}
+            values={comboBoxValues}
+            onChange={(id, value) => setComboBoxValues(prev => ({ ...prev, [id]: value }))}
+            layout="horizontal"
+            required
+          />
+          <br />
+          
+          {/* SoalRating - Rating Table dengan custom options */}
+          <SoalRating
+            label="Selama anda kuliah di UNAND, bagaimana pendapat anda terhadap kondisi fasilitas belajar di bawah ini?"
+            ratingItems={ratingItems}
+            ratingOptions={customRatingOptions}
+            values={ratingValues}
+            onChange={(itemId, value) => setRatingValues(prev => ({ ...prev, [itemId]: value }))}
+            required
+          />
+          <br />
+          
+          {/* Tombol Next untuk simulasi validasi */}
+          <div className="flex gap-4 mt-6">
+            <Button onClick={handleNext} className="px-8">
+              Next
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowValidation(false)}
+            >
+              Reset Validation
+            </Button>
+          </div>
+          
+          {showValidation && (
+            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-yellow-800">
+                <strong>Mode Validasi Aktif:</strong> Error akan muncul jika field tidak diisi dengan benar.
+              </p>
+            </div>
+          )}
         </section>
       </div>
     </div>
