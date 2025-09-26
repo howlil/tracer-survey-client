@@ -2,6 +2,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
+import * as React from "react"
 
 interface OpsiJawaban {
   value: string
@@ -46,7 +47,7 @@ function SoalMultiChoice({
   errorMessage = "Harap isi jawaban lainnya",
   ...props
 }: SoalMultiChoiceProps) {
-  const handleValueChange = (opsiValue: string, checked: boolean) => {
+  const handleValueChange = React.useCallback((opsiValue: string, checked: boolean) => {
     if (!onChange) return
     
     if (checked) {
@@ -58,9 +59,9 @@ function SoalMultiChoice({
       // Hapus opsi dari array
       onChange(value.filter(v => v !== opsiValue))
     }
-  }
+  }, [onChange, value])
 
-  const handleOtherValueChange = (inputValue: string) => {
+  const handleOtherValueChange = React.useCallback((inputValue: string) => {
     onOtherValueChange?.(inputValue)
     // Jika ada input value, pastikan opsi "other" terpilih
     if (inputValue.trim()) {
@@ -69,12 +70,23 @@ function SoalMultiChoice({
         onChange?.([...value, otherOption.value])
       }
     }
-  }
+  }, [onOtherValueChange, opsiJawaban, value, onChange])
 
   // Validasi: jika opsi "other" dipilih, pastikan ada teks yang diisi
-  const otherOption = opsiJawaban.find(opsi => opsi.isOther)
-  const isOtherSelected = otherOption ? value.includes(otherOption.value) : false
-  const hasOtherError = validateOther && isOtherSelected && !otherValue?.trim()
+  const otherOption = React.useMemo(() => 
+    opsiJawaban.find(opsi => opsi.isOther), 
+    [opsiJawaban]
+  )
+  
+  const isOtherSelected = React.useMemo(() => 
+    otherOption ? value.includes(otherOption.value) : false, 
+    [otherOption, value]
+  )
+  
+  const hasOtherError = React.useMemo(() => 
+    validateOther && isOtherSelected && !otherValue?.trim(), 
+    [validateOther, isOtherSelected, otherValue]
+  )
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -98,7 +110,10 @@ function SoalMultiChoice({
       >
         {opsiJawaban.map((opsi, index) => {
           const isSelected = value.includes(opsi.value)
-          const inputId = `${label.toLowerCase().replace(/\s+/g, '-')}-${index}`
+          const inputId = React.useMemo(() => 
+            `${label.toLowerCase().replace(/\s+/g, '-')}-${index}`, 
+            [label, index]
+          )
           
           return (
             <div key={opsi.value}>

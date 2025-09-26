@@ -26,18 +26,18 @@ export function ComponentsDemo() {
   const [singleChoice, setSingleChoice] = React.useState("")
   const [otherValue, setOtherValue] = React.useState("")
   const [showValidation, setShowValidation] = React.useState(false)
-  const opsiJawaban = [
+  const opsiJawaban = React.useMemo(() => [
     { value: "laki-laki", label: "Laki-laki" },
     { value: "perempuan", label: "Perempuan" },
     { value: "other", label: "Lainnya", isOther: true }
-  ]
+  ], [])
   const [multiChoice, setMultiChoice] = React.useState<string[]>([])
   const [otherMultiValue, setOtherMultiValue] = React.useState("")
   const [comboBoxValues, setComboBoxValues] = React.useState<Record<string, string>>({})
   const [ratingValues, setRatingValues] = React.useState<Record<string, string>>({})
 
-  // Handler untuk tombol Next
-  const handleNext = () => {
+  // Handler untuk tombol Next - dioptimasi dengan useCallback
+  const handleNext = React.useCallback(() => {
     setShowValidation(true)
     
     // Simulasi validasi
@@ -87,16 +87,16 @@ export function ComponentsDemo() {
       alert("Form valid! Data berhasil disimpan.")
       setShowValidation(false)
     }
-  }
-  const opsiJawabanMulti = [
+  }, [teks, number, singleChoice, otherValue, multiChoice, otherMultiValue, comboBoxValues, ratingValues])
+  const opsiJawabanMulti = React.useMemo(() => [
     { value: "Basket", label: "Basket"},
     { value: "Bola", label: "Bola"},
     { value: "Tenis", label: "Tenis"},
     { value: "other", label: "Lainnya", isOther: true},
-  ]
+  ], [])
 
-  // Data untuk ComboBox
-  const opsiProvinsi = [
+  // Data untuk ComboBox - dioptimasi dengan useMemo
+  const opsiProvinsi = React.useMemo(() => [
     { value: "dki-jakarta", label: "DKI Jakarta" },
     { value: "jawa-barat", label: "Jawa Barat" },
     { value: "jawa-tengah", label: "Jawa Tengah" },
@@ -109,9 +109,9 @@ export function ComponentsDemo() {
     { value: "kalimantan-timur", label: "Kalimantan Timur" },
     { value: "sulawesi-selatan", label: "Sulawesi Selatan" },
     { value: "papua", label: "Papua" }
-  ]
+  ], [])
 
-  const opsiKabupaten = [
+  const opsiKabupaten = React.useMemo(() => [
     { value: "jakarta-pusat", label: "Jakarta Pusat" },
     { value: "jakarta-selatan", label: "Jakarta Selatan" },
     { value: "jakarta-utara", label: "Jakarta Utara" },
@@ -124,9 +124,9 @@ export function ComponentsDemo() {
     { value: "kabupaten-belitung", label: "Kabupaten Belitung" },
     { value: "kota-pangkal-pinang", label: "Kota Pangkal Pinang" },
     { value: "kabupaten-bangka", label: "Kabupaten Bangka" }
-  ]
+  ], [])
 
-  const comboboxItems = [
+  const comboboxItems = React.useMemo(() => [
     {
       id: "provinsi",
       label: "Provinsi",
@@ -143,10 +143,10 @@ export function ComponentsDemo() {
       required: true,
       opsiComboBox: opsiKabupaten
     }
-  ]
+  ], [opsiProvinsi, opsiKabupaten])
 
-  // Data untuk Rating
-  const ratingItems = [
+  // Data untuk Rating - dioptimasi dengan useMemo
+  const ratingItems = React.useMemo(() => [
     { id: "perpustakaan", label: "Perpustakaan" },
     { id: "tik", label: "Teknologi Informasi dan Komunikasi" },
     { id: "modul-belajar", label: "Modul belajar" },
@@ -157,16 +157,16 @@ export function ComponentsDemo() {
     { id: "kantin", label: "Kantin" },
     { id: "pusat-kegiatan", label: "Pusat kegiatan mahasiswa dan fasilitasnya, ruang rekreasi" },
     { id: "layanan-kesehatan", label: "Fasilitas layanan kesehatan" }
-  ]
+  ], [])
 
-  // Rating options yang bisa dikustomisasi
-  const customRatingOptions = [
+  // Rating options yang bisa dikustomisasi - dioptimasi dengan useMemo
+  const customRatingOptions = React.useMemo(() => [
     { value: "sangat-buruk", label: "Sangat Buruk" },
     { value: "buruk", label: "Buruk" },
     { value: "cukup", label: "Cukup" },
     { value: "baik", label: "Baik" },
     { value: "sangat-baik", label: "Sangat Baik" }
-  ]
+  ], [])
 
   // Contoh rating options alternatif (untuk referensi)
   // const alternativeRatingOptions = [
@@ -176,6 +176,21 @@ export function ComponentsDemo() {
   //   { value: "setuju", label: "Setuju" },
   //   { value: "sangat-setuju", label: "Sangat Setuju" }
   // ]
+
+  // Handler untuk reset validation - dioptimasi dengan useCallback
+  const handleResetValidation = React.useCallback(() => {
+    setShowValidation(false)
+  }, [])
+
+  // Handler untuk combo box change - dioptimasi dengan useCallback
+  const handleComboBoxChange = React.useCallback((id: string, value: string) => {
+    setComboBoxValues(prev => ({ ...prev, [id]: value }))
+  }, [])
+
+  // Handler untuk rating change - dioptimasi dengan useCallback
+  const handleRatingChange = React.useCallback((itemId: string, value: string) => {
+    setRatingValues(prev => ({ ...prev, [itemId]: value }))
+  }, [])
 
   // Progress demo - simulate loading
   React.useEffect(() => {
@@ -530,7 +545,7 @@ export function ComponentsDemo() {
             label="Pilihlah spesifikasi daerah asal anda?"
             comboboxItems={comboboxItems}
             values={comboBoxValues}
-            onChange={(id, value) => setComboBoxValues(prev => ({ ...prev, [id]: value }))}
+            onChange={handleComboBoxChange}
             layout="horizontal"
             required
           />
@@ -542,7 +557,7 @@ export function ComponentsDemo() {
             ratingItems={ratingItems}
             ratingOptions={customRatingOptions}
             values={ratingValues}
-            onChange={(itemId, value) => setRatingValues(prev => ({ ...prev, [itemId]: value }))}
+            onChange={handleRatingChange}
             required
           />
           <br />
@@ -554,7 +569,7 @@ export function ComponentsDemo() {
             </Button>
             <Button 
               variant="outline" 
-              onClick={() => setShowValidation(false)}
+              onClick={handleResetValidation}
             >
               Reset Validation
             </Button>

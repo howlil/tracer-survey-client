@@ -3,6 +3,7 @@ import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import { Check, ChevronsUpDown } from "lucide-react"
+import * as React from "react"
 import { useState } from "react"
 
 interface OpsiComboBox {
@@ -49,25 +50,25 @@ function SoalComboBox({
 }: SoalComboBoxProps) {
   const [openStates, setOpenStates] = useState<Record<string, boolean>>({})
 
-  const handleValueChange = (id: string, value: string) => {
+  const handleValueChange = React.useCallback((id: string, value: string) => {
     onChange?.(id, value)
-  }
+  }, [onChange])
 
-  const toggleOpen = (id: string) => {
+  const toggleOpen = React.useCallback((id: string) => {
     setOpenStates(prev => ({
       ...prev,
       [id]: !prev[id]
     }))
-  }
+  }, [])
 
-  const getSelectedLabel = (id: string) => {
+  const getSelectedLabel = React.useCallback((id: string) => {
     const item = comboboxItems.find(item => item.id === id)
     const selectedValue = values[id]
     if (!selectedValue) return item?.placeholder || "Pilih..."
     
     const selectedOption = item?.opsiComboBox.find(option => option.value === selectedValue)
     return selectedOption?.label || item?.placeholder || "Pilih..."
-  }
+  }, [comboboxItems, values])
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -93,11 +94,12 @@ function SoalComboBox({
           const isOpen = openStates[item.id] || false
           const selectedValue = values[item.id]
           const isDisabled = item.disabled || disabled
+          const inputId = React.useMemo(() => `combobox-${item.id}`, [item.id])
           
           return (
             <div key={item.id} className="space-y-2">
               <Label 
-                htmlFor={`combobox-${item.id}`}
+                htmlFor={inputId}
                 className={cn(
                   "text-sm font-medium text-black",
                   item.required && "after:content-['*'] after:text-red-500",
@@ -110,7 +112,7 @@ function SoalComboBox({
               <Popover open={isOpen} onOpenChange={() => toggleOpen(item.id)}>
                 <PopoverTrigger asChild>
                   <button
-                    id={`combobox-${item.id}`}
+                    id={inputId}
                     className={cn(
                       "flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
                       "hover:bg-accent hover:text-accent-foreground",

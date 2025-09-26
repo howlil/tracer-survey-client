@@ -1,6 +1,7 @@
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { cn } from "@/lib/utils"
+import * as React from "react"
 
 interface RatingItem {
   id: string
@@ -50,9 +51,9 @@ function SoalRating({
   headerClassName,
   cellClassName,
 }: SoalRatingProps) {
-  const handleValueChange = (itemId: string, value: string) => {
+  const handleValueChange = React.useCallback((itemId: string, value: string) => {
     onChange?.(itemId, value)
-  }
+  }, [onChange])
 
   return (
     <div className={cn("space-y-4", className)}>

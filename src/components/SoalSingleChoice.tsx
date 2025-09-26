@@ -2,6 +2,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { cn } from "@/lib/utils"
+import * as React from "react"
 
 interface OpsiJawaban {
   value: string
@@ -48,11 +49,11 @@ function SoalSingleChoice({
   errorMessage = "Harap isi jawaban lainnya",
   ...props
 }: SoalSingleChoiceProps) {
-  const handleValueChange = (newValue: string) => {
+  const handleValueChange = React.useCallback((newValue: string) => {
     onChange?.(newValue)
-  }
+  }, [onChange])
 
-  const handleOtherValueChange = (inputValue: string) => {
+  const handleOtherValueChange = React.useCallback((inputValue: string) => {
     onOtherValueChange?.(inputValue)
     // Jika ada input value, set value ke opsi "other" yang dipilih
     if (inputValue.trim()) {
@@ -61,12 +62,23 @@ function SoalSingleChoice({
         onChange?.(otherOption.value)
       }
     }
-  }
+  }, [onOtherValueChange, opsiJawaban, value, onChange])
 
   // Validasi: jika opsi "other" dipilih, pastikan ada teks yang diisi
-  const otherOption = opsiJawaban.find(opsi => opsi.isOther)
-  const isOtherSelected = otherOption ? value === otherOption.value : false
-  const hasOtherError = validateOther && isOtherSelected && !otherValue?.trim()
+  const otherOption = React.useMemo(() => 
+    opsiJawaban.find(opsi => opsi.isOther), 
+    [opsiJawaban]
+  )
+  
+  const isOtherSelected = React.useMemo(() => 
+    otherOption ? value === otherOption.value : false, 
+    [otherOption, value]
+  )
+  
+  const hasOtherError = React.useMemo(() => 
+    validateOther && isOtherSelected && !otherValue?.trim(), 
+    [validateOther, isOtherSelected, otherValue]
+  )
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -93,7 +105,10 @@ function SoalSingleChoice({
       >
         {opsiJawaban.map((opsi, index) => {
           const isSelected = value === opsi.value
-          const inputId = `${label.toLowerCase().replace(/\s+/g, '-')}-${index}`
+          const inputId = React.useMemo(() => 
+            `${label.toLowerCase().replace(/\s+/g, '-')}-${index}`, 
+            [label, index]
+          )
           
           return (
             <div key={opsi.value}>

@@ -31,12 +31,12 @@ function SoalTeks({
   variant,
   ...props
 }: SoalTeksProps) {
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     onChange?.(e.target.value)
-  }
+  }, [onChange])
 
   // Tentukan tipe input berdasarkan variant atau type
-  const getInputType = () => {
+  const inputType = React.useMemo(() => {
     if (variant) {
       switch (variant) {
         case "email":
@@ -49,10 +49,10 @@ function SoalTeks({
       }
     }
     return type
-  }
+  }, [variant, type])
 
   // Tentukan placeholder berdasarkan variant jika tidak ada placeholder
-  const getPlaceholder = () => {
+  const inputPlaceholder = React.useMemo(() => {
     if (placeholder) return placeholder
     
     if (variant) {
@@ -67,12 +67,18 @@ function SoalTeks({
       }
     }
     return placeholder
-  }
+  }, [placeholder, variant])
+
+  // Generate ID untuk input dan label
+  const inputId = React.useMemo(() => 
+    `soal-${label.toLowerCase().replace(/\s+/g, '-')}`, 
+    [label]
+  )
 
   return (
     <div className={cn("space-y-1", className)}>
       <Label 
-        htmlFor={`soal-${label.toLowerCase().replace(/\s+/g, '-')}`}
+        htmlFor={inputId}
         className={cn(
           "text-base font-medium text-black",
           required && "after:content-['*'] after:text-red-500",
@@ -82,10 +88,10 @@ function SoalTeks({
         {label}
       </Label>
       <Input
-        id={`soal-${label.toLowerCase().replace(/\s+/g, '-')}`}
-        type={getInputType()}
+        id={inputId}
+        type={inputType}
         variant="default"
-        placeholder={getPlaceholder()}
+        placeholder={inputPlaceholder}
         value={value}
         onChange={handleChange}
         required={required}
