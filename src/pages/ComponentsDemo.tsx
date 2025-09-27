@@ -1,3 +1,4 @@
+import { Layout } from "@/components/layout"
 import { SoalComboBox } from "@/components/SoalComboBox"
 import { SoalMultiChoice } from "@/components/SoalMultiChoice"
 import { SoalRating } from "@/components/SoalRating"
@@ -199,8 +200,20 @@ export function ComponentsDemo() {
   }, [])
 
   return (
-    <div className="container mx-auto p-8 max-w-4xl">
-      <h1 className="text-3xl font-bold mb-8 text-center">UI Components Demo</h1>
+    <Layout
+      navbarProps={{
+        onHome: () => console.log("Home")
+      }}
+    >
+      <div className="container mx-auto p-8 max-w-4xl">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            Demo Komponen Survey
+          </h1>
+          <p className="text-muted-foreground">
+            Tracer Study & User Survey - Universitas Andalas
+          </p>
+        </div>
       
       <div className="space-y-12">
         {/* Button Component */}
@@ -584,7 +597,8 @@ export function ComponentsDemo() {
           )}
         </section>
       </div>
-    </div>
+      </div>
+    </Layout>
   )
 }
 

@@ -59,8 +59,8 @@ function SoalRating({
     <div className={cn("space-y-4", className)}>
       <Label 
         className={cn(
-          "text-base font-medium text-black",
-          required && "after:content-['*'] after:text-red-500",
+          "text-base font-medium text-foreground",
+          required && "after:content-['*'] after:text-destructive",
           labelClassName
         )}
       >
@@ -72,7 +72,7 @@ function SoalRating({
           <thead>
             <tr className="border-b border-gray-200">
               <th className={cn(
-                "text-left py-3 px-4 font-normal text-black bg-gray-50 rounded-tl-lg",
+                "text-left py-3 px-4 font-normal text-foreground bg-muted rounded-tl-lg",
                 "min-w-[200px] w-1/3",
                 headerClassName
               )}>
@@ -82,7 +82,7 @@ function SoalRating({
                 <th 
                   key={option.value}
                   className={cn(
-                    "text-center py-3 px-2 font-normal text-black bg-gray-50",
+                    "text-center py-3 px-2 font-normal text-foreground bg-muted",
                     "min-w-[80px]",
                     index === ratingOptions.length - 1 && "rounded-tr-lg",
                     headerClassName
@@ -103,12 +103,12 @@ function SoalRating({
                 <tr 
                   key={item.id}
                   className={cn(
-                    "border-b border-gray-100 hover:bg-gray-50/50",
-                    index % 2 === 0 ? "bg-white" : "bg-gray-50/30"
+                    "border-b border-border hover:bg-muted/50",
+                    index % 2 === 0 ? "bg-background" : "bg-muted/30"
                   )}
                 >
                   <td className={cn(
-                    "py-3 px-4 text-sm text-black",
+                    "py-3 px-4 text-sm text-foreground",
                     isLastRow && "rounded-bl-lg",
                     cellClassName
                   )}>
@@ -118,7 +118,7 @@ function SoalRating({
                     <td 
                       key={option.value}
                       className={cn(
-                        "py-3 px-2 text-center cursor-pointer hover:bg-blue-50/30 transition-colors",
+                        "py-3 px-2 text-center cursor-pointer hover:bg-primary/50 transition-colors",
                         isLastRow && optionIndex === ratingOptions.length - 1 && "rounded-br-lg",
                         cellClassName
                       )}
@@ -138,7 +138,7 @@ function SoalRating({
                           value={option.value}
                           id={`${item.id}-${option.value}`}
                           disabled={isDisabled}
-                          className="focus-visible:ring-blue-500/50 focus-visible:ring-[1px]"
+                          className="focus-visible:ring-primary/50 focus-visible:ring-[1px]"
                         />
                       </RadioGroup>
                     </td>

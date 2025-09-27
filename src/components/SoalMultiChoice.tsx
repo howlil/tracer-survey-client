@@ -92,8 +92,8 @@ function SoalMultiChoice({
     <div className={cn("space-y-3", className)}>
       <Label 
         className={cn(
-          "text-base font-medium text-black",
-          required && "after:content-['*'] after:text-red-500 after:ml-1",
+          "text-base font-medium text-foreground",
+          required && "after:content-['*'] after:text-destructive after:ml-1",
           labelClassName
         )}
       >
@@ -120,8 +120,8 @@ function SoalMultiChoice({
               <div
                 className={cn(
                   "px-3 py-1 rounded-lg border transition-all duration-200 cursor-pointer",
-                  "hover:bg-blue-50/30 hover:border-blue-200/50",
-                  isSelected && "bg-blue-50/50 border-blue-200 shadow-sm",
+                  "hover:bg-primary/10 hover:border-primary/30",
+                  isSelected && "bg-primary/10 border-primary shadow-sm",
                   opsi.disabled && "opacity-50 cursor-not-allowed hover:bg-transparent hover:border-gray-200",
                   disabled && "cursor-not-allowed hover:bg-transparent hover:border-gray-200",
                   opsiClassName,
@@ -140,12 +140,12 @@ function SoalMultiChoice({
                     checked={isSelected}
                     onCheckedChange={(checked) => handleValueChange(opsi.value, checked as boolean)}
                     disabled={opsi.disabled || disabled}
-                    className="focus-visible:ring-blue-500/50 focus-visible:ring-[2px]"
+                    className="focus-visible:ring-primary/50 focus-visible:ring-[2px]"
                   />
                   <Label
                     className={cn(
                       "text-sm font-normal cursor-pointer flex-1",
-                      isSelected && "text-blue-600 font-medium",
+                      isSelected && "text-primary font-medium",
                       opsi.disabled && "cursor-not-allowed",
                       disabled && "cursor-not-allowed"
                     )}
@@ -166,13 +166,13 @@ function SoalMultiChoice({
                       className={cn(
                         "w-full border-0 border-b-2 rounded-none px-0 py-1 text-sm",
                         hasOtherError 
-                          ? "border-red-500 focus:border-red-500" 
-                          : "border-gray-300 focus:border-blue-500"
+                          ? "border-destructive focus:border-destructive" 
+                          : "border-input focus:border-primary"
                       )}
                       onClick={(e) => e.stopPropagation()}
                     />
                     {hasOtherError && (
-                      <p className="text-xs text-red-500">{errorMessage}</p>
+                      <p className="text-xs text-destructive">{errorMessage}</p>
                     )}
                   </div>
                 )}

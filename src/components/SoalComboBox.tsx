@@ -73,11 +73,11 @@ function SoalComboBox({
   return (
     <div className={cn("space-y-3", className)}>
       <Label 
-        className={cn(
-          "text-base font-medium text-black",
-          required && "after:content-['*'] after:text-red-500",
-          labelClassName
-        )}
+                className={cn(
+                  "text-base font-medium text-foreground",
+                  required && "after:content-['*'] after:text-destructive",
+                  labelClassName
+                )}
       >
         {label}
       </Label>
@@ -101,9 +101,9 @@ function SoalComboBox({
               <Label 
                 htmlFor={inputId}
                 className={cn(
-                  "text-sm font-medium text-black",
-                  item.required && "after:content-['*'] after:text-red-500",
-                  isDisabled && "text-gray-400"
+                  "text-sm font-medium text-foreground",
+                  item.required && "after:content-['*'] after:text-destructive",
+                  isDisabled && "text-muted-foreground"
                 )}
               >
                 {item.label}
@@ -115,7 +115,7 @@ function SoalComboBox({
                     id={inputId}
                     className={cn(
                       "flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-                      "hover:bg-accent hover:text-accent-foreground",
+                      "hover:bg-primary/10 hover:border-primary/30",
                       comboboxClassName
                     )}
                     disabled={isDisabled}
@@ -151,7 +151,7 @@ function SoalComboBox({
                           >
                             <span>{option.label}</span>
                             {selectedValue === option.value && (
-                              <Check className="h-4 w-4 text-blue-600" />
+                              <Check className="h-4 w-4 text-primary" />
                             )}
                           </CommandItem>
                         ))}

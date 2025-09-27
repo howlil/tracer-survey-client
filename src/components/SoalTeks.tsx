@@ -80,8 +80,8 @@ function SoalTeks({
       <Label 
         htmlFor={inputId}
         className={cn(
-          "text-base font-medium text-black",
-          required && "after:content-['*'] after:text-red-500",
+          "text-base font-medium text-foreground",
+          required && "after:content-['*'] after:text-destructive",
           labelClassName
         )}
       >
