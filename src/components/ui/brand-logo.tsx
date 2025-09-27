@@ -63,7 +63,7 @@ function BrandLogo({
     >
       {/* Logo */}
       <div className={cn(
-        "rounded-lg overflow-hidden bg-background flex items-center justify-center",
+        "rounded-lg overflow-hidden bg-transparent flex items-center justify-center",
         logoSize
       )}>
         <img
