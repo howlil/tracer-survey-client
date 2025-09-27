@@ -200,11 +200,7 @@ export function ComponentsDemo() {
   }, [])
 
   return (
-    <Layout
-      navbarProps={{
-        onHome: () => console.log("Home")
-      }}
-    >
+    <Layout>
       <div className="container mx-auto p-8 max-w-4xl">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">

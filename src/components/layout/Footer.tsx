@@ -4,7 +4,6 @@ import {
   Award,
   ExternalLink,
   Facebook,
-  Heart,
   Instagram,
   Linkedin,
   Mail,
@@ -202,9 +201,7 @@ function Footer({
               </div>
               
               <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                <span>© 2024 {companyInfo.name}</span>
-                <span>•</span>
-                <span>Made with <Heart className="h-3 w-3 inline text-red-500" /> in Indonesia</span>
+                <span>© 2025 {companyInfo.name}</span>
               </div>
             </div>
           </div>
