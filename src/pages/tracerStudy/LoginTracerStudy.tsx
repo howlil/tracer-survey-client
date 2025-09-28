@@ -70,8 +70,8 @@ function LoginTracerStudy() {
          // Demo validation
          if (formData.pin === "123456" || formData.pin === "ABC123") {
           console.log("Login successful:", formData)
-          // TODO: Navigate to survey form
-          alert("Login berhasil! (Demo)")
+          // Navigate to survey form
+          navigate("/tracer-study/survey/1")
         } else {
           setError("PIN tidak valid")
         }

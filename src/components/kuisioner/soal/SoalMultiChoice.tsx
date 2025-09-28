@@ -88,6 +88,14 @@ function SoalMultiChoice({
     [validateOther, isOtherSelected, otherValue]
   )
 
+  // Generate input IDs untuk semua opsi
+  const inputIds = React.useMemo(() => 
+    opsiJawaban.map((_, index) => 
+      `${label.toLowerCase().replace(/\s+/g, '-')}-${index}`
+    ), 
+    [label, opsiJawaban.length]
+  )
+
   return (
     <div className={cn("space-y-3", className)}>
       <Label 
@@ -110,10 +118,7 @@ function SoalMultiChoice({
       >
         {opsiJawaban.map((opsi, index) => {
           const isSelected = value.includes(opsi.value)
-          const inputId = React.useMemo(() => 
-            `${label.toLowerCase().replace(/\s+/g, '-')}-${index}`, 
-            [label, index]
-          )
+          const inputId = inputIds[index]
           
           return (
             <div key={opsi.value}>

@@ -118,7 +118,7 @@ function SoalRating({
                     <td 
                       key={option.value}
                       className={cn(
-                        "py-3 px-2 text-center cursor-pointer hover:bg-primary/50 transition-colors",
+                        "py-3 px-2 text-center cursor-pointer hover:bg-primary/10 transition-colors",
                         isLastRow && optionIndex === ratingOptions.length - 1 && "rounded-br-lg",
                         cellClassName
                       )}

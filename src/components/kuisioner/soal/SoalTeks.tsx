@@ -51,6 +51,9 @@ function SoalTeks({
     return type
   }, [variant, type])
 
+  // Destructure props untuk menghindari passing ke DOM
+  const { inputType: _, variant: __, ...inputProps } = props as any
+
   // Tentukan placeholder berdasarkan variant jika tidak ada placeholder
   const inputPlaceholder = React.useMemo(() => {
     if (placeholder) return placeholder
@@ -100,7 +103,7 @@ function SoalTeks({
           "text-base py-1",
           inputClassName
         )}
-        {...props}
+        {...inputProps}
       />
     </div>
   )

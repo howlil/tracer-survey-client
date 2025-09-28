@@ -1,6 +1,6 @@
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { cn } from "@/lib/utils"
 import * as React from "react"
 
@@ -11,15 +11,14 @@ interface OpsiJawaban {
   isOther?: boolean
 }
 
-interface SoalSingleChoiceProps {
+interface SoalMultiChoiceProps {
   label: string
   opsiJawaban: OpsiJawaban[]
-  value?: string
-  onChange?: (value: string) => void
+  value?: string[]
+  onChange?: (value: string[]) => void
   required?: boolean
   disabled?: boolean
   className?: string
-  radioGroupClassName?: string
   labelClassName?: string
   opsiClassName?: string
   layout?: "vertical" | "horizontal"
@@ -30,15 +29,14 @@ interface SoalSingleChoiceProps {
   errorMessage?: string
 }
 
-function SoalSingleChoice({
+function SoalMultiChoice({
   label,
   opsiJawaban,
-  value,
+  value = [],
   onChange,
   required = false,
   disabled = false,
   className,
-  radioGroupClassName,
   labelClassName,
   opsiClassName,
   layout = "vertical",
@@ -48,18 +46,28 @@ function SoalSingleChoice({
   validateOther = false,
   errorMessage = "Harap isi jawaban lainnya",
   ...props
-}: SoalSingleChoiceProps) {
-  const handleValueChange = React.useCallback((newValue: string) => {
-    onChange?.(newValue)
-  }, [onChange])
+}: SoalMultiChoiceProps) {
+  const handleValueChange = React.useCallback((opsiValue: string, checked: boolean) => {
+    if (!onChange) return
+    
+    if (checked) {
+      // Tambahkan opsi ke array jika belum ada
+      if (!value.includes(opsiValue)) {
+        onChange([...value, opsiValue])
+      }
+    } else {
+      // Hapus opsi dari array
+      onChange(value.filter(v => v !== opsiValue))
+    }
+  }, [onChange, value])
 
   const handleOtherValueChange = React.useCallback((inputValue: string) => {
     onOtherValueChange?.(inputValue)
-    // Jika ada input value, set value ke opsi "other" yang dipilih
+    // Jika ada input value, pastikan opsi "other" terpilih
     if (inputValue.trim()) {
       const otherOption = opsiJawaban.find(opsi => opsi.isOther)
-      if (otherOption && value !== otherOption.value) {
-        onChange?.(otherOption.value)
+      if (otherOption && !value.includes(otherOption.value)) {
+        onChange?.([...value, otherOption.value])
       }
     }
   }, [onOtherValueChange, opsiJawaban, value, onChange])
@@ -71,7 +79,7 @@ function SoalSingleChoice({
   )
   
   const isOtherSelected = React.useMemo(() => 
-    otherOption ? value === otherOption.value : false, 
+    otherOption ? value.includes(otherOption.value) : false, 
     [otherOption, value]
   )
   
@@ -80,35 +88,37 @@ function SoalSingleChoice({
     [validateOther, isOtherSelected, otherValue]
   )
 
+  // Generate input IDs untuk semua opsi
+  const inputIds = React.useMemo(() => 
+    opsiJawaban.map((_, index) => 
+      `${label.toLowerCase().replace(/\s+/g, '-')}-${index}`
+    ), 
+    [label, opsiJawaban.length]
+  )
+
   return (
-    <div className={cn("space-y-2", className)}>
+    <div className={cn("space-y-3", className)}>
       <Label 
         className={cn(
           "text-base font-medium text-foreground",
-          required && "after:content-['*'] after:text-destructive",
+          required && "after:content-['*'] after:text-destructive after:ml-1",
           labelClassName
         )}
       >
         {label}
       </Label>
       
-      <RadioGroup
-        value={value}
-        onValueChange={handleValueChange}
-        disabled={disabled}
+      <div
         className={cn(
-          layout === "horizontal" && "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4",
-          layout === "vertical" && "gap-2",
-          radioGroupClassName
+          layout === "horizontal" && "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4",
+          layout === "vertical" && "space-y-2",
+          "transition-all duration-200"
         )}
         {...props}
       >
         {opsiJawaban.map((opsi, index) => {
-          const isSelected = value === opsi.value
-          const inputId = React.useMemo(() => 
-            `${label.toLowerCase().replace(/\s+/g, '-')}-${index}`, 
-            [label, index]
-          )
+          const isSelected = value.includes(opsi.value)
+          const inputId = inputIds[index]
           
           return (
             <div key={opsi.value}>
@@ -125,16 +135,17 @@ function SoalSingleChoice({
                 )}
                 onClick={() => {
                   if (!opsi.disabled && !disabled) {
-                    handleValueChange(opsi.value)
+                    handleValueChange(opsi.value, !isSelected)
                   }
                 }}
               >
                 <div className="flex items-center space-x-3">
-                  <RadioGroupItem
-                    value={opsi.value}
+                  <Checkbox
                     id={inputId}
+                    checked={isSelected}
+                    onCheckedChange={(checked) => handleValueChange(opsi.value, checked as boolean)}
                     disabled={opsi.disabled || disabled}
-                    className="focus-visible:ring-primary/50 focus-visible:ring-[1px]"
+                    className="focus-visible:ring-primary/50 focus-visible:ring-[2px]"
                   />
                   <Label
                     className={cn(
@@ -174,11 +185,11 @@ function SoalSingleChoice({
             </div>
           )
         })}
-      </RadioGroup>
+      </div>
     </div>
   )
 }
 
-export { SoalSingleChoice }
-export type { OpsiJawaban, SoalSingleChoiceProps }
+export { SoalMultiChoice }
+export type { OpsiJawaban, SoalMultiChoiceProps }
 

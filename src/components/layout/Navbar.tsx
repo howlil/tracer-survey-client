@@ -126,7 +126,8 @@ function Navbar({
               </div>
             </div>
 
-            <button 
+
+            <button
               onClick={handleFAQ}
               className="text-sm font-medium text-foreground hover:text-primary transition-colors relative group pb-1"
             >
