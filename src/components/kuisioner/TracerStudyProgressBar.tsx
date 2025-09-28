@@ -1,4 +1,3 @@
-import { BrandLogo } from "@/components/ui/brand-logo"
 import { Progress } from "@/components/ui/progress"
 import { cn } from "@/lib/utils"
 import { ArrowLeft, Check } from "lucide-react"
