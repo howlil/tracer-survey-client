@@ -2,7 +2,7 @@ import { ProgressBar } from "@/components/kuisioner/ProgressBar"
 import { SurveyForm } from "@/components/kuisioner/SurveyForm"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { tracerStudyMetadata, tracerStudyPages, tracerStudyQuestions } from "@/data/tracerStudyData"
+import { userSurveyMetadata, userSurveyPages, userSurveyQuestions } from "@/data/userSurveyData"
 import { useAppDispatch, useAppSelector } from "@/store/hooks"
 import { selectUser } from "@/store/slices/authSlice"
 import {
@@ -17,15 +17,15 @@ import { ArrowLeft } from "lucide-react"
 import * as React from "react"
 import { useNavigate, useParams } from "react-router-dom"
 
-function TracerStudySurvey() {
+function UserSurveySurvey() {
   const navigate = useNavigate()
   const { page } = useParams<{ page: string }>()
   const dispatch = useAppDispatch()
   const user = useAppSelector(selectUser)
   
   const currentPageNumber = parseInt(page || "1", 10)
-  const currentPage = tracerStudyPages.find(p => p.page === currentPageNumber)
-  const isLastPage = currentPageNumber === tracerStudyPages.length
+  const currentPage = userSurveyPages.find(p => p.page === currentPageNumber)
+  const isLastPage = currentPageNumber === userSurveyPages.length
 
   // Redux state
 
@@ -33,8 +33,8 @@ function TracerStudySurvey() {
   const currentPageQuestions = React.useMemo(() => {
     if (!currentPage) return []
     return currentPage.questionIds
-      .map(id => tracerStudyQuestions.find(q => q.id === id))
-      .filter((q): q is typeof tracerStudyQuestions[0] => q !== undefined)
+      .map(id => userSurveyQuestions.find(q => q.id === id))
+      .filter((q): q is typeof userSurveyQuestions[0] => q !== undefined)
   }, [currentPage])
 
   // Initialize survey on mount
@@ -51,35 +51,35 @@ function TracerStudySurvey() {
       
       // Initialize survey (will preserve loaded data)
       dispatch(initializeSurvey({
-        questions: tracerStudyQuestions,
-        surveyId: tracerStudyMetadata.id,
-        surveyTitle: tracerStudyMetadata.title,
+        questions: userSurveyQuestions,
+        surveyId: userSurveyMetadata.id,
+        surveyTitle: userSurveyMetadata.title,
         userId: user.id,
         preserveData: true
       }))
     } else {
       // Initialize without user ID (fallback)
       dispatch(initializeSurvey({
-        questions: tracerStudyQuestions,
-        surveyId: tracerStudyMetadata.id,
-        surveyTitle: tracerStudyMetadata.title
+        questions: userSurveyQuestions,
+        surveyId: userSurveyMetadata.id,
+        surveyTitle: userSurveyMetadata.title
       }))
     }
   }, [dispatch, user?.id])
 
   // Navigate to next page
   const handleNextPage = React.useCallback(() => {
-    navigate(`/tracer-study/survey/${currentPageNumber + 1}`)
+    navigate(`/user-survey/survey/${currentPageNumber + 1}`)
   }, [navigate, currentPageNumber])
 
   // Navigate to previous page
   const handlePreviousPage = React.useCallback(() => {
-    navigate(`/tracer-study/survey/${currentPageNumber - 1}`)
+    navigate(`/user-survey/survey/${currentPageNumber - 1}`)
   }, [navigate, currentPageNumber])
 
   // Handle back to main page
   const handleBack = React.useCallback(() => {
-    navigate("/tracer-study")
+    navigate("/user-survey")
   }, [navigate])
 
   // Handle survey submission
@@ -88,10 +88,9 @@ function TracerStudySurvey() {
     
     // Simulate API call
     setTimeout(() => {
-      console.log("Tracer Study submitted:", answers)
       dispatch(setCompleted(true))
       dispatch(setSubmitting(false))
-      navigate("/tracer-study/success")
+      navigate("/user-survey/success")
     }, 2000)
   }, [dispatch, navigate])
 
@@ -121,7 +120,7 @@ function TracerStudySurvey() {
       {/* Progress Bar Navbar */}
       <ProgressBar
         currentPage={currentPageNumber}
-        totalPages={tracerStudyPages.length}
+        totalPages={userSurveyPages.length}
         onBack={handleBack}
         showBackButton={true}
       />
@@ -131,11 +130,9 @@ function TracerStudySurvey() {
         <Card>
           <CardContent className="p-8">
             <SurveyForm
-              pageTitle="Pengisian Tracer Study"
-              pageDescription="Universitas Andalas"
               questions={currentPageQuestions}
               currentPage={currentPageNumber}
-              totalPages={tracerStudyPages.length}
+              totalPages={userSurveyPages.length}
               onSubmit={handleSubmit}
               onNextPage={handleNextPage}
               onPreviousPage={handlePreviousPage}
@@ -145,9 +142,8 @@ function TracerStudySurvey() {
           </CardContent>
         </Card>
       </div>
-      
     </div>
   )
 }
 
-export default TracerStudySurvey
+export default UserSurveySurvey

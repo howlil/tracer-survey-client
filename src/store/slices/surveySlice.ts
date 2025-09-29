@@ -1,6 +1,7 @@
 import type { Question } from '@/types/survey'
 import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/toolkit'
 import type { RootState } from '..'
+import { loadUserSurveyData, saveUserSurveyData } from '../userStorage'
 
 // Survey State Interface
 export interface SurveyState {
@@ -24,6 +25,9 @@ export interface SurveyState {
   // Navigation
   canGoNext: boolean
   canGoPrevious: boolean
+  
+  // User Info
+  currentUserId: string | null
 }
 
 // Initial State
@@ -41,6 +45,7 @@ const initialState: SurveyState = {
   totalQuestions: 0,
   canGoNext: false,
   canGoPrevious: false,
+  currentUserId: null,
 }
 
 // Async Thunks
@@ -80,18 +85,55 @@ const surveySlice = createSlice({
   initialState,
   reducers: {
     // Initialize Survey
-    initializeSurvey: (state, action: PayloadAction<{ questions: Question[]; surveyId: string; surveyTitle: string }>) => {
+    initializeSurvey: (state, action: PayloadAction<{ questions: Question[]; surveyId: string; surveyTitle: string; userId?: string; preserveData?: boolean }>) => {
       state.questions = action.payload.questions
       state.surveyId = action.payload.surveyId
       state.surveyTitle = action.payload.surveyTitle
       state.totalQuestions = action.payload.questions.length
-      state.currentQuestionIndex = 0
-      state.answers = {}
-      state.otherValues = {}
-      state.errors = {}
-      state.isCompleted = false
-      state.canGoNext = false
-      state.canGoPrevious = false
+      state.currentUserId = action.payload.userId || null
+      
+      // Only reset data if not preserving existing data
+      if (!action.payload.preserveData) {
+        state.currentQuestionIndex = 0
+        state.answers = {}
+        state.otherValues = {}
+        state.errors = {}
+        state.isCompleted = false
+        state.canGoNext = false
+        state.canGoPrevious = false
+      }
+    },
+
+    // Set User ID
+    setUserId: (state, action: PayloadAction<string>) => {
+      state.currentUserId = action.payload
+    },
+
+    // Load User Survey Data
+    loadUserData: (state, action: PayloadAction<string>) => {
+      const userId = action.payload
+      const userData = loadUserSurveyData(userId)
+      
+      if (userData && userData.userId === userId) {
+        // Verify the data belongs to the current user
+        state.answers = userData.answers || {}
+        state.otherValues = userData.otherValues || {}
+        state.currentQuestionIndex = userData.currentQuestionIndex || 0
+        state.isCompleted = userData.isCompleted || false
+        state.currentUserId = userId
+        
+        // Update navigation state based on loaded data
+        state.canGoNext = Object.keys(state.answers).length > 0
+        state.canGoPrevious = state.currentQuestionIndex > 0
+      } else {
+        // Clear any existing data if no valid data found
+        state.answers = {}
+        state.otherValues = {}
+        state.currentQuestionIndex = 0
+        state.isCompleted = false
+        state.canGoNext = false
+        state.canGoPrevious = false
+      }
     },
 
     // Answer Management
@@ -106,11 +148,37 @@ const surveySlice = createSlice({
       
       // Update navigation state
       state.canGoNext = true
+      
+      // Auto-save to user storage
+      if (state.currentUserId) {
+        const surveyData = {
+          answers: state.answers,
+          otherValues: state.otherValues,
+          currentQuestionIndex: state.currentQuestionIndex,
+          isCompleted: state.isCompleted,
+          surveyId: state.surveyId,
+          surveyTitle: state.surveyTitle
+        }
+        saveUserSurveyData(state.currentUserId, surveyData)
+      }
     },
 
     setOtherValue: (state, action: PayloadAction<{ questionId: string; value: string }>) => {
       const { questionId, value } = action.payload
       state.otherValues[questionId] = value
+      
+      // Auto-save to user storage
+      if (state.currentUserId) {
+        const surveyData = {
+          answers: state.answers,
+          otherValues: state.otherValues,
+          currentQuestionIndex: state.currentQuestionIndex,
+          isCompleted: state.isCompleted,
+          surveyId: state.surveyId,
+          surveyTitle: state.surveyTitle
+        }
+        saveUserSurveyData(state.currentUserId, surveyData)
+      }
     },
 
     // Error Management
@@ -224,6 +292,8 @@ const surveySlice = createSlice({
 // Export Actions
 export const {
   initializeSurvey,
+  setUserId,
+  loadUserData,
   setAnswer,
   setOtherValue,
   setError,

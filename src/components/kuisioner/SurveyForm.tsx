@@ -243,26 +243,6 @@ function SurveyForm({
         </div>
       )}
 
-      {/* Progress Indicator */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-2">
-          <span className="text-sm text-muted-foreground">
-            Halaman {currentPage} dari {totalPages}
-          </span>
-        </div>
-        <div className="flex items-center space-x-1">
-          {Array.from({ length: totalPages }, (_, index) => (
-            <div
-              key={index}
-              className={cn(
-                "w-2 h-2 rounded-full transition-colors",
-                index < currentPage ? "bg-primary" : "bg-muted"
-              )}
-            />
-          ))}
-        </div>
-      </div>
-
       {/* Questions */}
       <div className="space-y-6">
         {questions.map((question) => (

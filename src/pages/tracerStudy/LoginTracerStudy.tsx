@@ -2,7 +2,10 @@ import { Layout } from "@/components/layout/Layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { validatePINAndGetUser } from "@/data/pinDatabase"
 import { cn } from "@/lib/utils"
+import { useAppDispatch } from "@/store/hooks"
+import { setUser } from "@/store/slices/authSlice"
 import { ArrowLeft, Lock, Shield, User } from "lucide-react"
 import * as React from "react"
 import ReCAPTCHA from "react-google-recaptcha"
@@ -10,6 +13,7 @@ import { useNavigate } from "react-router-dom"
 
 function LoginTracerStudy() {
   const navigate = useNavigate()
+  const dispatch = useAppDispatch()
   const recaptchaRef = React.useRef<ReCAPTCHA>(null)
   
   const [formData, setFormData] = React.useState({
@@ -67,9 +71,18 @@ function LoginTracerStudy() {
         // Simulate API call
         await new Promise(resolve => setTimeout(resolve, 2000))
         
-         // Demo validation
-         if (formData.pin === "123456" || formData.pin === "ABC123") {
-          console.log("Login successful:", formData)
+         // Validate PIN using encrypted database
+         const userRecord = validatePINAndGetUser(formData.pin)
+         
+         if (userRecord) {
+          // Save user data to Redux store (will be persisted)
+          dispatch(setUser({
+            id: userRecord.userID,
+            name: userRecord.name,
+            email: userRecord.email,
+            role: 'user'
+          }))
+          
           // Navigate to survey form
           navigate("/tracer-study/survey/1")
         } else {
@@ -205,6 +218,7 @@ function LoginTracerStudy() {
                 </div>
               </div>
             </div>
+            
           </div>
         </div>
       </div>

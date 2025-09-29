@@ -4,19 +4,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { CheckCircle, Home, RotateCcw } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 
-function TracerStudySuccess() {
+function UserSurveySuccess() {
   const navigate = useNavigate()
 
   const handleBackToHome = () => {
     navigate("/")
   }
 
-  const handleBackToTracerStudy = () => {
-    navigate("/tracer-study")
+  const handleBackToUserSurvey = () => {
+    navigate("/user-survey")
   }
 
   const handleRestart = () => {
-    navigate("/tracer-study/survey/1")
+    navigate("/user-survey/survey/1")
   }
 
   return (
@@ -34,18 +34,18 @@ function TracerStudySuccess() {
                   Terima Kasih!
                 </CardTitle>
                 <CardDescription className="text-lg">
-                  Survey Tracer Study Anda telah berhasil disubmit.
+                  Survey User Survey Anda telah berhasil disubmit.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="text-center space-y-2">
                   <p className="text-muted-foreground">
-                    Data yang Anda berikan sangat berharga untuk pengembangan 
-                    program studi di Universitas Andalas.
+                    Umpan balik yang Anda berikan sangat berharga untuk pengembangan 
+                    kualitas lulusan Universitas Andalas.
                   </p>
                   <p className="text-sm text-muted-foreground">
                     Hasil survey ini akan digunakan untuk evaluasi dan perbaikan 
-                    kualitas pendidikan di masa yang akan datang.
+                    program studi di masa yang akan datang.
                   </p>
                 </div>
 
@@ -54,9 +54,9 @@ function TracerStudySuccess() {
                     <Home className="h-4 w-4 mr-2" />
                     Kembali ke Beranda
                   </Button>
-                  <Button onClick={handleBackToTracerStudy} variant="outline">
+                  <Button onClick={handleBackToUserSurvey} variant="outline">
                     <RotateCcw className="h-4 w-4 mr-2" />
-                    Kembali ke Tracer Study
+                    Kembali ke User Survey
                   </Button>
                   <Button onClick={handleRestart}>
                     <RotateCcw className="h-4 w-4 mr-2" />
@@ -72,4 +72,4 @@ function TracerStudySuccess() {
   )
 }
 
-export default TracerStudySuccess
+export default UserSurveySuccess
