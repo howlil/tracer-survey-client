@@ -5,8 +5,11 @@ import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { Eye, EyeOff, Lock, User } from "lucide-react"
 import * as React from "react"
+import { useNavigate } from "react-router-dom"
+import { toast } from "sonner"
 
 function LoginAdmin() {
+  const navigate = useNavigate()
   const [formData, setFormData] = React.useState({
     username: "",
     password: ""
@@ -54,12 +57,27 @@ function LoginAdmin() {
       // Demo validation
       if (credentials.username === "admin" && credentials.password === "admin123") {
         console.log("Login successful:", credentials)
-        alert("Login berhasil! (Demo)")
+        toast.success("Login berhasil!", {
+          description: "Selamat datang di panel admin",
+          duration: 3000,
+        })
+        // Navigate to dashboard after successful login
+        setTimeout(() => {
+          navigate("/admin/dashboard")
+        }, 1000)
       } else {
         setError("Username atau password salah")
+        toast.error("Login gagal!", {
+          description: "Username atau password salah",
+          duration: 3000,
+        })
       }
     } catch (err) {
       setError("Terjadi kesalahan saat login")
+      toast.error("Terjadi kesalahan!", {
+        description: "Silakan coba lagi nanti",
+        duration: 3000,
+      })
     } finally {
       setIsLoading(false)
     }
@@ -79,22 +97,25 @@ function LoginAdmin() {
 
   return (
     <Layout>
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <div className="w-full max-w-md space-y-8 p-8">
-          {/* Header */}
-          <div className="text-center space-y-2">
-            <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-              <Lock className="h-8 w-8 text-primary" />
+      <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-md mx-auto">
+            {/* Header */}
+            <div className="text-center space-y-6 mb-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 rounded-full mb-4">
+                <Lock className="h-8 w-8 text-primary" />
+              </div>
+              <h1 className="text-3xl font-bold text-foreground">
+                Admin Login
+              </h1>
+              <p className="text-muted-foreground">
+                Masuk ke dashboard admin Tracer Study & User Survey
+              </p>
             </div>
-            <h1 className="text-2xl font-bold text-foreground">Admin Login</h1>
-            <p className="text-sm text-muted-foreground">
-              Masuk ke dashboard admin Tracer Study & User Survey
-            </p>
-          </div>
 
-          {/* Login Form */}
-          <div className="bg-background border rounded-lg shadow-lg p-6 space-y-6">
-            <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Login Form */}
+            <div className="bg-background border rounded-2xl shadow-xl p-8 space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-6">
               {/* Username Field */}
               <div className="space-y-2">
                 <Label htmlFor="username" className="text-sm font-medium">
@@ -181,15 +202,17 @@ function LoginAdmin() {
                   "Masuk"
                 )}
               </Button>
-            </form>
+              </form>
 
-            {/* Additional Info */}
-            <div className="text-center space-y-2">
-              <div className="flex-col items-center justify-center space-x-2 text-xs text-muted-foreground">
-                <p>© 2025 Tracer Study & User Survey</p>
-                <p>Universitas Andalas</p>
+              {/* Additional Info */}
+              <div className="text-center space-y-2 pt-4 border-t">
+                <div className="flex flex-col items-center justify-center text-xs text-muted-foreground">
+                  <span>© 2025 Tracer Study & User Survey</span>
+                  <span>Universitas Andalas</span>
+                </div>
               </div>
             </div>
+            
           </div>
         </div>
       </div>

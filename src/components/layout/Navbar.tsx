@@ -140,7 +140,7 @@ function Navbar({
           <div className="hidden md:flex items-center ml-auto space-x-4">
             <button 
               onClick={handleContactUs}
-              className="text-sm font-medium text-primary hover:text-white hover:bg-primary/80 transition-colors py-2 rounded-md"
+              className="text-sm font-medium text-primary hover:text-white hover:bg-primary/80 transition-colors py-2 px-2 rounded-md"
             >
               Contact Us
             </button>

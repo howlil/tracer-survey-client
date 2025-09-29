@@ -1,18 +1,35 @@
-import { useTheme } from "next-themes"
-import { Toaster as Sonner, ToasterProps } from "sonner"
+import { Toaster as Sonner, type ToasterProps } from "sonner"
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
-
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
+      theme="light"
+      position="top-right"
       className="toaster group"
+      toastOptions={{
+        style: {
+          background: 'rgb(var(--popover))',
+          color: 'rgb(var(--popover-foreground))',
+          border: '1px solid rgb(var(--border))',
+        },
+      }}
       style={
         {
-          "--normal-bg": "var(--popover)",
-          "--normal-text": "var(--popover-foreground)",
-          "--normal-border": "var(--border)",
+          "--normal-bg": "rgb(var(--popover))",
+          "--normal-text": "rgb(var(--popover-foreground))",
+          "--normal-border": "rgb(var(--border))",
+          "--success-bg": "rgb(var(--success))",
+          "--success-text": "rgb(var(--success-foreground))",
+          "--success-border": "rgb(var(--success))",
+          "--error-bg": "rgb(var(--destructive))",
+          "--error-text": "rgb(var(--destructive-foreground))",
+          "--error-border": "rgb(var(--destructive))",
+          "--warning-bg": "rgb(var(--warning))",
+          "--warning-text": "rgb(var(--warning-foreground))",
+          "--warning-border": "rgb(var(--warning))",
+          "--info-bg": "rgb(var(--info))",
+          "--info-text": "rgb(var(--info-foreground))",
+          "--info-border": "rgb(var(--info))",
         } as React.CSSProperties
       }
       {...props}

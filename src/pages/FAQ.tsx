@@ -1,6 +1,6 @@
 import { Layout } from "@/components/layout/Layout"
-import { ChevronDown, HelpCircle, Mail, Phone } from "lucide-react"
-import { useState } from "react"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { HelpCircle } from "lucide-react"
 
 interface FAQItem {
   question: string
@@ -43,21 +43,11 @@ const faqData: FAQItem[] = [
 ]
 
 function FAQ() {
-  const [openItems, setOpenItems] = useState<number[]>([])
-
-  const toggleItem = (index: number) => {
-    setOpenItems(prev => 
-      prev.includes(index) 
-        ? prev.filter(item => item !== index)
-        : [...prev, index]
-    )
-  }
-
   return (
     <Layout>
       <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
-        <div className="container mx-auto px-4 py-12">
-          <div className="max-w-4xl mx-auto">
+        <div className="container mx-auto px-4 py-8">
+          <div className="w-full">
             {/* Header Section */}
             <div className="text-center space-y-6 mb-12">
               <div className="inline-flex items-center justify-center w-20 h-20 bg-primary/10 rounded-full mb-4">
@@ -71,72 +61,46 @@ function FAQ() {
               </p>
             </div>
 
-            {/* FAQ Items */}
-            <div className="space-y-4">
-              {faqData.map((item, index) => (
-                <div key={index} className="bg-background border rounded-xl shadow-sm">
-                  <button
-                    onClick={() => toggleItem(index)}
-                    className="w-full p-6 text-left flex items-center justify-between hover:bg-muted/50 transition-colors"
-                  >
-                    <h3 className="text-lg font-semibold text-foreground pr-4">
-                      {item.question}
-                    </h3>
-                    <ChevronDown 
-                      className={`h-5 w-5 text-muted-foreground transition-transform duration-200 ${
-                        openItems.includes(index) ? 'rotate-180' : ''
-                      }`}
-                    />
-                  </button>
-                  
-                  {openItems.includes(index) && (
-                    <div className="px-6 pb-6">
-                      <p className="text-muted-foreground leading-relaxed">
-                        {item.answer}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+            {/* FAQ Items - 2 Column Layout */}
+            <div className="grid lg:grid-cols-2 gap-6">
+              {/* Left Column */}
+              <div className="space-y-4">
+                <Accordion type="single" collapsible className="space-y-4">
+                  {faqData.slice(0, Math.ceil(faqData.length / 2)).map((item, index) => (
+                    <AccordionItem key={index} value={`item-${index}`} className="bg-background border rounded-xl shadow-sm">
+                      <AccordionTrigger className="px-6 py-4 text-left hover:no-underline">
+                        <h3 className="text-sm font-semibold text-foreground pr-4">
+                          {item.question}
+                        </h3>
+                      </AccordionTrigger>
+                      <AccordionContent className="px-6 pb-4">
+                        <p className="text-muted-foreground leading-relaxed text-sm">
+                          {item.answer}
+                        </p>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </div>
 
-            {/* Contact Section */}
-            <div className="mt-16 bg-primary/5 border border-primary/20 rounded-2xl p-8">
-              <div className="text-center space-y-6">
-                <h2 className="text-2xl font-semibold text-foreground">
-                  Masih Ada Pertanyaan?
-                </h2>
-                <p className="text-muted-foreground">
-                  Tim support kami siap membantu menjawab pertanyaan Anda
-                </p>
-                
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <div className="flex items-center space-x-3 p-4 bg-background rounded-lg">
-                    <Phone className="h-5 w-5 text-primary" />
-                    <div className="text-left">
-                      <p className="text-sm text-muted-foreground">Telepon</p>
-                      <a 
-                        href="tel:085161476546"
-                        className="font-medium text-foreground hover:text-primary transition-colors"
-                      >
-                        085161476546
-                      </a>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-3 p-4 bg-background rounded-lg">
-                    <Mail className="h-5 w-5 text-primary" />
-                    <div className="text-left">
-                      <p className="text-sm text-muted-foreground">Email</p>
-                      <a 
-                        href="mailto:karir@unand.ac.id"
-                        className="font-medium text-foreground hover:text-primary transition-colors"
-                      >
-                        karir@unand.ac.id
-                      </a>
-                    </div>
-                  </div>
-                </div>
+              {/* Right Column */}
+              <div className="space-y-4">
+                <Accordion type="single" collapsible className="space-y-4">
+                  {faqData.slice(Math.ceil(faqData.length / 2)).map((item, index) => (
+                    <AccordionItem key={index} value={`item-${index + Math.ceil(faqData.length / 2)}`} className="bg-background border rounded-xl shadow-sm">
+                      <AccordionTrigger className="px-6 py-4 text-left hover:no-underline">
+                        <h3 className="text-sm font-semibold text-foreground pr-4">
+                          {item.question}
+                        </h3>
+                      </AccordionTrigger>
+                      <AccordionContent className="px-6 pb-4">
+                        <p className="text-muted-foreground leading-relaxed text-sm">
+                          {item.answer}
+                        </p>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
               </div>
             </div>
           </div>
