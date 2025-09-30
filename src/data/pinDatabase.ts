@@ -108,38 +108,6 @@ export const getValidPINsForSurvey = (surveyType: 'tracer-study' | 'user-survey'
   return surveyType === 'tracer-study' ? TRACER_STUDY_PINS : USER_SURVEY_PINS
 }
 
-/**
- * Test function untuk debug PIN validation
- */
-export const testPINValidation = () => {
-  console.log('🧪 Testing PIN Validation...')
-  
-  // Test tracer study PINs
-  console.log('\n📋 Testing Tracer Study PINs:')
-  TRACER_STUDY_PINS.forEach(pin => {
-    const result = validatePINAndGetUser(pin, 'tracer-study')
-    console.log(`PIN ${pin}: ${result ? '✅ Valid' : '❌ Invalid'}`)
-  })
-  
-  // Test user survey PINs
-  console.log('\n📋 Testing User Survey PINs:')
-  USER_SURVEY_PINS.forEach(pin => {
-    const result = validatePINAndGetUser(pin, 'user-survey')
-    console.log(`PIN ${pin}: ${result ? '✅ Valid' : '❌ Invalid'}`)
-  })
-  
-  // Test cross-validation (should fail)
-  console.log('\n🚫 Testing Cross-Validation (should fail):')
-  const tracerPIN = TRACER_STUDY_PINS[0]
-  const userPIN = USER_SURVEY_PINS[0]
-  
-  console.log(`Tracer PIN ${tracerPIN} for user survey: ${validatePINAndGetUser(tracerPIN, 'user-survey') ? '❌ Should fail!' : '✅ Correctly failed'}`)
-  console.log(`User PIN ${userPIN} for tracer study: ${validatePINAndGetUser(userPIN, 'tracer-study') ? '❌ Should fail!' : '✅ Correctly failed'}`)
-}
-
-/**
- * Deactivate user
- */
 export const deactivateUser = (userID: string): boolean => {
   try {
     const user = pinDatabase.find(record => record.userID === userID)
