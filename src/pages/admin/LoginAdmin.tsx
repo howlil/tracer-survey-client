@@ -72,7 +72,7 @@ function LoginAdmin() {
           duration: 3000,
         })
       }
-    } catch (err) {
+    } catch {
       setError("Terjadi kesalahan saat login")
       toast.error("Terjadi kesalahan!", {
         description: "Silakan coba lagi nanti",

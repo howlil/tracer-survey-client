@@ -122,6 +122,55 @@
 }
 
 @layer utilities {
+  /* Toast Custom Styling */
+  [data-sonner-toast] {
+    background: oklch(1 0 0 / 0.7) !important; /* Slightly transparent white background */
+    border: 1px solid oklch(0.922 0.02 180) !important; /* Light teal border */
+    backdrop-filter: blur(8px) !important; /* Subtle backdrop blur */
+    box-shadow: 0 10px 25px -5px oklch(0.65 0.15 180 / 0.1), 0 10px 10px -5px oklch(0.65 0.15 180 / 0.04) !important;
+  }
+
+  [data-sonner-toast] [data-title] {
+    color: oklch(0.145 0.02 180) !important; /* Dark teal text */
+    font-weight: 600 !important;
+  }
+
+  [data-sonner-toast] [data-description] {
+    color: oklch(0.556 0.02 180) !important; /* Muted teal text */
+  }
+
+  /* Toast Icon Styling */
+  [data-sonner-toast] [data-icon] {
+    color: oklch(0.65 0.15 180) !important; /* Teal icon color */
+  }
+
+  /* Toast Icon Container */
+  [data-sonner-toast] [data-icon-container] {
+    background: oklch(0.98 0.02 180) !important; /* Light teal background for icon */
+    border-radius: 50% !important;
+    padding: 8px !important;
+  }
+
+  /* Success Toast Icon */
+  [data-sonner-toast][data-type="success"] [data-icon] {
+    color: oklch(0.65 0.15 160) !important; /* Emerald green for success */
+  }
+
+  /* Error Toast Icon */
+  [data-sonner-toast][data-type="error"] [data-icon] {
+    color: oklch(0.577 0.245 27.325) !important; /* Red for error */
+  }
+
+  /* Warning Toast Icon */
+  [data-sonner-toast][data-type="warning"] [data-icon] {
+    color: oklch(0.8 0.15 60) !important; /* Orange for warning */
+  }
+
+  /* Info Toast Icon */
+  [data-sonner-toast][data-type="info"] [data-icon] {
+    color: oklch(0.65 0.15 180) !important; /* Teal for info */
+  }
+
   /* Conditional Question Animation */
   @keyframes slideDown {
     from {

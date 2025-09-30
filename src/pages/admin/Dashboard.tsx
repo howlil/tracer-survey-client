@@ -1,6 +1,8 @@
 import { AdminLayout } from "@/components/layout/admin"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { toast } from "sonner"
 import {
     AlertCircle,
     BarChart3,
@@ -108,6 +110,31 @@ function RecentActivityItem({ type, name, status, time }: RecentActivityProps) {
 }
 
 function Dashboard() {
+  // Test toast functions
+  const testSuccessToast = () => {
+    toast.success("Test Success Toast", {
+      description: "Ini adalah contoh toast sukses untuk testing"
+    })
+  }
+
+  const testErrorToast = () => {
+    toast.error("Test Error Toast", {
+      description: "Ini adalah contoh toast error untuk testing"
+    })
+  }
+
+  const testInfoToast = () => {
+    toast.info("Test Info Toast", {
+      description: "Ini adalah contoh toast info untuk testing"
+    })
+  }
+
+  const testWarningToast = () => {
+    toast.warning("Test Warning Toast", {
+      description: "Ini adalah contoh toast warning untuk testing"
+    })
+  }
+
   // Mock data - dalam implementasi nyata, data ini akan diambil dari API
   const stats = [
     {
@@ -263,6 +290,35 @@ function Dashboard() {
                     </div>
                   </div>
                 </button>
+              </CardContent>
+            </Card>
+
+            {/* Test Toast Buttons */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <AlertCircle className="h-5 w-5" />
+                  <span>Test Toast</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <Button onClick={testSuccessToast} variant="outline" size="sm">
+                    Success Toast
+                  </Button>
+                  <Button onClick={testErrorToast} variant="outline" size="sm">
+                    Error Toast
+                  </Button>
+                  <Button onClick={testInfoToast} variant="outline" size="sm">
+                    Info Toast
+                  </Button>
+                  <Button onClick={testWarningToast} variant="outline" size="sm">
+                    Warning Toast
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Klik tombol di atas untuk test berbagai jenis toast notification
+                </p>
               </CardContent>
             </Card>
 
