@@ -2,7 +2,7 @@ import { ProgressBar } from "@/components/kuisioner/ProgressBar"
 import { SurveyForm } from "@/components/kuisioner/SurveyForm"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { userSurveyMetadata, userSurveyPages, userSurveyQuestions } from "@/data/userSurveyData"
+import { userSurveyMetadata, userSurveyPages, userSurveyQuestions, userSurveyConditionalQuestions } from "@/data/userSurveyData"
 import { useAppDispatch, useAppSelector } from "@/store/hooks"
 import { selectUser } from "@/store/slices/authSlice"
 import {
@@ -82,8 +82,13 @@ function UserSurveySurvey() {
     navigate("/user-survey")
   }, [navigate])
 
+  // Handle conditional questions change
+  const handleConditionalQuestionsChange = React.useCallback(() => {
+    // Conditional questions state updated
+  }, [])
+
   // Handle survey submission
-  const handleSubmit = React.useCallback((answers: Record<string, any>) => {
+  const handleSubmit = React.useCallback(() => {
     dispatch(setSubmitting(true))
     
     // Simulate API call
@@ -138,6 +143,8 @@ function UserSurveySurvey() {
               onPreviousPage={handlePreviousPage}
               submitButtonText={isLastPage ? "Submit Survey" : "Selanjutnya"}
               showSubmitButton={true}
+              conditionalQuestions={userSurveyConditionalQuestions}
+              onConditionalQuestionsChange={handleConditionalQuestionsChange}
             />
           </CardContent>
         </Card>

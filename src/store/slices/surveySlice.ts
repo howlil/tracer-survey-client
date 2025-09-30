@@ -8,7 +8,7 @@ export interface SurveyState {
   // Current Survey Data
   questions: Question[]
   currentQuestionIndex: number
-  answers: Record<string, any>
+  answers: Record<string, unknown>
   otherValues: Record<string, string>
   errors: Record<string, string>
   
@@ -63,7 +63,7 @@ export const loadSurvey = createAsyncThunk(
 
 export const submitSurvey = createAsyncThunk(
   'survey/submitSurvey',
-  async (data: { surveyId: string; answers: Record<string, any> }) => {
+  async (data: { surveyId: string; answers: Record<string, unknown> }) => {
     // TODO: Replace with actual API call
     const response = await fetch(`/api/surveys/${data.surveyId}/submit`, {
       method: 'POST',
@@ -137,7 +137,7 @@ const surveySlice = createSlice({
     },
 
     // Answer Management
-    setAnswer: (state, action: PayloadAction<{ questionId: string; value: any }>) => {
+    setAnswer: (state, action: PayloadAction<{ questionId: string; value: unknown }>) => {
       const { questionId, value } = action.payload
       state.answers[questionId] = value
       

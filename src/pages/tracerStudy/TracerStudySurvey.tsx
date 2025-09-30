@@ -2,7 +2,7 @@ import { ProgressBar } from "@/components/kuisioner/ProgressBar"
 import { SurveyForm } from "@/components/kuisioner/SurveyForm"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { tracerStudyMetadata, tracerStudyPages, tracerStudyQuestions } from "@/data/tracerStudyData"
+import { tracerStudyMetadata, tracerStudyPages, tracerStudyQuestions, tracerStudyConditionalQuestions } from "@/data/tracerStudyData"
 import { useAppDispatch, useAppSelector } from "@/store/hooks"
 import { selectUser } from "@/store/slices/authSlice"
 import {
@@ -82,8 +82,13 @@ function TracerStudySurvey() {
     navigate("/tracer-study")
   }, [navigate])
 
+  // Handle conditional questions change
+  const handleConditionalQuestionsChange = React.useCallback(() => {
+    // Conditional questions state updated
+  }, [])
+
   // Handle survey submission
-  const handleSubmit = React.useCallback((answers: Record<string, any>) => {
+  const handleSubmit = React.useCallback((answers: Record<string, unknown>) => {
     dispatch(setSubmitting(true))
     
     // Simulate API call
@@ -141,6 +146,8 @@ function TracerStudySurvey() {
               onPreviousPage={handlePreviousPage}
               submitButtonText={isLastPage ? "Submit Survey" : "Selanjutnya"}
               showSubmitButton={true}
+              conditionalQuestions={tracerStudyConditionalQuestions}
+              onConditionalQuestionsChange={handleConditionalQuestionsChange}
             />
           </CardContent>
         </Card>

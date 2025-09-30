@@ -48,7 +48,7 @@ export const validatePINAndGetUser = (inputPIN: string): PINRecord | null => {
     } else {
       return null
     }
-  } catch (error) {
+  } catch {
     return null
   }
 }
@@ -68,7 +68,7 @@ export const getUserByID = (userID: string): PINRecord | null => {
   try {
     const user = pinDatabase.find(record => record.userID === userID)
     return user || null
-  } catch (error) {
+  } catch  {
     return null
   }
 }
@@ -91,7 +91,7 @@ export const deactivateUser = (userID: string): boolean => {
       return true
     }
     return false
-  } catch (error) {
+  } catch {
     return false
   }
 }

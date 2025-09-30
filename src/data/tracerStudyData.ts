@@ -1,4 +1,4 @@
-import { Question } from "@/types/survey"
+import type { Question, ConditionalQuestion } from "@/types/survey"
 
 // Tracer Study Survey Data
 export const tracerStudyQuestions: Question[] = [
@@ -131,11 +131,11 @@ export const tracerStudyQuestions: Question[] = [
     label: "Status Kerja Saat Ini",
     required: true,
     options: [
-      { value: "bekerja", label: "Bekerja" },
-      { value: "tidak-bekerja", label: "Tidak Bekerja" },
-      { value: "melanjutkan-studi", label: "Melanjutkan Studi" },
-      { value: "wirausaha", label: "Wirausaha" },
-      { value: "lainnya", label: "Lainnya", isOther: true }
+      { value: "bekerja", label: "Bekerja", isTrigger: true },
+      { value: "tidak-bekerja", label: "Tidak Bekerja", isTrigger: true },
+      { value: "melanjutkan-studi", label: "Melanjutkan Studi", isTrigger: true },
+      { value: "wirausaha", label: "Wirausaha", isTrigger: true },
+      { value: "lainnya", label: "Lainnya", isOther: true, isTrigger: true }
     ],
     layout: "vertical",
     otherInputPlaceholder: "Sebutkan status lainnya...",
@@ -272,6 +272,209 @@ export const tracerStudyPages = [
     title: "Saran dan Harapan",
     description: "Saran dan harapan untuk program studi",
     questionIds: ["saran_perbaikan", "harapan_masa_depan"]
+  }
+]
+
+// Conditional Questions untuk Tracer Study
+export const tracerStudyConditionalQuestions: ConditionalQuestion[] = [
+  // Conditional questions untuk yang BEKERJA
+  {
+    id: "cq_bekerja_1",
+    triggerQuestionId: "status_kerja",
+    triggerOptionValue: "bekerja",
+    question: {
+      id: "lama_bekerja",
+      type: "single",
+      label: "Berapa lama Anda sudah bekerja?",
+      required: true,
+      options: [
+        { value: "kurang-1-tahun", label: "Kurang dari 1 tahun" },
+        { value: "1-2-tahun", label: "1-2 tahun" },
+        { value: "2-3-tahun", label: "2-3 tahun" },
+        { value: "3-5-tahun", label: "3-5 tahun" },
+        { value: "lebih-5-tahun", label: "Lebih dari 5 tahun" }
+      ],
+      layout: "vertical"
+    }
+  },
+  {
+    id: "cq_bekerja_2",
+    triggerQuestionId: "status_kerja",
+    triggerOptionValue: "bekerja",
+    question: {
+      id: "gaji_pertama",
+      type: "single",
+      label: "Berapa gaji pertama yang Anda terima?",
+      required: true,
+      options: [
+        { value: "kurang-3jt", label: "Kurang dari 3 juta" },
+        { value: "3-5jt", label: "3-5 juta" },
+        { value: "5-8jt", label: "5-8 juta" },
+        { value: "8-12jt", label: "8-12 juta" },
+        { value: "lebih-12jt", label: "Lebih dari 12 juta" }
+      ],
+      layout: "vertical"
+    }
+  },
+  {
+    id: "cq_bekerja_3",
+    triggerQuestionId: "status_kerja",
+    triggerOptionValue: "bekerja",
+    question: {
+      id: "relevansi_pekerjaan",
+      type: "single",
+      label: "Seberapa relevan pekerjaan Anda dengan bidang studi?",
+      required: true,
+      options: [
+        { value: "sangat-relevan", label: "Sangat Relevan" },
+        { value: "relevan", label: "Relevan" },
+        { value: "cukup-relevan", label: "Cukup Relevan" },
+        { value: "kurang-relevan", label: "Kurang Relevan" },
+        { value: "tidak-relevan", label: "Tidak Relevan" }
+      ],
+      layout: "vertical"
+    }
+  },
+
+  // Conditional questions untuk yang TIDAK BEKERJA
+  {
+    id: "cq_tidak_bekerja_1",
+    triggerQuestionId: "status_kerja",
+    triggerOptionValue: "tidak-bekerja",
+    question: {
+      id: "alasan_tidak_bekerja",
+      type: "single",
+      label: "Mengapa Anda belum bekerja?",
+      required: true,
+      options: [
+        { value: "masih-mencari", label: "Masih mencari pekerjaan" },
+        { value: "menunggu-panggilan", label: "Menunggu panggilan kerja" },
+        { value: "fokus-keluarga", label: "Fokus pada keluarga" },
+        { value: "kesehatan", label: "Alasan kesehatan" },
+        { value: "lainnya", label: "Lainnya", isOther: true }
+      ],
+      layout: "vertical",
+      otherInputPlaceholder: "Sebutkan alasan lainnya...",
+      validateOther: true
+    }
+  },
+  {
+    id: "cq_tidak_bekerja_2",
+    triggerQuestionId: "status_kerja",
+    triggerOptionValue: "tidak-bekerja",
+    question: {
+      id: "rencana_kerja",
+      type: "single",
+      label: "Apakah Anda berencana mencari pekerjaan?",
+      required: true,
+      options: [
+        { value: "ya-segera", label: "Ya, dalam waktu dekat" },
+        { value: "ya-nanti", label: "Ya, tapi tidak dalam waktu dekat" },
+        { value: "tidak", label: "Tidak berencana" }
+      ],
+      layout: "vertical"
+    }
+  },
+
+  // Conditional questions untuk yang MELANJUTKAN STUDI
+  {
+    id: "cq_studi_1",
+    triggerQuestionId: "status_kerja",
+    triggerOptionValue: "melanjutkan-studi",
+    question: {
+      id: "jenjang_studi",
+      type: "single",
+      label: "Jenjang studi yang sedang ditempuh?",
+      required: true,
+      options: [
+        { value: "s2", label: "S2 (Magister)" },
+        { value: "s3", label: "S3 (Doktor)" },
+        { value: "profesi", label: "Program Profesi" },
+        { value: "lainnya", label: "Lainnya", isOther: true }
+      ],
+      layout: "vertical",
+      otherInputPlaceholder: "Sebutkan jenjang lainnya...",
+      validateOther: true
+    }
+  },
+  {
+    id: "cq_studi_2",
+    triggerQuestionId: "status_kerja",
+    triggerOptionValue: "melanjutkan-studi",
+    question: {
+      id: "universitas_studi",
+      type: "text",
+      label: "Di universitas mana Anda melanjutkan studi?",
+      required: true,
+      placeholder: "Masukkan nama universitas",
+      inputType: "text"
+    }
+  },
+  {
+    id: "cq_studi_3",
+    triggerQuestionId: "status_kerja",
+    triggerOptionValue: "melanjutkan-studi",
+    question: {
+      id: "program_studi_lanjutan",
+      type: "text",
+      label: "Program studi yang sedang ditempuh?",
+      required: true,
+      placeholder: "Masukkan program studi",
+      inputType: "text"
+    }
+  },
+
+  // Conditional questions untuk yang WIRAUSAHA
+  {
+    id: "cq_wirausaha_1",
+    triggerQuestionId: "status_kerja",
+    triggerOptionValue: "wirausaha",
+    question: {
+      id: "jenis_usaha",
+      type: "text",
+      label: "Jenis usaha yang dijalankan?",
+      required: true,
+      placeholder: "Contoh: Toko online, warung makan, dll",
+      inputType: "text"
+    }
+  },
+  {
+    id: "cq_wirausaha_2",
+    triggerQuestionId: "status_kerja",
+    triggerOptionValue: "wirausaha",
+    question: {
+      id: "omset_usaha",
+      type: "single",
+      label: "Berapa omset usaha per bulan?",
+      required: true,
+      options: [
+        { value: "kurang-5jt", label: "Kurang dari 5 juta" },
+        { value: "5-10jt", label: "5-10 juta" },
+        { value: "10-25jt", label: "10-25 juta" },
+        { value: "25-50jt", label: "25-50 juta" },
+        { value: "lebih-50jt", label: "Lebih dari 50 juta" }
+      ],
+      layout: "vertical"
+    }
+  },
+  {
+    id: "cq_wirausaha_3",
+    triggerQuestionId: "status_kerja",
+    triggerOptionValue: "wirausaha",
+    question: {
+      id: "jumlah_karyawan",
+      type: "single",
+      label: "Berapa jumlah karyawan?",
+      required: true,
+      options: [
+        { value: "sendiri", label: "Sendiri" },
+        { value: "2-5-orang", label: "2-5 orang" },
+        { value: "6-10-orang", label: "6-10 orang" },
+        { value: "11-25-orang", label: "11-25 orang" },
+        { value: "lebih-25-orang", label: "Lebih dari 25 orang" }
+      ],
+      layout: "vertical"
+    }
   }
 ]
 

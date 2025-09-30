@@ -13,11 +13,11 @@ export const getUserStorageKey = (userId: string): string => {
 /**
  * Save survey data for a specific user (encrypted)
  */
-export const saveUserSurveyData = (userId: string, surveyData: any) => {
+export const saveUserSurveyData = (userId: string, surveyData: unknown) => {
   const key = getUserStorageKey(userId)
   try {
     const dataToSave = {
-      ...surveyData,
+      ...(surveyData as Record<string, unknown>),
       lastUpdated: Date.now(),
       userId // Ensure userId is always included
     }
@@ -55,12 +55,12 @@ export const loadUserSurveyData = (userId: string) => {
           if (parsed.userId === userId) {
             return parsed
           }
-        } catch (fallbackError) {
+        } catch {
           // Silent fallback error
         }
       }
     }
-  } catch (error) {
+  } catch {
     // Silent error handling
   }
   return null
@@ -73,7 +73,7 @@ export const clearUserSurveyData = (userId: string) => {
   const key = getUserStorageKey(userId)
   try {
     localStorage.removeItem(key)
-  } catch (error) {
+  } catch {
     // Silent error handling
   }
 }
@@ -91,7 +91,7 @@ export const getAllUserIds = (): string[] => {
         userIds.push(userId)
       }
     }
-  } catch (error) {
+  } catch {
     // Silent error handling
   }
   return userIds
@@ -106,7 +106,7 @@ export const clearAllUserData = () => {
     userIds.forEach(userId => {
       clearUserSurveyData(userId)
     })
-  } catch (error) {
+  } catch {
     // Silent error handling
   }
 }
@@ -151,12 +151,12 @@ export const cleanupOldUserData = () => {
           if (parsed.userId && parsed.userId.includes('_') && parsed.userId.split('_').length > 2) {
             localStorage.removeItem(key)
           }
-        } catch (error) {
+        } catch {
           // Silent error handling
         }
       }
     })
-  } catch (error) {
+  } catch {
     // Silent error handling
   }
 }

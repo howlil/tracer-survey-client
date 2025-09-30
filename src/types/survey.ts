@@ -25,6 +25,8 @@ export interface SingleChoiceQuestion extends BaseQuestion {
     label: string
     disabled?: boolean
     isOther?: boolean
+    isTrigger?: boolean
+    conditionalQuestions?: string[]
   }>
   layout?: 'vertical' | 'horizontal'
   otherValue?: string
@@ -42,6 +44,8 @@ export interface MultipleChoiceQuestion extends BaseQuestion {
     label: string
     disabled?: boolean
     isOther?: boolean
+    isTrigger?: boolean
+    conditionalQuestions?: string[]
   }>
   layout?: 'vertical' | 'horizontal'
   otherValue?: string
@@ -87,6 +91,14 @@ export interface RatingQuestion extends BaseQuestion {
   cellClassName?: string
 }
 
+// Conditional Question Interface
+export interface ConditionalQuestion {
+  id: string
+  triggerQuestionId: string
+  triggerOptionValue: string
+  question: Question
+}
+
 // Union type for all question types
 export type Question = 
   | TextQuestion 
@@ -98,10 +110,10 @@ export type Question =
 // Survey Form Props
 export interface SurveyFormProps {
   questions: Question[]
-  values: Record<string, any>
-  onChange: (questionId: string, value: any) => void
-  onSubmit?: (answers: Record<string, any>) => void
-  onValidate?: (questionId: string, value: any) => string | null
+  values: Record<string, unknown>
+  onChange: (questionId: string, value: unknown) => void
+  onSubmit?: (answers: Record<string, unknown>) => void
+  onValidate?: (questionId: string, value: unknown) => string | null
   className?: string
   submitButtonText?: string
   showSubmitButton?: boolean
@@ -111,15 +123,17 @@ export interface SurveyFormProps {
 // Survey State
 export interface SurveyState {
   currentQuestionIndex: number
-  answers: Record<string, any>
+  answers: Record<string, unknown>
   errors: Record<string, string>
   isSubmitting: boolean
   isCompleted: boolean
+  visibleQuestions: string[]
+  conditionalQuestions: ConditionalQuestion[]
 }
 
 // Survey Actions
 export interface SurveyActions {
-  setAnswer: (questionId: string, value: any) => void
+  setAnswer: (questionId: string, value: unknown) => void
   setError: (questionId: string, error: string | null) => void
   nextQuestion: () => void
   prevQuestion: () => void
