@@ -219,19 +219,21 @@ export const tracerStudyQuestions: Question[] = [
   // Page 6 - Saran dan Harapan
   {
     id: "saran_perbaikan",
-    type: "text",
+    type: "textarea",
     label: "Saran untuk Perbaikan Program Studi",
     required: false,
     placeholder: "Berikan saran untuk perbaikan program studi Anda...",
-    inputType: "text"
+    rows: 4,
+    maxLength: 500
   },
   {
     id: "harapan_masa_depan",
-    type: "text",
+    type: "textarea",
     label: "Harapan untuk Masa Depan Program Studi",
     required: false,
     placeholder: "Berikan harapan untuk masa depan program studi...",
-    inputType: "text"
+    rows: 4,
+    maxLength: 300
   }
 ]
 
@@ -335,6 +337,20 @@ export const tracerStudyConditionalQuestions: ConditionalQuestion[] = [
       layout: "vertical"
     }
   },
+  {
+    id: "cq_bekerja_4",
+    triggerQuestionId: "status_kerja",
+    triggerOptionValue: "bekerja",
+    question: {
+      id: "pengalaman_kerja",
+      type: "textarea",
+      label: "Ceritakan pengalaman kerja Anda yang paling berkesan",
+      required: false,
+      placeholder: "Bagikan pengalaman kerja yang paling berkesan dan pelajaran yang didapat...",
+      rows: 4,
+      maxLength: 400
+    }
+  },
 
   // Conditional questions untuk yang TIDAK BEKERJA
   {
@@ -373,6 +389,20 @@ export const tracerStudyConditionalQuestions: ConditionalQuestion[] = [
         { value: "tidak", label: "Tidak berencana" }
       ],
       layout: "vertical"
+    }
+  },
+  {
+    id: "cq_tidak_bekerja_3",
+    triggerQuestionId: "status_kerja",
+    triggerOptionValue: "tidak-bekerja",
+    question: {
+      id: "kendala_mencari_kerja",
+      type: "textarea",
+      label: "Apa kendala utama dalam mencari pekerjaan?",
+      required: false,
+      placeholder: "Jelaskan kendala atau tantangan yang dihadapi dalam mencari pekerjaan...",
+      rows: 3,
+      maxLength: 300
     }
   },
 
@@ -421,6 +451,20 @@ export const tracerStudyConditionalQuestions: ConditionalQuestion[] = [
       required: true,
       placeholder: "Masukkan program studi",
       inputType: "text"
+    }
+  },
+  {
+    id: "cq_studi_4",
+    triggerQuestionId: "status_kerja",
+    triggerOptionValue: "melanjutkan-studi",
+    question: {
+      id: "motivasi_studi",
+      type: "textarea",
+      label: "Apa motivasi utama melanjutkan studi?",
+      required: false,
+      placeholder: "Jelaskan motivasi dan tujuan melanjutkan studi...",
+      rows: 3,
+      maxLength: 350
     }
   },
 
@@ -474,6 +518,20 @@ export const tracerStudyConditionalQuestions: ConditionalQuestion[] = [
         { value: "lebih-25-orang", label: "Lebih dari 25 orang" }
       ],
       layout: "vertical"
+    }
+  },
+  {
+    id: "cq_wirausaha_4",
+    triggerQuestionId: "status_kerja",
+    triggerOptionValue: "wirausaha",
+    question: {
+      id: "tantangan_wirausaha",
+      type: "textarea",
+      label: "Apa tantangan utama dalam menjalankan usaha?",
+      required: false,
+      placeholder: "Jelaskan tantangan dan kendala yang dihadapi dalam menjalankan usaha...",
+      rows: 3,
+      maxLength: 300
     }
   }
 ]

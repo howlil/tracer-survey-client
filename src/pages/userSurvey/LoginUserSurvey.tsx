@@ -72,7 +72,7 @@ function LoginUserSurvey() {
         await new Promise(resolve => setTimeout(resolve, 2000))
         
          // Validate PIN using encrypted database
-         const userRecord = validatePINAndGetUser(formData.pin)
+         const userRecord = validatePINAndGetUser(formData.pin, 'user-survey')
          
          if (userRecord) {
           // Save user data to Redux store (will be persisted)

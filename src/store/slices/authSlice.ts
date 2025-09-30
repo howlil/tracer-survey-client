@@ -1,5 +1,6 @@
 import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/toolkit'
 import type { RootState } from '../index'
+import { validatePINAndGetUser } from '@/data/pinDatabase'
 
 // Auth State Interface
 export interface AuthState {
@@ -70,21 +71,26 @@ export const login = createAsyncThunk(
 export const loginWithPIN = createAsyncThunk(
   'auth/loginWithPIN',
   async (data: { pin: string; captcha: string; surveyType: 'tracer-study' | 'user-survey' }) => {
-    // TODO: Replace with actual API call
-    const response = await fetch('/api/auth/pin-login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    })
+    // Validasi PIN dengan survey type yang sesuai
+    const userRecord = validatePINAndGetUser(data.pin, data.surveyType)
     
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.message || 'PIN login failed')
+    if (!userRecord) {
+      throw new Error('PIN tidak valid untuk survey ini')
     }
     
-    return response.json()
+    // Return user data dengan survey access yang sesuai
+    return {
+      user: {
+        id: userRecord.userID,
+        name: userRecord.name,
+        email: userRecord.email,
+        role: 'user' as const
+      },
+      surveyAccess: {
+        tracerStudy: data.surveyType === 'tracer-study',
+        userSurvey: data.surveyType === 'user-survey'
+      }
+    }
   }
 )
 

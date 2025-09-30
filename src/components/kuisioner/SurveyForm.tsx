@@ -3,6 +3,7 @@ import { SoalMultiChoice } from "@/components/kuisioner/soal/SoalMultiChoice"
 import { SoalRating } from "@/components/kuisioner/soal/SoalRating"
 import { SoalSingleChoice } from "@/components/kuisioner/soal/SoalSingleChoice"
 import { SoalTeks } from "@/components/kuisioner/soal/SoalTeks"
+import { SoalTeksArea } from "@/components/kuisioner/soal/SoalTeksArea"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useAppDispatch, useAppSelector } from "@/store/hooks"
@@ -218,6 +219,16 @@ function SurveyForm({
       case 'text':
         return (
           <SoalTeks
+            {...commonProps}
+            {...question}
+            value={(answers[question.id] as string) || ""}
+            onChange={(value) => handleValueChange(question.id, value)}
+          />
+        )
+
+      case 'textarea':
+        return (
+          <SoalTeksArea
             {...commonProps}
             {...question}
             value={(answers[question.id] as string) || ""}

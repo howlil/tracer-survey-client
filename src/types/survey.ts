@@ -1,7 +1,7 @@
 // Base Question Interface
 export interface BaseQuestion {
   id: string
-  type: 'text' | 'single' | 'multiple' | 'combobox' | 'rating'
+  type: 'text' | 'textarea' | 'single' | 'multiple' | 'combobox' | 'rating'
   label: string
   required: boolean
   disabled?: boolean
@@ -15,6 +15,15 @@ export interface TextQuestion extends BaseQuestion {
   placeholder?: string
   inputType?: 'text' | 'email' | 'number' | 'tel' | 'url'
   variant?: 'text' | 'email' | 'number'
+}
+
+// TextArea Question
+export interface TextAreaQuestion extends BaseQuestion {
+  type: 'textarea'
+  placeholder?: string
+  rows?: number
+  maxLength?: number
+  minLength?: number
 }
 
 // Single Choice Question
@@ -102,6 +111,7 @@ export interface ConditionalQuestion {
 // Union type for all question types
 export type Question = 
   | TextQuestion 
+  | TextAreaQuestion
   | SingleChoiceQuestion 
   | MultipleChoiceQuestion 
   | ComboBoxQuestion 

@@ -72,7 +72,7 @@ function LoginTracerStudy() {
         await new Promise(resolve => setTimeout(resolve, 2000))
         
          // Validate PIN using encrypted database
-         const userRecord = validatePINAndGetUser(formData.pin)
+         const userRecord = validatePINAndGetUser(formData.pin, 'tracer-study')
          
          if (userRecord) {
           // Save user data to Redux store (will be persisted)

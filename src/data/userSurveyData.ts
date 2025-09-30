@@ -201,33 +201,41 @@ export const userSurveyQuestions: Question[] = [
   },
   {
     id: 'q12',
-    type: 'text',
+    type: 'textarea',
     label: 'Alasan Utama Merekrut Lulusan Unand',
     required: true,
-    placeholder: 'Jelaskan alasan utama mengapa perusahaan merekrut lulusan Unand'
+    placeholder: 'Jelaskan alasan utama mengapa perusahaan merekrut lulusan Unand',
+    rows: 3,
+    maxLength: 400
   },
 
   // Page 4: Saran dan Harapan
   {
     id: 'q13',
-    type: 'text',
+    type: 'textarea',
     label: 'Saran untuk Peningkatan Kualitas Lulusan',
     required: true,
-    placeholder: 'Berikan saran untuk meningkatkan kualitas lulusan Universitas Andalas'
+    placeholder: 'Berikan saran untuk meningkatkan kualitas lulusan Universitas Andalas',
+    rows: 4,
+    maxLength: 500
   },
   {
     id: 'q14',
-    type: 'text',
+    type: 'textarea',
     label: 'Harapan untuk Program Studi',
     required: true,
-    placeholder: 'Apa harapan Anda terhadap program studi di Universitas Andalas?'
+    placeholder: 'Apa harapan Anda terhadap program studi di Universitas Andalas?',
+    rows: 4,
+    maxLength: 400
   },
   {
     id: 'q15',
-    type: 'text',
+    type: 'textarea',
     label: 'Komentar Tambahan',
     required: false,
-    placeholder: 'Komentar atau saran tambahan lainnya'
+    placeholder: 'Komentar atau saran tambahan lainnya',
+    rows: 3,
+    maxLength: 300
   }
 ]
 
@@ -240,10 +248,12 @@ export const userSurveyConditionalQuestions: ConditionalQuestion[] = [
     triggerOptionValue: 'ya-pasti',
     question: {
       id: 'q_ya_pasti_alasan',
-      type: 'text',
+      type: 'textarea',
       label: 'Alasan utama mengapa pasti akan merekrut lulusan Unand lagi?',
       required: true,
-      placeholder: 'Jelaskan alasan utama mengapa perusahaan pasti akan merekrut lulusan Unand lagi'
+      placeholder: 'Jelaskan alasan utama mengapa perusahaan pasti akan merekrut lulusan Unand lagi',
+      rows: 3,
+      maxLength: 400
     }
   },
   {
@@ -294,10 +304,12 @@ export const userSurveyConditionalQuestions: ConditionalQuestion[] = [
     triggerOptionValue: 'ya-mungkin',
     question: {
       id: 'q_ya_mungkin_kondisi',
-      type: 'text',
+      type: 'textarea',
       label: 'Dalam kondisi seperti apa perusahaan akan merekrut lulusan Unand?',
       required: true,
-      placeholder: 'Jelaskan kondisi atau situasi yang memungkinkan perusahaan merekrut lulusan Unand'
+      placeholder: 'Jelaskan kondisi atau situasi yang memungkinkan perusahaan merekrut lulusan Unand',
+      rows: 3,
+      maxLength: 350
     }
   },
 
@@ -352,10 +364,12 @@ export const userSurveyConditionalQuestions: ConditionalQuestion[] = [
     triggerOptionValue: 'tidak-mungkin',
     question: {
       id: 'q_tidak_mungkin_saran',
-      type: 'text',
+      type: 'textarea',
       label: 'Saran untuk meningkatkan kualitas lulusan Unand',
       required: true,
-      placeholder: 'Berikan saran spesifik untuk meningkatkan kualitas lulusan Unand'
+      placeholder: 'Berikan saran spesifik untuk meningkatkan kualitas lulusan Unand',
+      rows: 4,
+      maxLength: 500
     }
   },
 
@@ -387,10 +401,12 @@ export const userSurveyConditionalQuestions: ConditionalQuestion[] = [
     triggerOptionValue: 'tidak-pasti',
     question: {
       id: 'q_tidak_pasti_harapan',
-      type: 'text',
+      type: 'textarea',
       label: 'Harapan perusahaan terhadap lulusan Unand',
       required: true,
-      placeholder: 'Jelaskan harapan perusahaan terhadap kualitas lulusan Unand'
+      placeholder: 'Jelaskan harapan perusahaan terhadap kualitas lulusan Unand',
+      rows: 4,
+      maxLength: 450
     }
   }
 ]
