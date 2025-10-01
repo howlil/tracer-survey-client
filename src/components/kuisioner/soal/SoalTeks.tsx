@@ -52,7 +52,8 @@ function SoalTeks({
   }, [variant, type])
 
   // Destructure props untuk menghindari passing ke DOM
-  const { inputType: _, variant: __, ...inputProps } = props as any
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { inputType: _inputType, variant: _variant, ...inputProps } = props as Record<string, unknown>
 
   // Tentukan placeholder berdasarkan variant jika tidak ada placeholder
   const inputPlaceholder = React.useMemo(() => {

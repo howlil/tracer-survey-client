@@ -85,7 +85,7 @@ function SoalSingleChoice({
     opsiJawaban.map((_, index) => 
       `${label.toLowerCase().replace(/\s+/g, '-')}-${index}`
     ), 
-    [label, opsiJawaban.length]
+    [label, opsiJawaban]
   )
 
   return (
