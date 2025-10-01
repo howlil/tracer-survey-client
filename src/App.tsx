@@ -7,6 +7,7 @@ import FAQ from "./pages/FAQ"
 import Home from "./pages/Home"
 import Dashboard from "./pages/admin/Dashboard"
 import LoginAdmin from "./pages/admin/LoginAdmin"
+import PaketSoalTracerStudy from "./pages/admin/PaketSoalTracerStudy"
 import LoginTracerStudy from "./pages/tracerStudy/LoginTracerStudy"
 import TracerStudy from "./pages/tracerStudy/TracerStudy"
 import TracerStudySuccess from "./pages/tracerStudy/TracerStudySuccess"
@@ -26,6 +27,7 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/admin/login" element={<LoginAdmin />} />
             <Route path="/admin/dashboard" element={<Dashboard />} />
+            <Route path="/admin/packages/tracer-study" element={<PaketSoalTracerStudy />} />
             <Route path="/tracer-study" element={<TracerStudy />} />
             <Route path="/tracer-study/login" element={<LoginTracerStudy />} />
             <Route path="/tracer-study/survey/:page" element={<TracerStudySurvey />} />

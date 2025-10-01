@@ -2,15 +2,15 @@ import { ProgressBar } from "@/components/kuisioner/ProgressBar"
 import { SurveyForm } from "@/components/kuisioner/SurveyForm"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { userSurveyMetadata, userSurveyPages, userSurveyQuestions, userSurveyConditionalQuestions } from "@/data/userSurveyData"
+import { userSurveyConditionalQuestions, userSurveyMetadata, userSurveyPages, userSurveyQuestions } from "@/data/userSurveyData"
 import { useAppDispatch, useAppSelector } from "@/store/hooks"
 import { selectUser } from "@/store/slices/authSlice"
 import {
-  initializeSurvey,
-  loadUserData,
-  setCompleted,
-  setSubmitting,
-  setUserId
+    initializeSurvey,
+    loadUserData,
+    setCompleted,
+    setSubmitting,
+    setUserId
 } from "@/store/slices/surveySlice"
 import { cleanupOldUserData } from "@/store/userStorage"
 import { ArrowLeft } from "lucide-react"
@@ -135,6 +135,8 @@ function UserSurveySurvey() {
         <Card>
           <CardContent className="p-8">
             <SurveyForm
+              pageTitle={currentPage?.title}
+              pageDescription={currentPage?.description}
               questions={currentPageQuestions}
               currentPage={currentPageNumber}
               totalPages={userSurveyPages.length}

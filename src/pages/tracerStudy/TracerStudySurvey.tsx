@@ -2,7 +2,7 @@ import { ProgressBar } from "@/components/kuisioner/ProgressBar"
 import { SurveyForm } from "@/components/kuisioner/SurveyForm"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { tracerStudyMetadata, tracerStudyPages, tracerStudyQuestions, tracerStudyConditionalQuestions } from "@/data/tracerStudyData"
+import { tracerStudyConditionalQuestions, tracerStudyMetadata, tracerStudyPages, tracerStudyQuestions } from "@/data/tracerStudyData"
 import { useAppDispatch, useAppSelector } from "@/store/hooks"
 import { selectUser } from "@/store/slices/authSlice"
 import {
@@ -136,8 +136,8 @@ function TracerStudySurvey() {
         <Card>
           <CardContent className="p-8">
             <SurveyForm
-              pageTitle="Pengisian Tracer Study"
-              pageDescription="Universitas Andalas"
+              pageTitle={currentPage?.title}
+              pageDescription={currentPage?.description}
               questions={currentPageQuestions}
               currentPage={currentPageNumber}
               totalPages={tracerStudyPages.length}

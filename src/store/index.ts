@@ -2,6 +2,7 @@ import { combineReducers, configureStore } from '@reduxjs/toolkit'
 import { persistReducer, persistStore } from 'redux-persist'
 import storage from 'redux-persist/lib/storage'
 import authReducer from './slices/authSlice'
+import builderReducer from './slices/builderSlice'
 import surveyReducer from './slices/surveySlice'
 
 // Auth persist config
@@ -22,6 +23,7 @@ const surveyPersistConfig = {
 const rootReducer = combineReducers({
   auth: persistReducer(authPersistConfig, authReducer),
   survey: persistReducer(surveyPersistConfig, surveyReducer),
+  builder: builderReducer,
 })
 
 export const store = configureStore({
