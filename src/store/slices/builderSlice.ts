@@ -1,6 +1,6 @@
 import type { BuilderQuestion, BuilderState, QuestionType } from "@/types/builder"
 import type { Question } from "@/types/survey"
-import { createSlice, nanoid, PayloadAction } from "@reduxjs/toolkit"
+import { createSlice, nanoid, type PayloadAction } from "@reduxjs/toolkit"
 
 const initialState: BuilderState = {
   questions: [],
@@ -42,13 +42,34 @@ const builderSlice = createSlice({
       reducer: (state, action: PayloadAction<{ type: QuestionType }>) => {
         const base = createDefaultQuestion(action.payload.type)
         const order = state.questions.length
-        const withMeta: BuilderQuestion = { ...base, order, status: "new" }
+        // Auto-generate questionCode based on position in current page
+        const currentPageQuestionCount = state.pages[state.currentPageIndex].questionIds.length
+        const questionCode = `Q${currentPageQuestionCount + 1}`
+        const withMeta: BuilderQuestion = { 
+          ...base, 
+          order, 
+          status: "new",
+          questionCode,
+          version: "2024"
+        } as BuilderQuestion
         state.questions.push(withMeta)
         // Tambahkan ke halaman aktif
         state.pages[state.currentPageIndex].questionIds.push(withMeta.id)
         state.activeQuestionId = withMeta.id
         state.isDirty = true
       }
+    },
+    createQuestionVersion: (state, action: PayloadAction<Partial<Question>>) => {
+      const questionData = action.payload
+      const order = state.questions.length
+      const withMeta: BuilderQuestion = { 
+        ...questionData as Question, 
+        order, 
+        status: "new"
+      } as BuilderQuestion
+      // Add to questions pool but NOT to any page
+      state.questions.push(withMeta)
+      state.isDirty = true
     },
     // Navigasi halaman
     nextPage: (state) => {
@@ -77,7 +98,7 @@ const builderSlice = createSlice({
     updateQuestion: (state, action: PayloadAction<{ id: string; patch: Partial<Question> }>) => {
       const idx = state.questions.findIndex(q => q.id === action.payload.id)
       if (idx !== -1) {
-        state.questions[idx] = { ...state.questions[idx], ...action.payload.patch, status: state.questions[idx].status === "new" ? "new" : "edited" }
+        state.questions[idx] = { ...state.questions[idx], ...action.payload.patch, status: state.questions[idx].status === "new" ? "new" : "edited" } as BuilderQuestion
         state.isDirty = true
       }
     },
@@ -99,6 +120,16 @@ const builderSlice = createSlice({
       page.questionIds.splice(to, 0, moved)
       state.isDirty = true
     },
+    replaceQuestionInCurrentPage: (state, action: PayloadAction<{ oldQuestionId: string; newQuestionId: string }>) => {
+      const page = state.pages[state.currentPageIndex]
+      if (!page) return
+      const { oldQuestionId, newQuestionId } = action.payload
+      const index = page.questionIds.findIndex(id => id === oldQuestionId)
+      if (index !== -1) {
+        page.questionIds[index] = newQuestionId
+        state.isDirty = true
+      }
+    },
     reorderQuestions: (state, action: PayloadAction<{ from: number; to: number }>) => {
       const { from, to } = action.payload
       if (from < 0 || to < 0 || from >= state.questions.length || to >= state.questions.length) return
@@ -119,7 +150,7 @@ const builderSlice = createSlice({
   }
 })
 
-export const { addQuestion, setActiveQuestion, updateQuestion, removeQuestion, reorderQuestions, setPackageMeta, resetBuilder, markSaved, nextPage, prevPage, setPageMeta, reorderCurrentPageQuestions } = builderSlice.actions
+export const { addQuestion, createQuestionVersion, setActiveQuestion, updateQuestion, removeQuestion, reorderQuestions, setPackageMeta, resetBuilder, markSaved, nextPage, prevPage, setPageMeta, reorderCurrentPageQuestions, replaceQuestionInCurrentPage } = builderSlice.actions
 
 export default builderSlice.reducer
 

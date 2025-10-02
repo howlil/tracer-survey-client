@@ -8,6 +8,8 @@ export interface BuilderQuestionMeta {
   id: string
   order: number
   status?: "new" | "edited" | "saved"
+  questionCode?: string
+  version?: string
 }
 
 // Pertanyaan yang digunakan builder: reuse struktur Question + metadata

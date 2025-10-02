@@ -6,32 +6,56 @@ import { SoalTeks } from "@/components/kuisioner/soal/SoalTeks"
 import { SoalTeksArea } from "@/components/kuisioner/soal/SoalTeksArea"
 import { AdminLayout } from "@/components/layout/admin"
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import {
-    Breadcrumb,
-    BreadcrumbItem,
-    BreadcrumbLink,
-    BreadcrumbList,
-    BreadcrumbPage,
-    BreadcrumbSeparator,
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
 import { Input } from "@/components/ui/input"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { ResizableCard, ResizableContent, ResizablePanel } from "@/components/ui/resizable-card"
 import { useAppDispatch, useAppSelector } from "@/store/hooks"
-import { addQuestion, nextPage, prevPage, removeQuestion, reorderCurrentPageQuestions, setActiveQuestion, setPageMeta, updateQuestion } from "@/store/slices/builderSlice"
-import type { Question, TextQuestion, TextAreaQuestion, SingleChoiceQuestion, MultipleChoiceQuestion, ComboBoxQuestion, RatingQuestion } from "@/types/survey"
-import { CheckSquare, ChevronLeft, ChevronRight, Circle, Edit, FileText, ListFilter, Package, Plus, Star, Trash2, Type, X } from "lucide-react"
+import {
+  addQuestion,
+  createQuestionVersion,
+  nextPage,
+  prevPage,
+  removeQuestion,
+  reorderCurrentPageQuestions,
+  replaceQuestionInCurrentPage,
+  setActiveQuestion,
+  setPageMeta,
+  updateQuestion
+} from "@/store/slices/builderSlice"
+import type { ComboBoxQuestion, MultipleChoiceQuestion, Question, RatingQuestion, SingleChoiceQuestion, TextAreaQuestion, TextQuestion } from "@/types/survey"
+import { CheckSquare, ChevronLeft, ChevronRight, ChevronsUpDown, Circle, Edit, FileText, ListFilter, Package, Plus, Star, Trash2, Type, X } from "lucide-react"
 import * as React from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 
@@ -43,6 +67,7 @@ function PaketSoalTracerStudy() {
   const currentQuestionIds = useAppSelector(s=>s.builder.pages[s.builder.currentPageIndex]?.questionIds || [])
   const [dragIndex, setDragIndex] = React.useState<number | null>(null)
   const [overIndex, setOverIndex] = React.useState<number | null>(null)
+  const [versionComboOpen, setVersionComboOpen] = React.useState(false)
   
   // Get edit mode from URL parameter
   const isEditMode = searchParams.get('edit') === 'true'
@@ -67,6 +92,83 @@ function PaketSoalTracerStudy() {
   const patchActive = (patch: Partial<Question>) => {
     if (!activeQuestion) return
     dispatch(updateQuestion({ id: activeQuestion.id, patch }))
+  }
+
+  // Get all questions with same questionCode for version selection
+  const getVersionQuestions = () => {
+    if (!activeQuestion) return []
+    const questionCode = (activeQuestion as Question & { questionCode?: string }).questionCode || `Q${currentQuestionIds.findIndex(id => id === activeQuestion.id) + 1}`
+    return questions.filter(q => (q as Question & { questionCode?: string }).questionCode === questionCode)
+  }
+
+  // Create new version of current question
+  const createNewVersion = () => {
+    if (!activeQuestion) return
+    const questionCode = (activeQuestion as Question & { questionCode?: string }).questionCode || `Q${currentQuestionIds.findIndex(id => id === activeQuestion.id) + 1}`
+    const existingVersions = getVersionQuestions()
+    const maxVersion = Math.max(...existingVersions.map(q => parseInt((q as Question & { version?: string }).version || '2024')))
+    const newVersion = (maxVersion + 1).toString()
+    
+    // Create base question with default values for the type
+    const getDefaultQuestionData = (type: Question["type"]) => {
+      const baseData = {
+        id: `question_${Date.now()}`,
+        type,
+        label: "Label pertanyaan",
+        required: false,
+        questionCode,
+        version: newVersion
+      }
+
+      switch (type) {
+        case 'text':
+          return { ...baseData, placeholder: "Masukkan jawaban...", inputType: 'text' as const }
+        case 'textarea':
+          return { ...baseData, placeholder: "Masukkan jawaban...", rows: 3 }
+        case 'single':
+          return { ...baseData, options: [{ value: 'opsi1', label: 'Opsi 1' }], layout: 'vertical' as const }
+        case 'multiple':
+          return { ...baseData, options: [{ value: 'opsi1', label: 'Opsi 1' }], layout: 'vertical' as const }
+        case 'combobox':
+          return { 
+            ...baseData, 
+            comboboxItems: [{
+              id: 'item1',
+              label: 'Item 1',
+              placeholder: 'Pilih...',
+              searchPlaceholder: 'Cari...',
+              required: false,
+              options: [{ value: 'opsi1', label: 'Opsi 1' }]
+            }]
+          }
+        case 'rating':
+          return { 
+            ...baseData, 
+            ratingItems: [{ id: 'rating1', label: 'Aspek 1' }],
+            ratingOptions: [
+              { value: '1', label: 'Sangat Buruk' },
+              { value: '2', label: 'Buruk' },
+              { value: '3', label: 'Cukup' },
+              { value: '4', label: 'Baik' },
+              { value: '5', label: 'Sangat Baik' }
+            ]
+          }
+        default:
+          return baseData
+      }
+    }
+    
+    const newQuestionData = getDefaultQuestionData(activeQuestion.type)
+    
+    // Create new version without adding to page - just add to questions pool
+    dispatch(createQuestionVersion(newQuestionData))
+    
+    // Replace current question in page with new version and set as active
+    dispatch(replaceQuestionInCurrentPage({ 
+      oldQuestionId: activeQuestion.id, 
+      newQuestionId: newQuestionData.id 
+    }))
+    dispatch(setActiveQuestion(newQuestionData.id))
   }
 
   return (
@@ -181,7 +283,7 @@ function PaketSoalTracerStudy() {
                     const q = questions.find(qq=>qq.id===qid)
                     if(!q) return null
                      const questionCode = `Q${idx + 1}`
-                     const common = { label: "", required: q.required, disabled: false }
+                     const common = { label: q.label, required: q.required, disabled: false }
                     const isActive = activeQuestionId === q.id
                     const Wrap = (children: React.ReactNode) => (
                       <div key={q.id} className="flex items-start gap-3">
@@ -231,28 +333,38 @@ function PaketSoalTracerStudy() {
                                  v{(q as Question & { version?: string }).version}
                                </span>
                              )}
-                             <span className="text-sm font-medium">
-                               {q.label}
-                             </span>
                            </div>
                           {children}
                         </div>
                         </div>
                       </div>
                     )
+                    
+                    // Filter out non-DOM props before passing to components
+                    const getCleanProps = (question: Question) => {
+                      const { questionCode, version, ...cleanProps } = question as any
+                      return cleanProps
+                    }
+                    
                     switch(q.type){
                       case 'text':
-                        return Wrap(<SoalTeks {...(q as TextQuestion)} {...common} value="" onChange={()=>{}} />)
+                        const textProps = getCleanProps(q as TextQuestion)
+                        return Wrap(<SoalTeks {...textProps} {...common} value="" onChange={()=>{}} />)
                       case 'textarea':
-                        return Wrap(<SoalTeksArea {...(q as TextAreaQuestion)} {...common} value="" onChange={()=>{}} />)
+                        const textareaProps = getCleanProps(q as TextAreaQuestion)
+                        return Wrap(<SoalTeksArea {...textareaProps} {...common} value="" onChange={()=>{}} />)
                       case 'single':
-                        return Wrap(<SoalSingleChoice {...(q as SingleChoiceQuestion)} {...common} opsiJawaban={(q as SingleChoiceQuestion).options} value="" onChange={()=>{}} />)
+                        const singleProps = getCleanProps(q as SingleChoiceQuestion)
+                        return Wrap(<SoalSingleChoice {...singleProps} {...common} opsiJawaban={(q as SingleChoiceQuestion).options} value="" onChange={()=>{}} />)
                       case 'multiple':
-                        return Wrap(<SoalMultiChoice {...(q as MultipleChoiceQuestion)} {...common} opsiJawaban={(q as MultipleChoiceQuestion).options} value={[]} onChange={()=>{}} />)
+                        const multipleProps = getCleanProps(q as MultipleChoiceQuestion)
+                        return Wrap(<SoalMultiChoice {...multipleProps} {...common} opsiJawaban={(q as MultipleChoiceQuestion).options} value={[]} onChange={()=>{}} />)
                       case 'combobox':
-                        return Wrap(<SoalComboBox {...(q as ComboBoxQuestion)} {...common} comboboxItems={(q as ComboBoxQuestion).comboboxItems.map((it)=>({...it, opsiComboBox: it.options}))} values={{}} onChange={()=>{}} />)
+                        const comboProps = getCleanProps(q as ComboBoxQuestion)
+                        return Wrap(<SoalComboBox {...comboProps} {...common} comboboxItems={(q as ComboBoxQuestion).comboboxItems.map((it)=>({...it, opsiComboBox: it.options}))} values={{}} onChange={()=>{}} />)
                       case 'rating':
-                        return Wrap(<SoalRating {...(q as RatingQuestion)} {...common} values={{}} onChange={()=>{}} />)
+                        const ratingProps = getCleanProps(q as RatingQuestion)
+                        return Wrap(<SoalRating {...ratingProps} {...common} values={{}} onChange={()=>{}} />)
                       default:
                         return null
                     }
@@ -290,77 +402,77 @@ function PaketSoalTracerStudy() {
                            />
                          </div>
                          <div className="space-y-1">
-                           <div className="flex items-center gap-2">
-                             <div className="flex-1">
-                               <label className="text-sm font-medium">Versi</label>
-                               <Input 
-                                 value={(activeQuestion as Question & { version?: string }).version || '2024'} 
-                                 onChange={(e)=>patchActive({ version: e.target.value } as Partial<Question & { version?: string }>)} 
-                                 placeholder="2024, 2023, dst..."
-                               />
-                             </div>
-                             <div className="flex flex-col gap-1">
-                               <Button 
-                                 size="sm" 
-                                 variant="outline" 
-                                 onClick={()=>{
-                                   const currentVersion = (activeQuestion as Question & { version?: string }).version || '2024'
-                                   const newVersion = (parseInt(currentVersion) + 1).toString()
-                                   patchActive({ version: newVersion } as Partial<Question & { version?: string }>)
-                                 }}
-                                 className="text-xs"
-                               >
-                                 +1
-                               </Button>
-                               <Button 
-                                 size="sm" 
-                                 variant="outline" 
-                                 onClick={()=>{
-                                   const currentVersion = (activeQuestion as Question & { version?: string }).version || '2024'
-                                   const newVersion = (parseInt(currentVersion) - 1).toString()
-                                   patchActive({ version: newVersion } as Partial<Question & { version?: string }>)
-                                 }}
-                                 className="text-xs"
-                               >
-                                 -1
-                               </Button>
-                             </div>
-                           </div>
-                         </div>
-                         <div className="space-y-1">
-                           <label className="text-sm font-medium">Daftar Versi Soal</label>
+                           <label className="text-sm font-medium">Versi Soal</label>
                            <div className="text-xs text-muted-foreground mb-2">
-                             Soal dengan kode yang sama dapat memiliki versi berbeda
+                             Pilih versi atau buat versi baru
                            </div>
-                           <div className="space-y-1 max-h-32 overflow-y-auto">
-                             {questions
-                               .filter(q => (q as Question & { questionCode?: string }).questionCode === (activeQuestion as Question & { questionCode?: string }).questionCode)
-                               .map((versionQuestion) => (
-                                 <div 
-                                   key={versionQuestion.id} 
-                                   className={`flex items-center justify-between p-2 rounded border text-xs ${
-                                     versionQuestion.id === activeQuestion.id 
-                                       ? 'bg-blue-50 border-blue-200' 
-                                       : 'bg-gray-50 border-gray-200'
-                                   }`}
-                                 >
-                                   <div className="flex items-center gap-2">
-                                     <span className="font-medium">v{(versionQuestion as Question & { version?: string }).version || '2024'}</span>
-                                     <span className="text-muted-foreground">{versionQuestion.label}</span>
-                                   </div>
-                                   {versionQuestion.id !== activeQuestion.id && (
-                                     <Button 
-                                       size="sm" 
-                                       variant="ghost" 
-                                       onClick={() => dispatch(setActiveQuestion(versionQuestion.id))}
-                                       className="text-xs h-6 px-2"
+                           <Popover open={versionComboOpen} onOpenChange={setVersionComboOpen}>
+                             <PopoverTrigger asChild>
+                               <Button
+                                 variant="outline"
+                                 role="combobox"
+                                 aria-expanded={versionComboOpen}
+                                 className="w-full justify-between"
+                               >
+                                 {activeQuestion ? 
+                                   `v${(activeQuestion as Question & { version?: string }).version || '2024'}` :
+                                   "Pilih versi..."
+                                 }
+                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                               </Button>
+                             </PopoverTrigger>
+                             <PopoverContent className="w-full p-0">
+                               <Command>
+                                 <CommandInput placeholder="Cari versi..." />
+                                 <CommandList>
+                                   <CommandEmpty>Versi tidak ditemukan.</CommandEmpty>
+                                   <CommandGroup>
+                                     {getVersionQuestions().map((versionQuestion) => (
+                                       <CommandItem
+                                         key={versionQuestion.id}
+                                         value={`v${(versionQuestion as Question & { version?: string }).version || '2024'}`}
+                                         className="bg-background hover:bg-muted data-[selected=true]:bg-muted data-[selected=true]:text-foreground"
+                                         onSelect={() => {
+                                           // Switch version: replace current question in page with selected version
+                                           if (activeQuestion && versionQuestion.id !== activeQuestion.id) {
+                                             dispatch(replaceQuestionInCurrentPage({ 
+                                               oldQuestionId: activeQuestion.id, 
+                                               newQuestionId: versionQuestion.id 
+                                             }))
+                                           }
+                                           dispatch(setActiveQuestion(versionQuestion.id))
+                                           setVersionComboOpen(false)
+                                         }}
+                                       >
+                                         <div className="flex items-center justify-between w-full">
+                                           <div className="flex items-center gap-2">
+                                             <span className="font-medium">v{(versionQuestion as Question & { version?: string }).version || '2024'}</span>
+                                           </div>
+                                           {versionQuestion.id === activeQuestion?.id && (
+                                             <span className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded">
+                                               Aktif
+                                             </span>
+                                           )}
+                                         </div>
+                                       </CommandItem>
+                                     ))}
+                                     <CommandItem
+                                       onSelect={() => {
+                                         createNewVersion()
+                                         setVersionComboOpen(false)
+                                       }}
+                                       className="border-t"
                                      >
-                                       Pilih
-                                     </Button>
-                                   )}
-                                 </div>
-                               ))}
-                           </div>
+                                       <div className="flex items-center gap-2 text-primary">
+                                         <Plus className="h-4 w-4" />
+                                         <span className="font-medium">Buat Versi Baru</span>
+                                       </div>
+                                     </CommandItem>
+                                   </CommandGroup>
+                                 </CommandList>
+                               </Command>
+                             </PopoverContent>
+                           </Popover>
                          </div>
                       <div className="space-y-1">
                         <label className="text-sm font-medium">Label</label>
