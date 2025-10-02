@@ -19,11 +19,18 @@ const surveyPersistConfig = {
   whitelist: ['answers', 'otherValues', 'currentQuestionIndex', 'isCompleted'],
 }
 
+// Builder persist config
+const builderPersistConfig = {
+  key: 'builder',
+  storage,
+  whitelist: ['questions', 'pages', 'currentPageIndex', 'activeQuestionId', 'packageMeta'],
+}
+
 // Root reducer
 const rootReducer = combineReducers({
   auth: persistReducer(authPersistConfig, authReducer),
   survey: persistReducer(surveyPersistConfig, surveyReducer),
-  builder: builderReducer,
+  builder: persistReducer(builderPersistConfig, builderReducer),
 })
 
 export const store = configureStore({
