@@ -6,53 +6,53 @@ import { SoalTeks } from "@/components/kuisioner/soal/SoalTeks"
 import { SoalTeksArea } from "@/components/kuisioner/soal/SoalTeksArea"
 import { AdminLayout } from "@/components/layout/admin"
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
+    Breadcrumb,
+    BreadcrumbItem,
+    BreadcrumbLink,
+    BreadcrumbList,
+    BreadcrumbPage,
+    BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
 } from "@/components/ui/command"
 import { Input } from "@/components/ui/input"
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
 } from "@/components/ui/popover"
 import { ResizableCard, ResizableContent, ResizablePanel } from "@/components/ui/resizable-card"
 import { useAppDispatch, useAppSelector } from "@/store/hooks"
 import {
-  addQuestion,
-  createQuestionVersion,
-  nextPage,
-  prevPage,
-  removeQuestion,
-  reorderCurrentPageQuestions,
-  replaceQuestionInCurrentPage,
-  setActiveQuestion,
-  setPageMeta,
-  updateQuestion
+    addQuestion,
+    createQuestionVersion,
+    nextPage,
+    prevPage,
+    removeQuestionVersion,
+    reorderCurrentPageQuestions,
+    replaceQuestionInCurrentPage,
+    setActiveQuestion,
+    setPageMeta,
+    updateQuestion
 } from "@/store/slices/builderSlice"
 import type { ComboBoxQuestion, MultipleChoiceQuestion, Question, RatingQuestion, SingleChoiceQuestion, TextAreaQuestion, TextQuestion } from "@/types/survey"
 import { CheckSquare, ChevronLeft, ChevronRight, ChevronsUpDown, Circle, Edit, FileText, ListFilter, Package, Plus, Star, Trash2, Type, X } from "lucide-react"
@@ -309,15 +309,29 @@ function PaketSoalTracerStudy() {
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>Hapus pertanyaan?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Tindakan ini tidak dapat dibatalkan. Pertanyaan akan dihapus dari halaman ini.
+                              <AlertDialogTitle>Hapus versi pertanyaan?</AlertDialogTitle>
+                              <AlertDialogDescription className="space-y-2">
+                                <div>
+                                  Tindakan ini tidak dapat dibatalkan. Hanya versi pertanyaan yang dipilih akan dihapus.
+                                </div>
+                                <div className="bg-muted p-3 rounded-md">
+                                  <div className="text-sm font-medium">Detail pertanyaan yang akan dihapus:</div>
+                                  <div className="text-sm space-y-1 mt-1">
+                                    <div><span className="font-medium">Kode:</span> {(q as Question & { questionCode?: string }).questionCode || `Q${idx + 1}`}</div>
+                                    <div><span className="font-medium">Versi:</span> v{(q as Question & { version?: string }).version || '2024'}</div>
+                                    <div><span className="font-medium">Label:</span> {q.label}</div>
+                                    <div><span className="font-medium">Tipe:</span> {q.type}</div>
+                                  </div>
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  Versi lain dengan kode yang sama akan tetap tersimpan.
+                                </div>
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Batal</AlertDialogCancel>
-                              <AlertDialogAction onClick={()=>dispatch(removeQuestion(q.id))}>
-                                Hapus
+                              <AlertDialogAction onClick={()=>dispatch(removeQuestionVersion(q.id))}>
+                                Hapus Versi
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>

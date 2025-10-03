@@ -94,7 +94,7 @@ function SoalComboBox({
           const isOpen = openStates[item.id] || false
           const selectedValue = values[item.id]
           const isDisabled = item.disabled || disabled
-          const inputId = React.useMemo(() => `combobox-${item.id}`, [item.id])
+          const inputId = `combobox-${item.id}`
           
           return (
             <div key={item.id} className="space-y-2">

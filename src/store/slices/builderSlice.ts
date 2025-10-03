@@ -111,6 +111,48 @@ const builderSlice = createSlice({
       state.questions = state.questions.map((q, i) => ({ ...q, order: i }))
       state.isDirty = true
     },
+    removeQuestionVersion: (state, action: PayloadAction<string>) => {
+      // Hapus hanya versi soal yang aktif, bukan semua versi dengan kode yang sama
+      const questionToRemove = state.questions.find(q => q.id === action.payload)
+      if (!questionToRemove) return
+      
+      // Cari versi alternatif sebelum menghapus
+      const questionCode = (questionToRemove as any).questionCode
+      let alternativeVersion = null
+      if (questionCode) {
+        alternativeVersion = state.questions.find(q => 
+          (q as any).questionCode === questionCode && q.id !== action.payload
+        )
+      }
+      
+      // Hapus dari halaman aktif
+      const currentPage = state.pages[state.currentPageIndex]
+      if (currentPage) {
+        if (alternativeVersion && state.activeQuestionId === action.payload) {
+          // Ganti dengan versi alternatif
+          const questionIndex = currentPage.questionIds.findIndex(id => id === action.payload)
+          if (questionIndex !== -1) {
+            currentPage.questionIds[questionIndex] = alternativeVersion.id
+            state.activeQuestionId = alternativeVersion.id
+          }
+        } else {
+          // Hapus dari halaman
+          currentPage.questionIds = currentPage.questionIds.filter(id => id !== action.payload)
+        }
+      }
+      
+      // Hapus dari questions pool
+      state.questions = state.questions.filter(q => q.id !== action.payload)
+      
+      // Set activeQuestionId ke undefined jika tidak ada versi alternatif
+      if (state.activeQuestionId === action.payload && !alternativeVersion) {
+        state.activeQuestionId = undefined
+      }
+      
+      // Re-order questions
+      state.questions = state.questions.map((q, i) => ({ ...q, order: i }))
+      state.isDirty = true
+    },
     reorderCurrentPageQuestions: (state, action: PayloadAction<{ from: number; to: number }>) => {
       const page = state.pages[state.currentPageIndex]
       if (!page) return
@@ -150,7 +192,7 @@ const builderSlice = createSlice({
   }
 })
 
-export const { addQuestion, createQuestionVersion, setActiveQuestion, updateQuestion, removeQuestion, reorderQuestions, setPackageMeta, resetBuilder, markSaved, nextPage, prevPage, setPageMeta, reorderCurrentPageQuestions, replaceQuestionInCurrentPage } = builderSlice.actions
+export const { addQuestion, createQuestionVersion, setActiveQuestion, updateQuestion, removeQuestion, removeQuestionVersion, reorderQuestions, setPackageMeta, resetBuilder, markSaved, nextPage, prevPage, setPageMeta, reorderCurrentPageQuestions, replaceQuestionInCurrentPage } = builderSlice.actions
 
 export default builderSlice.reducer
 
