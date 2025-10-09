@@ -8,15 +8,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { CustomPagination } from "@/components/ui/pagination"
 import { 
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
+import { 
   Search, 
   Filter, 
   Users, 
   Calendar,
   BookOpen,
   Award,
-  Building
+  Building,
+  UserCheck
 } from "lucide-react"
 import * as React from "react"
+import { useNavigate } from "react-router-dom"
 
 // Types berdasarkan Prisma schema
 interface Alumni {
@@ -167,6 +177,7 @@ const mockAlumni: Alumni[] = [
 ]
 
 function AlumniDatabase() {
+  const navigate = useNavigate()
   const [alumni] = React.useState<Alumni[]>(mockAlumni)
   const [filteredAlumni, setFilteredAlumni] = React.useState<Alumni[]>(mockAlumni)
   const [showFilters, setShowFilters] = React.useState(false)
@@ -262,18 +273,25 @@ function AlumniDatabase() {
     <AdminLayout>
       <div className="p-6 space-y-6">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-                <Users className="h-8 w-8 text-primary" />
-                Database Alumni
-              </h1>
-              <p className="text-muted-foreground mt-2">
-                Kelola dan pantau data alumni Universitas Andalas
-              </p>
-            </div>
-          </div>
+        <div className="mb-6 relative">
+          {/* Breadcrumb */}
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink 
+                  onClick={() => navigate("/admin/dashboard")}
+                  className="flex items-center space-x-1 cursor-pointer hover:text-primary"
+                >
+                  <UserCheck className="h-4 w-4" />
+                  <span>Manajemen User</span>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Database Alumni</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
         </div>
         
         {/* Stats Cards */}
@@ -340,13 +358,13 @@ function AlumniDatabase() {
                 placeholder="Cari berdasarkan nama, NIM, atau email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-12 h-12 text-base border border-border/50 bg-background focus:border-primary transition-all duration-200"
+                className="pl-12 h-12 text-base border border-border/50 bg-background focus:border-primary transition-all duration-200 rounded-xl"
               />
             </div>
             <Button
               onClick={toggleFilters}
               variant={showFilters ? "default" : "outline"}
-              className="h-12 px-4 flex items-center gap-2"
+              className="h-12 px-6 flex items-center gap-2 rounded-xl font-medium"
             >
               <Filter className="h-4 w-4" />
               Filter

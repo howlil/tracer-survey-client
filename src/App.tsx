@@ -7,9 +7,16 @@ import FAQ from "./pages/FAQ"
 import Home from "./pages/Home"
 import Dashboard from "./pages/admin/Dashboard"
 import LoginAdmin from "./pages/admin/LoginAdmin"
+import AdminManagement from "./pages/admin/manajemenUser/AdminManagement"
 import AlumniDatabase from "./pages/admin/manajemenUser/AlumniDatabase"
 import ManagerDatabase from "./pages/admin/manajemenUser/ManagerDatabase"
+import RoleManagement from "./pages/admin/manajemenUser/RoleManagement"
 import PaketSoalTracerStudy from "./pages/admin/manajemenPaketSoal/PaketSoalTracerStudy"
+import PaketSoalUserSurvey from "./pages/admin/manajemenPaketSoal/PaketSoalUserSurvey"
+import RekapTracerStudy from "./pages/admin/laporanRekap/RekapTracerStudy"
+import RekapUserSurvey from "./pages/admin/laporanRekap/RekapUserSurvey"
+import KirimEmail from "./pages/admin/manajemenEmail/KirimEmail"
+import KelolaTemplateEmail from "./pages/admin/manajemenEmail/KelolaTemplateEmail"
 import LoginTracerStudy from "./pages/tracerStudy/LoginTracerStudy"
 import TracerStudy from "./pages/tracerStudy/TracerStudy"
 import TracerStudySuccess from "./pages/tracerStudy/TracerStudySuccess"
@@ -31,7 +38,14 @@ function App() {
             <Route path="/admin/dashboard" element={<Dashboard />} />
             <Route path="/admin/users/alumni" element={<AlumniDatabase />} />
             <Route path="/admin/users/manager" element={<ManagerDatabase />} />
+            <Route path="/admin/users/admins" element={<AdminManagement />} />
+            <Route path="/admin/users/admin-groups" element={<RoleManagement />} />
             <Route path="/admin/packages/tracer-study" element={<PaketSoalTracerStudy />} />
+            <Route path="/admin/packages/user-survey" element={<PaketSoalUserSurvey />} />
+            <Route path="/admin/reports/tracer-study" element={<RekapTracerStudy />} />
+            <Route path="/admin/reports/user-survey" element={<RekapUserSurvey />} />
+            <Route path="/admin/email/send" element={<KirimEmail />} />
+            <Route path="/admin/email/templates" element={<KelolaTemplateEmail />} />
             <Route path="/tracer-study" element={<TracerStudy />} />
             <Route path="/tracer-study/login" element={<LoginTracerStudy />} />
             <Route path="/tracer-study/survey/:page" element={<TracerStudySurvey />} />

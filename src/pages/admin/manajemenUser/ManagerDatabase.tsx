@@ -7,14 +7,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { CustomPagination } from "@/components/ui/pagination"
 import { 
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
+import { 
   Search, 
   Filter, 
   Users, 
   Building2,
   Briefcase,
-  Mail
+  Mail,
+  UserCheck
 } from "lucide-react"
 import * as React from "react"
+import { useNavigate } from "react-router-dom"
 
 // Types berdasarkan Prisma schema
 interface Respondent {
@@ -169,6 +179,7 @@ const mockManagers: Manager[] = [
 ]
 
 function ManagerDatabase() {
+  const navigate = useNavigate()
   const [managers] = React.useState<Manager[]>(mockManagers)
   const [filteredManagers, setFilteredManagers] = React.useState<Manager[]>(mockManagers)
   const [showFilters, setShowFilters] = React.useState(false)
@@ -241,18 +252,26 @@ function ManagerDatabase() {
     <AdminLayout>
       <div className="p-6 space-y-6">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-                <Users className="h-8 w-8 text-primary" />
-                Database Pengguna Alumni
-              </h1>
-              <p className="text-muted-foreground mt-2">
-                Kelola dan pantau data pengguna alumni (Manager) Universitas Andalas
-              </p>
-            </div>
-          </div>
+        <div className="mb-6 relative">
+          {/* Breadcrumb */}
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink 
+                  onClick={() => navigate("/admin/dashboard")}
+                  className="flex items-center space-x-1 cursor-pointer hover:text-primary"
+                >
+                  <UserCheck className="h-4 w-4" />
+                  <span>Manajemen User</span>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Database Manager</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+
         </div>
         
         {/* Stats Cards */}

@@ -2,6 +2,12 @@ import { AdminLayout } from "@/components/layout/admin"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { 
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+} from "@/components/ui/breadcrumb"
 import { toast } from "sonner"
 import { useNavigate } from "react-router-dom"
 import {
@@ -11,9 +17,9 @@ import {
     Clock,
     FileText,
     TrendingUp,
-    UserCheck,
     Users,
-    Database
+    Database,
+    Home
 } from "lucide-react"
 
 interface StatCardProps {
@@ -212,19 +218,22 @@ function Dashboard() {
     <AdminLayout>
       <div className="p-6 space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-            <p className="text-muted-foreground">
-              Selamat datang di panel admin Tracer Study & User Survey
-            </p>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Badge variant="outline" className="flex items-center space-x-1">
-              <UserCheck className="h-3 w-3" />
-              <span>Admin</span>
-            </Badge>
-          </div>
+        <div className="mb-6 relative">
+          {/* Breadcrumb */}
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbPage className="flex items-center space-x-1">
+                  <Home className="h-4 w-4" />
+                  <span>Dashboard</span>
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+
+          
+
+         
         </div>
 
         {/* Stats Grid */}
@@ -297,6 +306,32 @@ function Dashboard() {
                     <div>
                       <p className="font-medium">Database Manager</p>
                       <p className="text-xs text-muted-foreground">Kelola data pengguna alumni</p>
+                    </div>
+                  </div>
+                </button>
+
+                <button 
+                  onClick={() => navigate('/admin/users/admins')}
+                  className="w-full text-left p-3 rounded-lg border hover:bg-muted transition-colors"
+                >
+                  <div className="flex items-center space-x-3">
+                    <Users className="h-4 w-4 text-primary" />
+                    <div>
+                      <p className="font-medium">Kelola Admin</p>
+                      <p className="text-xs text-muted-foreground">Kelola data admin dan role</p>
+                    </div>
+                  </div>
+                </button>
+
+                <button 
+                  onClick={() => navigate('/admin/users/admin-groups')}
+                  className="w-full text-left p-3 rounded-lg border hover:bg-muted transition-colors"
+                >
+                  <div className="flex items-center space-x-3">
+                    <Users className="h-4 w-4 text-primary" />
+                    <div>
+                      <p className="font-medium">Kelola Grup Admin</p>
+                      <p className="text-xs text-muted-foreground">Kelola role dan permission admin</p>
                     </div>
                   </div>
                 </button>
