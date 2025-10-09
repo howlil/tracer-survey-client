@@ -17,6 +17,7 @@ import RekapTracerStudy from "./pages/admin/laporanRekap/RekapTracerStudy"
 import RekapUserSurvey from "./pages/admin/laporanRekap/RekapUserSurvey"
 import KirimEmail from "./pages/admin/manajemenEmail/KirimEmail"
 import KelolaTemplateEmail from "./pages/admin/manajemenEmail/KelolaTemplateEmail"
+import KelolaTemplateEmailEditor from "./pages/admin/manajemenEmail/KelolaTemplateEmailEditor"
 import LoginTracerStudy from "./pages/tracerStudy/LoginTracerStudy"
 import TracerStudy from "./pages/tracerStudy/TracerStudy"
 import TracerStudySuccess from "./pages/tracerStudy/TracerStudySuccess"
@@ -46,6 +47,8 @@ function App() {
             <Route path="/admin/reports/user-survey" element={<RekapUserSurvey />} />
             <Route path="/admin/email/send" element={<KirimEmail />} />
             <Route path="/admin/email/templates" element={<KelolaTemplateEmail />} />
+            <Route path="/admin/email/templates/new" element={<KelolaTemplateEmailEditor />} />
+            <Route path="/admin/email/templates/:id/edit" element={<KelolaTemplateEmailEditor />} />
             <Route path="/tracer-study" element={<TracerStudy />} />
             <Route path="/tracer-study/login" element={<LoginTracerStudy />} />
             <Route path="/tracer-study/survey/:page" element={<TracerStudySurvey />} />
