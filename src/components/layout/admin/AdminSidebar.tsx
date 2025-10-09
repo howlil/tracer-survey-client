@@ -63,7 +63,7 @@ const sidebarItems: SidebarItem[] = [
       {
         label: "Database Pengguna Alumni",
         icon: UserPlus,
-        href: "/admin/users/alumni-users"
+        href: "/admin/users/manager"
       }
     ]
   },
@@ -130,6 +130,7 @@ function AdminSidebar({
   const location = useLocation()
   const [expandedItems, setExpandedItems] = React.useState<Set<string>>(new Set())
   const [persistentHoveredItem, setPersistentHoveredItem] = React.useState<string | null>(null)
+  const manuallyClosedRef = React.useRef<Set<string>>(new Set())
 
   const handleItemClick = (href: string) => {
     navigate(href)
@@ -137,12 +138,16 @@ function AdminSidebar({
 
   const handleParentClick = (item: SidebarItem) => {
     if (item.children && item.children.length > 0) {
-      // Toggle expanded state
+      // Always allow toggle - user should be able to close even active parents
       const newExpanded = new Set(expandedItems)
       if (newExpanded.has(item.href)) {
         newExpanded.delete(item.href)
+        // Mark as manually closed
+        manuallyClosedRef.current.add(item.href)
       } else {
         newExpanded.add(item.href)
+        // Remove from manually closed when opened
+        manuallyClosedRef.current.delete(item.href)
       }
       setExpandedItems(newExpanded)
     } else {
@@ -150,14 +155,14 @@ function AdminSidebar({
     }
   }
 
-  const isActive = (href: string) => {
+  const isActive = React.useCallback((href: string) => {
     return location.pathname === href || location.pathname.startsWith(href + "/")
-  }
+  }, [location.pathname])
 
-  const isParentActive = (item: SidebarItem) => {
+  const isParentActive = React.useCallback((item: SidebarItem) => {
     if (!item.children) return false
     return item.children.some(child => isActive(child.href))
-  }
+  }, [isActive])
 
   const handleMouseEnter = (item: SidebarItem) => {
     if (isCollapsed && item.children && item.children.length > 0) {
@@ -188,6 +193,27 @@ function AdminSidebar({
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [persistentHoveredItem])
+
+  // Auto-expand parent items when navigating to their children (respect manual close)
+  React.useEffect(() => {
+    const currentPath = location.pathname
+    setExpandedItems(prev => {
+      const newExpanded = new Set(prev)
+      
+      sidebarItems.forEach(item => {
+        if (item.children) {
+          const hasActiveChild = item.children.some(child => 
+            currentPath === child.href || currentPath.startsWith(child.href + "/")
+          )
+          if (hasActiveChild && !manuallyClosedRef.current.has(item.href)) {
+            // Only auto-expand if not manually closed
+            newExpanded.add(item.href)
+          }
+        }
+      })
+      return newExpanded
+    })
+  }, [location.pathname])
 
   return (
     <aside

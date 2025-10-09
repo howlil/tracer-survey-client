@@ -356,29 +356,43 @@ function PaketSoalTracerStudy() {
                     
                     // Filter out non-DOM props before passing to components
                     const getCleanProps = (question: Question) => {
-                      const { questionCode, version, ...cleanProps } = question as any
+                      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                      const { questionCode, version, ...cleanProps } = question as Question & { questionCode?: string; version?: string }
                       return cleanProps
                     }
                     
                     switch(q.type){
-                      case 'text':
-                        const textProps = getCleanProps(q as TextQuestion)
-                        return Wrap(<SoalTeks {...textProps} {...common} value="" onChange={()=>{}} />)
-                      case 'textarea':
-                        const textareaProps = getCleanProps(q as TextAreaQuestion)
+                      case 'text': {
+                        const textQuestion = q as TextQuestion
+                        const textProps = getCleanProps(textQuestion)
+                        // Ensure type is only "text" for SoalTeks
+                        return Wrap(<SoalTeks {...{...textProps, type: "text"}} {...common} value="" onChange={()=>{}} />)
+                      }
+                      case 'textarea': {
+                        const textareaQuestion = q as TextAreaQuestion
+                        const textareaProps = getCleanProps(textareaQuestion)
                         return Wrap(<SoalTeksArea {...textareaProps} {...common} value="" onChange={()=>{}} />)
-                      case 'single':
-                        const singleProps = getCleanProps(q as SingleChoiceQuestion)
-                        return Wrap(<SoalSingleChoice {...singleProps} {...common} opsiJawaban={(q as SingleChoiceQuestion).options} value="" onChange={()=>{}} />)
-                      case 'multiple':
-                        const multipleProps = getCleanProps(q as MultipleChoiceQuestion)
-                        return Wrap(<SoalMultiChoice {...multipleProps} {...common} opsiJawaban={(q as MultipleChoiceQuestion).options} value={[]} onChange={()=>{}} />)
-                      case 'combobox':
-                        const comboProps = getCleanProps(q as ComboBoxQuestion)
-                        return Wrap(<SoalComboBox {...comboProps} {...common} comboboxItems={(q as ComboBoxQuestion).comboboxItems.map((it)=>({...it, opsiComboBox: it.options}))} values={{}} onChange={()=>{}} />)
-                      case 'rating':
-                        const ratingProps = getCleanProps(q as RatingQuestion)
-                        return Wrap(<SoalRating {...ratingProps} {...common} values={{}} onChange={()=>{}} />)
+                      }
+                      case 'single': {
+                        const singleQuestion = q as SingleChoiceQuestion
+                        const singleProps = getCleanProps(singleQuestion)
+                        return Wrap(<SoalSingleChoice {...singleProps} {...common} opsiJawaban={singleQuestion.options} value="" onChange={()=>{}} />)
+                      }
+                      case 'multiple': {
+                        const multipleQuestion = q as MultipleChoiceQuestion
+                        const multipleProps = getCleanProps(multipleQuestion)
+                        return Wrap(<SoalMultiChoice {...multipleProps} {...common} opsiJawaban={multipleQuestion.options} value={[]} onChange={()=>{}} />)
+                      }
+                      case 'combobox': {
+                        const comboQuestion = q as ComboBoxQuestion
+                        const comboProps = getCleanProps(comboQuestion)
+                        return Wrap(<SoalComboBox {...comboProps} {...common} comboboxItems={comboQuestion.comboboxItems.map((it)=>({...it, opsiComboBox: it.options}))} values={{}} onChange={()=>{}} />)
+                      }
+                      case 'rating': {
+                        const ratingQuestion = q as RatingQuestion
+                        const ratingProps = getCleanProps(ratingQuestion)
+                        return Wrap(<SoalRating {...ratingProps} {...common} ratingItems={ratingQuestion.ratingItems} values={{}} onChange={()=>{}} />)
+                      }
                       default:
                         return null
                     }

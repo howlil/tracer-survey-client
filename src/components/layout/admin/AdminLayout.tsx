@@ -31,7 +31,6 @@ function AdminLayout({
       {/* Navbar */}
       <AdminNavbar 
         onMenuToggle={handleMobileMenuToggle}
-        isMenuOpen={mobileMenuOpen}
       />
 
       <div className="flex h-[calc(100vh-4rem)]">
