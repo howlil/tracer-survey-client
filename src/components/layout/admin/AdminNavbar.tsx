@@ -7,13 +7,11 @@ import { useNavigate } from "react-router-dom"
 interface AdminNavbarProps {
   className?: string
   onMenuToggle?: () => void
-  isMenuOpen?: boolean
 }
 
 function AdminNavbar({
   className,
   onMenuToggle,
-  isMenuOpen = false,
   ...props
 }: AdminNavbarProps) {
   const navigate = useNavigate()

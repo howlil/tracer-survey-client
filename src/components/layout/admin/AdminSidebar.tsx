@@ -63,7 +63,7 @@ const sidebarItems: SidebarItem[] = [
       {
         label: "Database Pengguna Alumni",
         icon: UserPlus,
-        href: "/admin/users/alumni-users"
+        href: "/admin/users/manager"
       }
     ]
   },

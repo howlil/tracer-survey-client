@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "sonner"
+import { useNavigate } from "react-router-dom"
 import {
     AlertCircle,
     BarChart3,
@@ -11,7 +12,8 @@ import {
     FileText,
     TrendingUp,
     UserCheck,
-    Users
+    Users,
+    Database
 } from "lucide-react"
 
 interface StatCardProps {
@@ -110,6 +112,8 @@ function RecentActivityItem({ type, name, status, time }: RecentActivityProps) {
 }
 
 function Dashboard() {
+  const navigate = useNavigate()
+  
   // Test toast functions
   const testSuccessToast = () => {
     toast.success("Test Success Toast", {
@@ -271,12 +275,28 @@ function Dashboard() {
                   </div>
                 </button>
                 
-                <button className="w-full text-left p-3 rounded-lg border hover:bg-muted transition-colors">
+                <button 
+                  onClick={() => navigate('/admin/manajemen-user/alumni-database')}
+                  className="w-full text-left p-3 rounded-lg border hover:bg-muted transition-colors"
+                >
+                  <div className="flex items-center space-x-3">
+                    <Database className="h-4 w-4 text-primary" />
+                    <div>
+                      <p className="font-medium">Database Alumni</p>
+                      <p className="text-xs text-muted-foreground">Kelola data alumni</p>
+                    </div>
+                  </div>
+                </button>
+
+                <button 
+                  onClick={() => navigate('/admin/users/manager')}
+                  className="w-full text-left p-3 rounded-lg border hover:bg-muted transition-colors"
+                >
                   <div className="flex items-center space-x-3">
                     <Users className="h-4 w-4 text-primary" />
                     <div>
-                      <p className="font-medium">Lihat User Survey</p>
-                      <p className="text-xs text-muted-foreground">Kelola data user survey</p>
+                      <p className="font-medium">Database Manager</p>
+                      <p className="text-xs text-muted-foreground">Kelola data pengguna alumni</p>
                     </div>
                   </div>
                 </button>
