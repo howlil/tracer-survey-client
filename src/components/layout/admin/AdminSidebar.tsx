@@ -7,11 +7,13 @@ import {
     File,
     FileBarChart,
     FileText,
+    HelpCircle,
     Home,
     LogOut,
     Mail,
     Package,
     Send,
+    Settings,
     UserCheck,
     UserCog,
     UserPlus,
@@ -68,21 +70,9 @@ const sidebarItems: SidebarItem[] = [
     ]
   },
   {
-    label: "Manajemen Paket Soal",
-    icon: Package,
-    href: "/admin/packages",
-    children: [
-      {
-        label: "Kelola Paket Soal Tracer Study",
-        icon: FileText,
-        href: "/admin/packages/tracer-study"
-      },
-      {
-        label: "Kelola Paket Soal User Survey",
-        icon: Users,
-        href: "/admin/packages/user-survey"
-      }
-    ]
+    label: "Pengaturan Survey",
+    icon: Settings,
+    href: "/admin/survey"
   },
   {
     label: "Laporan & Rekap",
@@ -117,6 +107,11 @@ const sidebarItems: SidebarItem[] = [
         href: "/admin/email/templates"
       }
     ]
+  },
+  {
+    label: "Kelola FAQ",
+    icon: HelpCircle,
+    href: "/admin/faq"
   }
 ]
 

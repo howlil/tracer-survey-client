@@ -55,11 +55,11 @@ import {
     updateQuestion
 } from "@/store/slices/builderSlice"
 import type { ComboBoxQuestion, MultipleChoiceQuestion, Question, RatingQuestion, SingleChoiceQuestion, TextAreaQuestion, TextQuestion } from "@/types/survey"
-import { CheckSquare, ChevronLeft, ChevronRight, ChevronsUpDown, Circle, Edit, FileText, ListFilter, Package, Plus, Star, Trash2, Type, X } from "lucide-react"
+import { CheckSquare, ChevronLeft, ChevronRight, ChevronsUpDown, Circle, Edit, FileText, ListFilter, Package, Plus, Star, Trash2, Type, X, ArrowLeft } from "lucide-react"
 import * as React from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 
-function PaketSoalTracerStudy() {
+function SurveyBuilder() {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -69,9 +69,45 @@ function PaketSoalTracerStudy() {
   const [overIndex, setOverIndex] = React.useState<number | null>(null)
   const [versionComboOpen, setVersionComboOpen] = React.useState(false)
   
-  // Get edit mode from URL parameter
+  // Get survey type and mode from URL parameters
+  const surveyType = searchParams.get('type') as 'TRACER_STUDY' | 'USER_SURVEY' | null
+  const mode = searchParams.get('mode') as 'create' | 'edit' | null
+  const surveyId = searchParams.get('id')
   const isEditMode = searchParams.get('edit') === 'true'
+  
   const activeQuestion = questions.find(q => q.id === activeQuestionId)
+
+  // Get survey type info
+  const getSurveyTypeInfo = () => {
+    switch (surveyType) {
+      case 'TRACER_STUDY':
+        return {
+          title: 'Tracer Study',
+          description: 'Survey untuk melacak status lulusan dan alumni',
+          icon: FileText,
+          color: 'text-blue-600',
+          bgColor: 'bg-blue-50'
+        }
+      case 'USER_SURVEY':
+        return {
+          title: 'User Survey',
+          description: 'Survey untuk mengukur kepuasan mahasiswa',
+          icon: Package,
+          color: 'text-purple-600',
+          bgColor: 'bg-purple-50'
+        }
+      default:
+        return {
+          title: 'Survey',
+          description: 'Survey builder',
+          icon: FileText,
+          color: 'text-gray-600',
+          bgColor: 'bg-gray-50'
+        }
+    }
+  }
+
+  const surveyInfo = getSurveyTypeInfo()
 
   const handleAdd = (type: Question["type"]) => {
     dispatch(addQuestion(type))
@@ -81,14 +117,20 @@ function PaketSoalTracerStudy() {
   const toggleEditMode = () => {
     const newEditMode = !isEditMode
     if (newEditMode) {
-      setSearchParams({ edit: 'true' })
+      setSearchParams(prev => {
+        const newParams = new URLSearchParams(prev)
+        newParams.set('edit', 'true')
+        return newParams
+      })
     } else {
-      setSearchParams({})
+      setSearchParams(prev => {
+        const newParams = new URLSearchParams(prev)
+        newParams.delete('edit')
+        return newParams
+      })
     }
   }
 
-  // const handleSelect = (id: string) => dispatch(setActiveQuestion(id))
-  // const handleRemove = (id: string) => dispatch(removeQuestion(id))
   const patchActive = (patch: Partial<Question>) => {
     if (!activeQuestion) return
     dispatch(updateQuestion({ id: activeQuestion.id, patch }))
@@ -171,6 +213,16 @@ function PaketSoalTracerStudy() {
     dispatch(setActiveQuestion(newQuestionData.id))
   }
 
+  const handleSave = () => {
+    // TODO: Implement save logic
+    console.log('Saving survey...', { surveyType, mode, surveyId })
+    navigate('/admin/survey')
+  }
+
+  const handleBack = () => {
+    navigate('/admin/survey')
+  }
+
   return (
     <AdminLayout>
       <div className="h-[calc(100vh-4rem)] p-6">
@@ -181,27 +233,51 @@ function PaketSoalTracerStudy() {
             <BreadcrumbList>
               <BreadcrumbItem>
                 <BreadcrumbLink 
-                  onClick={() => navigate("/admin/packages")}
+                  onClick={() => navigate("/admin/dashboard")}
                   className="flex items-center space-x-1 cursor-pointer hover:text-primary"
                 >
                   <Package className="h-4 w-4" />
-                  <span>Manajemen Paket Soal</span>
+                  <span>Dashboard</span>
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
-                <BreadcrumbPage>Tracer Study</BreadcrumbPage>
+                <BreadcrumbLink 
+                  onClick={() => navigate("/admin/survey")}
+                  className="flex items-center space-x-1 cursor-pointer hover:text-primary"
+                >
+                  <FileText className="h-4 w-4" />
+                  <span>Pengaturan Survey</span>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>{surveyInfo.title}</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
 
           {/* Title - Centered */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <h1 className="text-xl font-bold text-foreground">Kelola Paket Soal Tracer Study</h1>
+            <div className="text-center">
+              <h1 className="text-xl font-bold text-foreground flex items-center justify-center space-x-2">
+                <surveyInfo.icon className={`h-6 w-6 ${surveyInfo.color}`} />
+                <span>Kelola {surveyInfo.title}</span>
+              </h1>
+              <p className="text-sm text-muted-foreground mt-1">{surveyInfo.description}</p>
+            </div>
           </div>
 
-          {/* Edit Button - Top Right */}
-          <div className="absolute top-0 right-0 pointer-events-auto">
+          {/* Action Buttons - Top Right */}
+          <div className="absolute top-0 right-0 pointer-events-auto flex items-center space-x-2">
+            <Button
+              variant="outline"
+              onClick={handleBack}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Kembali
+            </Button>
             <Button
               variant={isEditMode ? "default" : "outline"}
               onClick={toggleEditMode}
@@ -209,6 +285,13 @@ function PaketSoalTracerStudy() {
             >
               <Edit className="h-4 w-4" />
               {isEditMode ? "Keluar Edit" : "Edit"}
+            </Button>
+            <Button
+              onClick={handleSave}
+              className="flex items-center gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              Simpan
             </Button>
           </div>
         </div>
@@ -250,7 +333,6 @@ function PaketSoalTracerStudy() {
                       <Star className="h-4 w-4 mr-2" /> Rating
                     </Button>
                   </div>
-                  {/* Tidak ada daftar soal di panel kiri sesuai permintaan */}
                 </CardContent>
               </Card>
             </ResizablePanel>
@@ -720,4 +802,4 @@ function PaketSoalTracerStudy() {
   )
 }
 
-export default PaketSoalTracerStudy
+export default SurveyBuilder
