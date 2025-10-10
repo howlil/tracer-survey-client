@@ -11,13 +11,17 @@ import AdminManagement from "./pages/admin/manajemenUser/AdminManagement"
 import AlumniDatabase from "./pages/admin/manajemenUser/AlumniDatabase"
 import ManagerDatabase from "./pages/admin/manajemenUser/ManagerDatabase"
 import RoleManagement from "./pages/admin/manajemenUser/RoleManagement"
-import PaketSoalTracerStudy from "./pages/admin/manajemenPaketSoal/PaketSoalTracerStudy"
-import PaketSoalUserSurvey from "./pages/admin/manajemenPaketSoal/PaketSoalUserSurvey"
+import SurveyManagement from "./pages/admin/manajemenSurvey/SurveyManagement"
+import SurveyBuilder from "./pages/admin/manajemenSurvey/SurveyBuilder"
+import SurveySettings from "./pages/admin/manajemenSurvey/SurveySettings"
 import RekapTracerStudy from "./pages/admin/laporanRekap/RekapTracerStudy"
 import RekapUserSurvey from "./pages/admin/laporanRekap/RekapUserSurvey"
+import DetailResponseTracerStudy from "./pages/admin/laporanRekap/DetailResponseTracerStudy"
+import DetailResponseUserSurvey from "./pages/admin/laporanRekap/DetailResponseUserSurvey"
 import KirimEmail from "./pages/admin/manajemenEmail/KirimEmail"
 import KelolaTemplateEmail from "./pages/admin/manajemenEmail/KelolaTemplateEmail"
 import KelolaTemplateEmailEditor from "./pages/admin/manajemenEmail/KelolaTemplateEmailEditor"
+import KelolaFAQ from "./pages/admin/manajemenFAQ/KelolaFAQ"
 import LoginTracerStudy from "./pages/tracerStudy/LoginTracerStudy"
 import TracerStudy from "./pages/tracerStudy/TracerStudy"
 import TracerStudySuccess from "./pages/tracerStudy/TracerStudySuccess"
@@ -41,14 +45,18 @@ function App() {
             <Route path="/admin/users/manager" element={<ManagerDatabase />} />
             <Route path="/admin/users/admins" element={<AdminManagement />} />
             <Route path="/admin/users/admin-groups" element={<RoleManagement />} />
-            <Route path="/admin/packages/tracer-study" element={<PaketSoalTracerStudy />} />
-            <Route path="/admin/packages/user-survey" element={<PaketSoalUserSurvey />} />
+            <Route path="/admin/survey" element={<SurveyManagement />} />
+            <Route path="/admin/survey/builder" element={<SurveyBuilder />} />
+            <Route path="/admin/survey/settings" element={<SurveySettings />} />
             <Route path="/admin/reports/tracer-study" element={<RekapTracerStudy />} />
+            <Route path="/admin/reports/tracer-study/detail" element={<DetailResponseTracerStudy />} />
             <Route path="/admin/reports/user-survey" element={<RekapUserSurvey />} />
+            <Route path="/admin/reports/user-survey/detail" element={<DetailResponseUserSurvey />} />
             <Route path="/admin/email/send" element={<KirimEmail />} />
             <Route path="/admin/email/templates" element={<KelolaTemplateEmail />} />
             <Route path="/admin/email/templates/new" element={<KelolaTemplateEmailEditor />} />
             <Route path="/admin/email/templates/:id/edit" element={<KelolaTemplateEmailEditor />} />
+            <Route path="/admin/faq" element={<KelolaFAQ />} />
             <Route path="/tracer-study" element={<TracerStudy />} />
             <Route path="/tracer-study/login" element={<LoginTracerStudy />} />
             <Route path="/tracer-study/survey/:page" element={<TracerStudySurvey />} />
