@@ -2,7 +2,6 @@
 
 import {AdminLayout} from '@/components/layout/admin/AdminLayout';
 import {Button} from '@/components/ui/button';
-import {Card, CardContent} from '@/components/ui/card';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {
@@ -52,15 +51,13 @@ import {
   Search,
   Filter,
   Users,
-  Calendar,
-  BookOpen,
   Award,
-  Building,
   UserCheck,
   Plus,
   Upload,
   FileSpreadsheet,
   X,
+  Edit,
 } from 'lucide-react';
 import * as React from 'react';
 import {useNavigate} from 'react-router-dom';
@@ -252,7 +249,9 @@ function AlumniDatabase() {
 
   // Dialog states
   const [showAddDialog, setShowAddDialog] = React.useState(false);
+  const [showEditDialog, setShowEditDialog] = React.useState(false);
   const [showImportDialog, setShowImportDialog] = React.useState(false);
+  const [editingAlumni, setEditingAlumni] = React.useState<Alumni | null>(null);
 
   // Form states for manual add
   const [formData, setFormData] = React.useState({
@@ -517,6 +516,98 @@ function AlumniDatabase() {
     setImportPreview([]);
     setShowImportPreview(false);
   };
+
+  // Edit and Delete functions
+  const handleEditAlumni = (alumni: Alumni) => {
+    setEditingAlumni(alumni);
+    setFormData({
+      nim: alumni.nim,
+      fullName: alumni.respondent.fullName,
+      email: alumni.respondent.email,
+      facultyId: alumni.major.faculty.id,
+      majorId: alumni.major.id,
+      degree: alumni.degree,
+      graduatedYear: alumni.graduatedYear.toString(),
+      graduatePeriode: alumni.graduatePeriode,
+    });
+    setShowEditDialog(true);
+  };
+
+  const handleUpdateAlumni = () => {
+    if (!editingAlumni) return;
+
+    // Validate form
+    if (
+      !formData.nim ||
+      !formData.fullName ||
+      !formData.email ||
+      !formData.facultyId ||
+      !formData.majorId ||
+      !formData.degree ||
+      !formData.graduatedYear ||
+      !formData.graduatePeriode
+    ) {
+      toast.error('Semua field harus diisi');
+      return;
+    }
+
+    // Check if NIM already exists (excluding current alumni)
+    if (
+      alumni.some(
+        (a) => a.nim === formData.nim && a.id !== editingAlumni.id
+      )
+    ) {
+      toast.error('NIM sudah terdaftar');
+      return;
+    }
+
+    // Check if email already exists (excluding current alumni)
+    if (
+      alumni.some(
+        (a) => a.respondent.email === formData.email && a.id !== editingAlumni.id
+      )
+    ) {
+      toast.error('Email sudah terdaftar');
+      return;
+    }
+
+    // Update alumni
+    const updatedAlumni: Alumni = {
+      ...editingAlumni,
+      nim: formData.nim,
+      graduatedYear: parseInt(formData.graduatedYear),
+      graduatePeriode: formData.graduatePeriode as Alumni['graduatePeriode'],
+      degree: formData.degree as Alumni['degree'],
+      respondent: {
+        ...editingAlumni.respondent,
+        fullName: formData.fullName,
+        email: formData.email,
+      },
+      major: mockMajors.find((m) => m.id === formData.majorId)!,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setAlumni((prev) =>
+      prev.map((a) => (a.id === editingAlumni.id ? updatedAlumni : a))
+    );
+    setShowEditDialog(false);
+    setEditingAlumni(null);
+
+    // Reset form
+    setFormData({
+      nim: '',
+      fullName: '',
+      email: '',
+      facultyId: '',
+      majorId: '',
+      degree: '',
+      graduatedYear: '',
+      graduatePeriode: '',
+    });
+
+    toast.success('Data alumni berhasil diperbarui');
+  };
+
 
   return (
     <AdminLayout>
@@ -793,6 +884,248 @@ function AlumniDatabase() {
                 </SheetContent>
               </Sheet>
 
+              {/* Edit Alumni Sheet */}
+              <Sheet
+                open={showEditDialog}
+                onOpenChange={setShowEditDialog}
+              >
+                <SheetContent className='w-[500px] sm:w-[600px]'>
+                  <SheetHeader>
+                    <SheetTitle className='text-xl font-semibold'>
+                      Edit Data Alumni
+                    </SheetTitle>
+                    <SheetDescription>
+                      Perbarui data alumni. Semua field yang bertanda (*) wajib diisi.
+                    </SheetDescription>
+                  </SheetHeader>
+
+                  <div className='px-4 space-y-4'>
+                    {/* Personal Information */}
+                    <div className='space-y-2'>
+                      <Label
+                        htmlFor='edit-nim'
+                        className='text-sm font-medium'
+                      >
+                        NIM *
+                      </Label>
+                      <Input
+                        id='edit-nim'
+                        value={formData.nim}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            nim: e.target.value,
+                          }))
+                        }
+                        placeholder='Masukkan NIM'
+                        className='h-10'
+                      />
+                    </div>
+                    <div className='space-y-2'>
+                      <Label
+                        htmlFor='edit-fullName'
+                        className='text-sm font-medium'
+                      >
+                        Nama Lengkap *
+                      </Label>
+                      <Input
+                        id='edit-fullName'
+                        value={formData.fullName}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            fullName: e.target.value,
+                          }))
+                        }
+                        placeholder='Masukkan nama lengkap'
+                        className='h-10'
+                      />
+                    </div>
+                    <div className='space-y-2'>
+                      <Label
+                        htmlFor='edit-email'
+                        className='text-sm font-medium'
+                      >
+                        Email *
+                      </Label>
+                      <Input
+                        id='edit-email'
+                        type='email'
+                        value={formData.email}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            email: e.target.value,
+                          }))
+                        }
+                        placeholder='Masukkan email'
+                        className='h-10'
+                      />
+                    </div>
+
+                    {/* Academic Information */}
+                    <div className='space-y-2'>
+                      <Label
+                        htmlFor='edit-faculty'
+                        className='text-sm font-medium'
+                      >
+                        Fakultas *
+                      </Label>
+                      <Select
+                        value={formData.facultyId}
+                        onValueChange={(value) => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            facultyId: value,
+                            majorId: '',
+                          }));
+                        }}
+                      >
+                        <SelectTrigger className='h-10'>
+                          <SelectValue placeholder='Pilih Fakultas' />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {mockFaculties.map((faculty) => (
+                            <SelectItem
+                              key={faculty.id}
+                              value={faculty.id}
+                            >
+                              {faculty.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className='space-y-2'>
+                      <Label
+                        htmlFor='edit-major'
+                        className='text-sm font-medium'
+                      >
+                        Program Studi *
+                      </Label>
+                      <Select
+                        value={formData.majorId}
+                        onValueChange={(value) =>
+                          setFormData((prev) => ({...prev, majorId: value}))
+                        }
+                        disabled={!formData.facultyId}
+                      >
+                        <SelectTrigger className='h-10'>
+                          <SelectValue placeholder='Pilih Program Studi' />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {mockMajors
+                            .filter(
+                              (major) => major.faculty.id === formData.facultyId
+                            )
+                            .map((major) => (
+                              <SelectItem
+                                key={major.id}
+                                value={major.id}
+                              >
+                                {major.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className='grid grid-cols-2 gap-4'>
+                      <div className='space-y-2'>
+                        <Label
+                          htmlFor='edit-degree'
+                          className='text-sm font-medium'
+                        >
+                          Jenjang *
+                        </Label>
+                        <Select
+                          value={formData.degree}
+                          onValueChange={(value) =>
+                            setFormData((prev) => ({...prev, degree: value}))
+                          }
+                        >
+                          <SelectTrigger className='h-10'>
+                            <SelectValue placeholder='Pilih Jenjang' />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value='D3'>D3</SelectItem>
+                            <SelectItem value='S1'>S1</SelectItem>
+                            <SelectItem value='S2'>S2</SelectItem>
+                            <SelectItem value='S3'>S3</SelectItem>
+                            <SelectItem value='PROFESI'>Profesi</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className='space-y-2'>
+                        <Label
+                          htmlFor='edit-graduatedYear'
+                          className='text-sm font-medium'
+                        >
+                          Tahun Lulus *
+                        </Label>
+                        <Input
+                          id='edit-graduatedYear'
+                          type='number'
+                          value={formData.graduatedYear}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              graduatedYear: e.target.value,
+                            }))
+                          }
+                          placeholder='2023'
+                          className='h-10'
+                        />
+                      </div>
+                    </div>
+                    <div className='space-y-2'>
+                      <Label
+                        htmlFor='edit-graduatePeriode'
+                        className='text-sm font-medium'
+                      >
+                        Periode Wisuda *
+                      </Label>
+                      <Select
+                        value={formData.graduatePeriode}
+                        onValueChange={(value) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            graduatePeriode: value,
+                          }))
+                        }
+                      >
+                        <SelectTrigger className='h-10'>
+                          <SelectValue placeholder='Pilih Periode' />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value='WISUDA_I'>Wisuda I</SelectItem>
+                          <SelectItem value='WISUDA_II'>Wisuda II</SelectItem>
+                          <SelectItem value='WISUDA_III'>Wisuda III</SelectItem>
+                          <SelectItem value='WISUDA_IV'>Wisuda IV</SelectItem>
+                          <SelectItem value='WISUDA_V'>Wisuda V</SelectItem>
+                          <SelectItem value='WISUDA_VI'>Wisuda VI</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <SheetFooter className='gap-2'>
+                    <Button
+                      variant='outline'
+                      onClick={() => setShowEditDialog(false)}
+                      className='flex-1'
+                    >
+                      Batal
+                    </Button>
+                    <Button
+                      onClick={handleUpdateAlumni}
+                      className='flex-1'
+                    >
+                      Perbarui Data
+                    </Button>
+                  </SheetFooter>
+                </SheetContent>
+              </Sheet>
+
               <Dialog
                 open={showImportDialog}
                 onOpenChange={setShowImportDialog}
@@ -919,77 +1252,7 @@ function AlumniDatabase() {
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className='grid grid-cols-1 md:grid-cols-4 gap-6 mb-8'>
-          <Card>
-            <CardContent className='p-6'>
-              <div className='flex items-center justify-between'>
-                <div>
-                  <p className='text-sm font-medium text-muted-foreground'>
-                    Total Alumni
-                  </p>
-                  <p className='text-2xl font-bold text-foreground'>
-                    {alumni.length}
-                  </p>
-                </div>
-                <Users className='h-8 w-8 text-primary' />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className='p-6'>
-              <div className='flex items-center justify-between'>
-                <div>
-                  <p className='text-sm font-medium text-muted-foreground'>
-                    Tahun Ini
-                  </p>
-                  <p className='text-2xl font-bold text-foreground'>
-                    {
-                      alumni.filter(
-                        (a) => a.graduatedYear === new Date().getFullYear()
-                      ).length
-                    }
-                  </p>
-                </div>
-                <Calendar className='h-8 w-8 text-primary' />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className='p-6'>
-              <div className='flex items-center justify-between'>
-                <div>
-                  <p className='text-sm font-medium text-muted-foreground'>
-                    Program Studi
-                  </p>
-                  <p className='text-2xl font-bold text-foreground'>
-                    {mockMajors.length}
-                  </p>
-                </div>
-                <BookOpen className='h-8 w-8 text-primary' />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className='p-6'>
-              <div className='flex items-center justify-between'>
-                <div>
-                  <p className='text-sm font-medium text-muted-foreground'>
-                    Fakultas
-                  </p>
-                  <p className='text-2xl font-bold text-foreground'>
-                    {mockFaculties.length}
-                  </p>
-                </div>
-                <Building className='h-8 w-8 text-primary' />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
+   
         {/* Search and Filter Controls */}
         <div className='space-y-4'>
           {/* Search Bar with Filter Toggle */}
@@ -1199,6 +1462,7 @@ function AlumniDatabase() {
                   <TableHead className='font-semibold'>Jenjang</TableHead>
                   <TableHead className='font-semibold'>Tahun Lulus</TableHead>
                   <TableHead className='font-semibold'>Periode</TableHead>
+                  <TableHead className='font-semibold'>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1240,6 +1504,18 @@ function AlumniDatabase() {
                       >
                         {alumni.graduatePeriode.replace('_', ' ')}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className='flex items-center gap-2'>
+                        <Button
+                          variant='ghost'
+                          size='sm'
+                          onClick={() => handleEditAlumni(alumni)}
+                          className='h-8 w-8 p-0'
+                        >
+                          <Edit className='h-4 w-4' />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

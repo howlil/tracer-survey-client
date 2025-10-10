@@ -1,4 +1,3 @@
-/** @format */
 
 import {AdminLayout} from '@/components/layout/admin/AdminLayout';
 import {Button} from '@/components/ui/button';
@@ -38,7 +37,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import {
+import { 
   Breadcrumb,
   BreadcrumbItem,
   BreadcrumbLink,
@@ -58,6 +57,7 @@ import {
   Upload,
   FileSpreadsheet,
   X,
+  Edit,
 } from 'lucide-react';
 import * as React from 'react';
 import {useNavigate} from 'react-router-dom';
@@ -70,6 +70,20 @@ interface ImportManagerData {
   company: string;
   position: string;
 }
+
+// Mock data alumni untuk dipilih
+const mockAlumni = [
+  { id: 'alumni-1', fullName: 'John Doe', nim: '1911522010' },
+  { id: 'alumni-2', fullName: 'Jane Smith', nim: '1911522011' },
+  { id: 'alumni-3', fullName: 'Bob Wilson', nim: '1911522012' },
+  { id: 'alumni-4', fullName: 'Alice Johnson', nim: '1911522013' },
+  { id: 'alumni-5', fullName: 'Charlie Brown', nim: '1911522014' },
+  { id: 'alumni-6', fullName: 'David Lee', nim: '1911522015' },
+  { id: 'alumni-7', fullName: 'Emma Watson', nim: '1911522016' },
+  { id: 'alumni-8', fullName: 'Frank Miller', nim: '1911522017' },
+  { id: 'alumni-9', fullName: 'Grace Hopper', nim: '1911522018' },
+  { id: 'alumni-10', fullName: 'Henry Ford', nim: '1911522019' },
+];
 
 // Types berdasarkan Prisma schema
 interface Respondent {
@@ -87,8 +101,15 @@ interface Manager {
   position: string;
   respondentId: string;
   respondent: Respondent;
+  workingAlumni: WorkingAlumni[];
   createdAt: string;
   updatedAt: string;
+}
+
+interface WorkingAlumni {
+  id: string;
+  fullName: string;
+  nim: string;
 }
 
 // Mock data untuk demo
@@ -106,6 +127,18 @@ const mockManagers: Manager[] = [
       createdAt: '2023-01-15T00:00:00Z',
       updatedAt: '2023-01-15T00:00:00Z',
     },
+    workingAlumni: [
+      {
+        id: 'alumni-1',
+        fullName: 'John Doe',
+        nim: '1911522010'
+      },
+      {
+        id: 'alumni-2',
+        fullName: 'Jane Smith',
+        nim: '1911522011'
+      }
+    ],
     createdAt: '2023-01-15T00:00:00Z',
     updatedAt: '2023-01-15T00:00:00Z',
   },
@@ -122,6 +155,13 @@ const mockManagers: Manager[] = [
       createdAt: '2023-07-20T00:00:00Z',
       updatedAt: '2023-07-20T00:00:00Z',
     },
+    workingAlumni: [
+      {
+        id: 'alumni-3',
+        fullName: 'Bob Wilson',
+        nim: '1911522012'
+      }
+    ],
     createdAt: '2023-07-20T00:00:00Z',
     updatedAt: '2023-07-20T00:00:00Z',
   },
@@ -138,6 +178,18 @@ const mockManagers: Manager[] = [
       createdAt: '2022-01-10T00:00:00Z',
       updatedAt: '2022-01-10T00:00:00Z',
     },
+    workingAlumni: [
+      {
+        id: 'alumni-4',
+        fullName: 'Alice Johnson',
+        nim: '1911522013'
+      },
+      {
+        id: 'alumni-5',
+        fullName: 'Charlie Brown',
+        nim: '1911522014'
+      }
+    ],
     createdAt: '2022-01-10T00:00:00Z',
     updatedAt: '2022-01-10T00:00:00Z',
   },
@@ -154,6 +206,7 @@ const mockManagers: Manager[] = [
       createdAt: '2023-08-15T00:00:00Z',
       updatedAt: '2023-08-15T00:00:00Z',
     },
+    workingAlumni: [],
     createdAt: '2023-08-15T00:00:00Z',
     updatedAt: '2023-08-15T00:00:00Z',
   },
@@ -170,6 +223,13 @@ const mockManagers: Manager[] = [
       createdAt: '2021-01-05T00:00:00Z',
       updatedAt: '2021-01-05T00:00:00Z',
     },
+    workingAlumni: [
+      {
+        id: 'alumni-6',
+        fullName: 'David Lee',
+        nim: '1911522015'
+      }
+    ],
     createdAt: '2021-01-05T00:00:00Z',
     updatedAt: '2021-01-05T00:00:00Z',
   },
@@ -186,6 +246,7 @@ const mockManagers: Manager[] = [
       createdAt: '2023-03-12T00:00:00Z',
       updatedAt: '2023-03-12T00:00:00Z',
     },
+    workingAlumni: [],
     createdAt: '2023-03-12T00:00:00Z',
     updatedAt: '2023-03-12T00:00:00Z',
   },
@@ -202,6 +263,18 @@ const mockManagers: Manager[] = [
       createdAt: '2022-09-08T00:00:00Z',
       updatedAt: '2022-09-08T00:00:00Z',
     },
+    workingAlumni: [
+      {
+        id: 'alumni-7',
+        fullName: 'Emma Watson',
+        nim: '1911522016'
+      },
+      {
+        id: 'alumni-8',
+        fullName: 'Frank Miller',
+        nim: '1911522017'
+      }
+    ],
     createdAt: '2022-09-08T00:00:00Z',
     updatedAt: '2022-09-08T00:00:00Z',
   },
@@ -218,6 +291,7 @@ const mockManagers: Manager[] = [
       createdAt: '2023-11-20T00:00:00Z',
       updatedAt: '2023-11-20T00:00:00Z',
     },
+    workingAlumni: [],
     createdAt: '2023-11-20T00:00:00Z',
     updatedAt: '2023-11-20T00:00:00Z',
   },
@@ -229,19 +303,21 @@ function ManagerDatabase() {
   const [filteredManagers, setFilteredManagers] =
     React.useState<Manager[]>(mockManagers);
   const [showFilters, setShowFilters] = React.useState(false);
-
+  
   // Filter states
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedCompany, setSelectedCompany] = React.useState<string>('');
   const [selectedPosition, setSelectedPosition] = React.useState<string>('');
-
+  
   // Pagination states
   const [currentPage, setCurrentPage] = React.useState(1);
   const itemsPerPage = 10;
 
   // Dialog states
   const [showAddDialog, setShowAddDialog] = React.useState(false);
+  const [showEditDialog, setShowEditDialog] = React.useState(false);
   const [showImportDialog, setShowImportDialog] = React.useState(false);
+  const [editingManager, setEditingManager] = React.useState<Manager | null>(null);
 
   // Form states for manual add
   const [formData, setFormData] = React.useState({
@@ -251,18 +327,23 @@ function ManagerDatabase() {
     position: '',
   });
 
+  // Alumni selection states
+  const [selectedAlumni, setSelectedAlumni] = React.useState<WorkingAlumni[]>([]);
+  const [alumniSearchQuery, setAlumniSearchQuery] = React.useState('');
+  const [showAlumniSelector, setShowAlumniSelector] = React.useState(false);
+
   // Import states
   const [importPreview, setImportPreview] = React.useState<ImportManagerData[]>(
     []
   );
   const [showImportPreview, setShowImportPreview] = React.useState(false);
-
+  
   // Get unique companies and positions for filter
   const companies = React.useMemo(() => {
     const uniqueCompanies = [...new Set(managers.map((m) => m.company))].sort();
     return uniqueCompanies;
   }, [managers]);
-
+  
   const positions = React.useMemo(() => {
     const uniquePositions = [
       ...new Set(managers.map((m) => m.position)),
@@ -270,10 +351,21 @@ function ManagerDatabase() {
     return uniquePositions;
   }, [managers]);
 
+  // Filter alumni berdasarkan search query
+  const filteredAlumni = React.useMemo(() => {
+    if (!alumniSearchQuery.trim()) return mockAlumni;
+    
+    return mockAlumni.filter(
+      (alumni) =>
+        alumni.fullName.toLowerCase().includes(alumniSearchQuery.toLowerCase()) ||
+        alumni.nim.toLowerCase().includes(alumniSearchQuery.toLowerCase())
+    );
+  }, [alumniSearchQuery]);
+  
   // Apply filters
   React.useEffect(() => {
     let filtered = [...managers];
-
+    
     // Search by name or email
     if (searchQuery.trim()) {
       filtered = filtered.filter(
@@ -286,14 +378,14 @@ function ManagerDatabase() {
             .includes(searchQuery.toLowerCase())
       );
     }
-
+    
     // Filter by company
     if (selectedCompany && selectedCompany !== 'all') {
       filtered = filtered.filter(
         (manager) => manager.company === selectedCompany
       );
     }
-
+    
     // Filter by position
     if (selectedPosition && selectedPosition !== 'all') {
       filtered = filtered.filter(
@@ -304,20 +396,20 @@ function ManagerDatabase() {
     setFilteredManagers(filtered);
     setCurrentPage(1); // Reset to first page when filters change
   }, [managers, searchQuery, selectedCompany, selectedPosition]);
-
+  
   // Pagination
   const totalPages = Math.ceil(filteredManagers.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentManagers = filteredManagers.slice(startIndex, endIndex);
-
+  
   // Clear all filters
   const clearFilters = () => {
     setSearchQuery('');
     setSelectedCompany('');
     setSelectedPosition('');
   };
-
+  
   // Toggle filters visibility
   const toggleFilters = () => {
     setShowFilters(!showFilters);
@@ -356,6 +448,7 @@ function ManagerDatabase() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
+      workingAlumni: selectedAlumni,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -371,6 +464,7 @@ function ManagerDatabase() {
       company: '',
       position: '',
     });
+    setSelectedAlumni([]);
 
     toast.success('Data manager berhasil ditambahkan');
   };
@@ -427,6 +521,7 @@ function ManagerDatabase() {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
+        workingAlumni: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -447,30 +542,117 @@ function ManagerDatabase() {
     setShowImportPreview(false);
   };
 
+  // Alumni management functions
+  const addAlumni = (alumni: { id: string; fullName: string; nim: string }) => {
+    if (selectedAlumni.some((a) => a.id === alumni.id)) {
+      toast.error('Alumni sudah dipilih');
+      return;
+    }
+    
+    setSelectedAlumni((prev) => [...prev, alumni]);
+    setShowAlumniSelector(false);
+    setAlumniSearchQuery('');
+  };
+
+  const removeAlumni = (alumniId: string) => {
+    setSelectedAlumni((prev) => prev.filter((a) => a.id !== alumniId));
+  };
+
+  // Edit and Delete functions
+  const handleEditManager = (manager: Manager) => {
+    setEditingManager(manager);
+    setFormData({
+      fullName: manager.respondent.fullName,
+      email: manager.respondent.email,
+      company: manager.company,
+      position: manager.position,
+    });
+    setSelectedAlumni(manager.workingAlumni);
+    setShowEditDialog(true);
+  };
+
+  const handleUpdateManager = () => {
+    if (!editingManager) return;
+
+    // Validate form
+    if (
+      !formData.fullName ||
+      !formData.email ||
+      !formData.company ||
+      !formData.position
+    ) {
+      toast.error('Semua field harus diisi');
+      return;
+    }
+
+    // Check if email already exists (excluding current manager)
+    if (
+      managers.some(
+        (m) => m.respondent.email === formData.email && m.id !== editingManager.id
+      )
+    ) {
+      toast.error('Email sudah terdaftar');
+      return;
+    }
+
+    // Update manager
+    const updatedManager: Manager = {
+      ...editingManager,
+      company: formData.company,
+      position: formData.position,
+      respondent: {
+        ...editingManager.respondent,
+        fullName: formData.fullName,
+        email: formData.email,
+        updatedAt: new Date().toISOString(),
+      },
+      workingAlumni: selectedAlumni,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setManagers((prev) =>
+      prev.map((m) => (m.id === editingManager.id ? updatedManager : m))
+    );
+    setShowEditDialog(false);
+    setEditingManager(null);
+
+    // Reset form
+    setFormData({
+      fullName: '',
+      email: '',
+      company: '',
+      position: '',
+    });
+    setSelectedAlumni([]);
+
+    toast.success('Data manager berhasil diperbarui');
+  };
+
+  
   return (
     <AdminLayout>
       <div className='p-6 space-y-6'>
         {/* Header */}
         <div className='mb-6'>
           <div className='flex items-center justify-between'>
-            {/* Breadcrumb */}
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink
+          {/* Breadcrumb */}
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink 
                     onClick={() => navigate('/admin/dashboard')}
                     className='flex items-center space-x-1 cursor-pointer hover:text-primary'
-                  >
+                >
                     <UserCheck className='h-4 w-4' />
-                    <span>Manajemen User</span>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbPage>Database Manager</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
+                  <span>Manajemen User</span>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Database Manager</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
 
             {/* Action Buttons */}
             <div className='flex items-center gap-3'>
@@ -536,8 +718,8 @@ function ManagerDatabase() {
                         placeholder='Masukkan email'
                         className='h-10'
                       />
-                    </div>
-
+        </div>
+        
                     <div className='space-y-2'>
                       <Label
                         htmlFor='company'
@@ -578,6 +760,102 @@ function ManagerDatabase() {
                         className='h-10'
                       />
                     </div>
+
+                    {/* Alumni Selection */}
+                    <div className='space-y-2'>
+                      <Label className='text-sm font-medium'>
+                        Alumni yang Bekerja
+                      </Label>
+                      
+                      {/* Add Alumni Button */}
+                      <Button
+                        type='button'
+                        variant='outline'
+                        onClick={() => setShowAlumniSelector(!showAlumniSelector)}
+                        className='w-full h-10 justify-start'
+                      >
+                        <Plus className='h-4 w-4 mr-2' />
+                        {selectedAlumni.length === 0 ? 'Tambah Alumni' : `Tambah Alumni Lainnya (${selectedAlumni.length} terpilih)`}
+                      </Button>
+
+                      {/* Alumni Selector Popover */}
+                      {showAlumniSelector && (
+                        <div className='border rounded-lg p-4 bg-background shadow-sm'>
+                          {/* Search Input */}
+                          <div className='relative mb-3'>
+                            <Search className='absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground' />
+                            <Input
+                              placeholder='Cari alumni berdasarkan nama atau NIM...'
+                              value={alumniSearchQuery}
+                              onChange={(e) => setAlumniSearchQuery(e.target.value)}
+                              className='pl-10 h-9'
+                            />
+                          </div>
+
+                          {/* Alumni List */}
+                          <div className='max-h-40 overflow-y-auto border rounded-lg'>
+                            {filteredAlumni.length > 0 ? (
+                              <div className='space-y-1 p-2'>
+                                {filteredAlumni.map((alumni) => (
+                                  <div
+                                    key={alumni.id}
+                                    className='flex items-center justify-between p-2 hover:bg-muted/50 rounded-md cursor-pointer'
+                                    onClick={() => addAlumni(alumni)}
+                                  >
+                                    <div>
+                                      <div className='font-medium text-sm'>{alumni.fullName}</div>
+                                      <div className='text-xs text-muted-foreground'>
+                                        NIM: {alumni.nim}
+                                      </div>
+                                    </div>
+                                    <Button
+                                      type='button'
+                                      variant='ghost'
+                                      size='sm'
+                                      className='h-6 w-6 p-0'
+                                    >
+                                      <Plus className='h-3 w-3' />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className='p-4 text-center text-muted-foreground text-sm'>
+                                Tidak ada alumni ditemukan
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Selected Alumni Display */}
+                      {selectedAlumni.length > 0 && (
+                        <div className='space-y-2'>
+                          <div className='text-xs text-muted-foreground'>
+                            Alumni terpilih ({selectedAlumni.length}):
+                          </div>
+                          <div className='space-y-1'>
+                            {selectedAlumni.map((alumni) => (
+                              <div
+                                key={alumni.id}
+                                className='flex items-center justify-between bg-muted/30 rounded-md p-2 text-sm'
+                              >
+                                <span>{alumni.fullName} - {alumni.nim}</span>
+                                <Button
+                                  type='button'
+                                  variant='ghost'
+                                  size='sm'
+                                  onClick={() => removeAlumni(alumni.id)}
+                                  className='h-6 w-6 p-0 text-muted-foreground hover:text-destructive'
+                                >
+                                  <X className='h-3 w-3' />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <SheetFooter className='gap-2'>
@@ -593,6 +871,220 @@ function ManagerDatabase() {
                       className='flex-1'
                     >
                       Simpan Data
+                    </Button>
+                  </SheetFooter>
+                </SheetContent>
+              </Sheet>
+
+              {/* Edit Manager Sheet */}
+              <Sheet
+                open={showEditDialog}
+                onOpenChange={setShowEditDialog}
+              >
+                <SheetContent className='w-[500px] sm:w-[600px]'>
+                  <SheetHeader>
+                    <SheetTitle className='text-xl font-semibold'>
+                      Edit Data Manager
+                    </SheetTitle>
+                    <SheetDescription>
+                      Perbarui data manager. Semua field yang bertanda (*) wajib diisi.
+                    </SheetDescription>
+                  </SheetHeader>
+
+                  <div className='px-4 space-y-4'>
+                    <div className='space-y-2'>
+                      <Label
+                        htmlFor='edit-fullName'
+                        className='text-sm font-medium'
+                      >
+                        Nama Lengkap *
+                      </Label>
+                      <Input
+                        id='edit-fullName'
+                        value={formData.fullName}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            fullName: e.target.value,
+                          }))
+                        }
+                        placeholder='Masukkan nama lengkap'
+                        className='h-10'
+                      />
+                    </div>
+                    <div className='space-y-2'>
+                      <Label
+                        htmlFor='edit-email'
+                        className='text-sm font-medium'
+                      >
+                        Email *
+                      </Label>
+                      <Input
+                        id='edit-email'
+                        type='email'
+                        value={formData.email}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            email: e.target.value,
+                          }))
+                        }
+                        placeholder='Masukkan email'
+                        className='h-10'
+                      />
+                    </div>
+
+                    <div className='space-y-2'>
+                      <Label
+                        htmlFor='edit-company'
+                        className='text-sm font-medium'
+                      >
+                        Perusahaan *
+                      </Label>
+                      <Input
+                        id='edit-company'
+                        value={formData.company}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            company: e.target.value,
+                          }))
+                        }
+                        placeholder='Masukkan nama perusahaan'
+                        className='h-10'
+                      />
+                    </div>
+                    <div className='space-y-2'>
+                      <Label
+                        htmlFor='edit-position'
+                        className='text-sm font-medium'
+                      >
+                        Posisi *
+                      </Label>
+                      <Input
+                        id='edit-position'
+                        value={formData.position}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            position: e.target.value,
+                          }))
+                        }
+                        placeholder='Masukkan posisi/jabatan'
+                        className='h-10'
+                      />
+                    </div>
+
+                    {/* Alumni Selection */}
+                    <div className='space-y-2'>
+                      <Label className='text-sm font-medium'>
+                        Alumni yang Bekerja
+                      </Label>
+                      
+                      {/* Add Alumni Button */}
+                      <Button
+                        type='button'
+                        variant='outline'
+                        onClick={() => setShowAlumniSelector(!showAlumniSelector)}
+                        className='w-full h-10 justify-start'
+                      >
+                        <Plus className='h-4 w-4 mr-2' />
+                        {selectedAlumni.length === 0 ? 'Tambah Alumni' : `Tambah Alumni Lainnya (${selectedAlumni.length} terpilih)`}
+                      </Button>
+
+                      {/* Alumni Selector Popover */}
+                      {showAlumniSelector && (
+                        <div className='border rounded-lg p-4 bg-background shadow-sm'>
+                          {/* Search Input */}
+                          <div className='relative mb-3'>
+                            <Search className='absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground' />
+                            <Input
+                              placeholder='Cari alumni berdasarkan nama atau NIM...'
+                              value={alumniSearchQuery}
+                              onChange={(e) => setAlumniSearchQuery(e.target.value)}
+                              className='pl-10 h-9'
+                            />
+                          </div>
+
+                          {/* Alumni List */}
+                          <div className='max-h-40 overflow-y-auto border rounded-lg'>
+                            {filteredAlumni.length > 0 ? (
+                              <div className='space-y-1 p-2'>
+                                {filteredAlumni.map((alumni) => (
+                                  <div
+                                    key={alumni.id}
+                                    className='flex items-center justify-between p-2 hover:bg-muted/50 rounded-md cursor-pointer'
+                                    onClick={() => addAlumni(alumni)}
+                                  >
+                                    <div>
+                                      <div className='font-medium text-sm'>{alumni.fullName}</div>
+                                      <div className='text-xs text-muted-foreground'>
+                                        NIM: {alumni.nim}
+                                      </div>
+                                    </div>
+                                    <Button
+                                      type='button'
+                                      variant='ghost'
+                                      size='sm'
+                                      className='h-6 w-6 p-0'
+                                    >
+                                      <Plus className='h-3 w-3' />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className='p-4 text-center text-muted-foreground text-sm'>
+                                Tidak ada alumni ditemukan
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Selected Alumni Display */}
+                      {selectedAlumni.length > 0 && (
+                        <div className='space-y-2'>
+                          <div className='text-xs text-muted-foreground'>
+                            Alumni terpilih ({selectedAlumni.length}):
+                          </div>
+                          <div className='space-y-1'>
+                            {selectedAlumni.map((alumni) => (
+                              <div
+                                key={alumni.id}
+                                className='flex items-center justify-between bg-muted/30 rounded-md p-2 text-sm'
+                              >
+                                <span>{alumni.fullName} - {alumni.nim}</span>
+                                <Button
+                                  type='button'
+                                  variant='ghost'
+                                  size='sm'
+                                  onClick={() => removeAlumni(alumni.id)}
+                                  className='h-6 w-6 p-0 text-muted-foreground hover:text-destructive'
+                                >
+                                  <X className='h-3 w-3' />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <SheetFooter className='gap-2'>
+                    <Button
+                      variant='outline'
+                      onClick={() => setShowEditDialog(false)}
+                      className='flex-1'
+                    >
+                      Batal
+                    </Button>
+                    <Button
+                      onClick={handleUpdateManager}
+                      className='flex-1'
+                    >
+                      Perbarui Data
                     </Button>
                   </SheetFooter>
                 </SheetContent>
@@ -665,7 +1157,7 @@ function ManagerDatabase() {
                           <X className='h-4 w-4 mr-2' />
                           Ganti File
                         </Button>
-                      </div>
+                </div>
                       <div className='border rounded-lg overflow-hidden'>
                         <Table>
                           <TableHeader>
@@ -690,10 +1182,10 @@ function ManagerDatabase() {
                         {importPreview.length > 5 && (
                           <div className='p-2 text-sm text-gray-500 text-center'>
                             ... dan {importPreview.length - 5} baris lainnya
-                          </div>
+              </div>
                         )}
-                      </div>
-                    </div>
+                </div>
+              </div>
                   )}
 
                   <DialogFooter>
@@ -711,10 +1203,10 @@ function ManagerDatabase() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
-            </div>
-          </div>
+                </div>
+              </div>
         </div>
-
+        
         {/* Search and Filter Controls */}
         <div className='space-y-4'>
           {/* Search Bar with Filter Toggle */}
@@ -738,7 +1230,7 @@ function ManagerDatabase() {
               Filter
             </Button>
           </div>
-
+          
           {showFilters && (
             <div className='bg-gradient-to-r from-background via-muted/20 to-background rounded-xl p-6 border border-border/30 shadow-sm'>
               <div className='space-y-6'>
@@ -773,7 +1265,7 @@ function ManagerDatabase() {
                       </SelectContent>
                     </Select>
                   </div>
-
+                  
                   {/* Position Filter */}
                   <div className='space-y-3'>
                     <Label
@@ -804,7 +1296,7 @@ function ManagerDatabase() {
                     </Select>
                   </div>
                 </div>
-
+                
                 {/* Filter Actions */}
                 <div className='flex items-center justify-between pt-4 border-t border-border/30'>
                   <div className='text-sm text-muted-foreground'>
@@ -830,18 +1322,20 @@ function ManagerDatabase() {
             </div>
           )}
         </div>
-
+        
         {/* Pure Table */}
         <div className='bg-background border border-border/50 rounded-lg overflow-hidden shadow-sm'>
           <div className='overflow-x-auto'>
             <Table>
               <TableHeader>
-                <TableRow className='border-border/50 bg-muted/30'>
-                  <TableHead className='font-semibold'>Nama Lengkap</TableHead>
-                  <TableHead className='font-semibold'>Email</TableHead>
-                  <TableHead className='font-semibold'>Perusahaan</TableHead>
-                  <TableHead className='font-semibold'>Posisi</TableHead>
-                </TableRow>
+                 <TableRow className='border-border/50 bg-muted/30'>
+                   <TableHead className='font-semibold'>Nama Lengkap</TableHead>
+                   <TableHead className='font-semibold'>Email</TableHead>
+                   <TableHead className='font-semibold'>Perusahaan</TableHead>
+                   <TableHead className='font-semibold'>Posisi</TableHead>
+                   <TableHead className='font-semibold'>Alumni yang Bekerja</TableHead>
+                   <TableHead className='font-semibold'>Actions</TableHead>
+                 </TableRow>
               </TableHeader>
               <TableBody>
                 {currentManagers.map((manager) => (
@@ -865,17 +1359,44 @@ function ManagerDatabase() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className='flex items-center gap-2'>
-                        <Briefcase className='h-4 w-4 text-muted-foreground' />
+                       <div className='flex items-center gap-2'>
+                         <Briefcase className='h-4 w-4 text-muted-foreground' />
                         {manager.position}
                       </div>
                     </TableCell>
-                  </TableRow>
+                     <TableCell>
+                       <div className='space-y-1'>
+                         {manager.workingAlumni.length > 0 ? (
+                           manager.workingAlumni.map((alumni) => (
+                             <div key={alumni.id} className='text-sm'>
+                               {alumni.fullName} - {alumni.nim}
+                             </div>
+                           ))
+                         ) : (
+                           <div className='text-sm text-muted-foreground italic'>
+                             Belum ada alumni
+                           </div>
+                         )}
+                       </div>
+                     </TableCell>
+                     <TableCell>
+                       <div className='flex items-center gap-2'>
+                         <Button
+                           variant='ghost'
+                           size='sm'
+                           onClick={() => handleEditManager(manager)}
+                           className='h-8 w-8 p-0'
+                         >
+                           <Edit className='h-4 w-4' />
+                         </Button>
+                       </div>
+                     </TableCell>
+                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
-
+          
           {/* Pagination */}
           {totalPages > 1 && (
             <div className='flex justify-center p-4 border-t border-border/50'>
@@ -886,7 +1407,7 @@ function ManagerDatabase() {
               />
             </div>
           )}
-
+          
           {/* Empty State */}
           {filteredManagers.length === 0 && (
             <div className='text-center py-12'>
