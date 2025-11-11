@@ -6,12 +6,10 @@ import {
     Database,
     File,
     FileBarChart,
-    FileText,
     HelpCircle,
     Home,
     LogOut,
     Mail,
-    Package,
     Send,
     Settings,
     UserCheck,
@@ -50,12 +48,12 @@ const sidebarItems: SidebarItem[] = [
       {
         label: "Kelola Admin",
         icon: UserCog,
-        href: "/admin/users/admins"
+        href: "/admin/users/admin"
       },
       {
         label: "Kelola Grup Admin",
         icon: UserCheck,
-        href: "/admin/users/admin-groups"
+        href: "/admin/users/role"
       },
       {
         label: "Database Alumni",
@@ -70,7 +68,7 @@ const sidebarItems: SidebarItem[] = [
     ]
   },
   {
-    label: "Pengaturan Survey",
+    label: "Manajemen Survey",
     icon: Settings,
     href: "/admin/survey"
   },
@@ -99,7 +97,7 @@ const sidebarItems: SidebarItem[] = [
       {
         label: "Kirim Email",
         icon: Send,
-        href: "/admin/email/send"
+        href: "/admin/email"
       },
       {
         label: "Kelola Template Email",

@@ -285,7 +285,7 @@ function Dashboard() {
                 </button>
                 
                 <button 
-                  onClick={() => navigate('/admin/manajemen-user/alumni-database')}
+                  onClick={() => navigate('/admin/users/alumni')}
                   className="w-full text-left p-3 rounded-lg border hover:bg-muted transition-colors"
                 >
                   <div className="flex items-center space-x-3">
@@ -306,32 +306,6 @@ function Dashboard() {
                     <div>
                       <p className="font-medium">Database Manager</p>
                       <p className="text-xs text-muted-foreground">Kelola data pengguna alumni</p>
-                    </div>
-                  </div>
-                </button>
-
-                <button 
-                  onClick={() => navigate('/admin/users/admins')}
-                  className="w-full text-left p-3 rounded-lg border hover:bg-muted transition-colors"
-                >
-                  <div className="flex items-center space-x-3">
-                    <Users className="h-4 w-4 text-primary" />
-                    <div>
-                      <p className="font-medium">Kelola Admin</p>
-                      <p className="text-xs text-muted-foreground">Kelola data admin dan role</p>
-                    </div>
-                  </div>
-                </button>
-
-                <button 
-                  onClick={() => navigate('/admin/users/admin-groups')}
-                  className="w-full text-left p-3 rounded-lg border hover:bg-muted transition-colors"
-                >
-                  <div className="flex items-center space-x-3">
-                    <Users className="h-4 w-4 text-primary" />
-                    <div>
-                      <p className="font-medium">Kelola Grup Admin</p>
-                      <p className="text-xs text-muted-foreground">Kelola role dan permission admin</p>
                     </div>
                   </div>
                 </button>
