@@ -72,6 +72,44 @@ import {
 } from 'lucide-react';
 import * as React from 'react';
 import {useNavigate, useSearchParams} from 'react-router-dom';
+import {toast} from 'sonner';
+import {useSaveBuilder} from '@/api/survey.api';
+import {v4 as uuidv4} from 'uuid';
+
+interface ErrorDetail {
+  field: string;
+  message: string;
+  type: string;
+}
+
+interface ErrorResponse {
+  response?: {
+    data?: {
+      message?: string | ErrorDetail[];
+    };
+  };
+}
+
+type ExtendedQuestion = Question & {
+  questionCode?: string;
+  version?: string;
+  parentId?: string | null;
+  groupQuestionId?: string;
+  placeholder?: string;
+  searchplaceholder?: string;
+  questionTree?: Array<{
+    answerQuestionTriggerId: string;
+    questionPointerToId: string;
+  }>;
+};
+
+interface AnswerOption {
+  id?: string;
+  answerText: string;
+  sortOrder: number;
+  otherOptionPlaceholder: string;
+  isTriggered: boolean;
+}
 
 function SurveyBuilder() {
   const navigate = useNavigate();
@@ -98,19 +136,22 @@ function SurveyBuilder() {
   const setActiveQuestion = useBuilderStore((state) => state.setActiveQuestion);
   const setPageMeta = useBuilderStore((state) => state.setPageMeta);
   const updateQuestion = useBuilderStore((state) => state.updateQuestion);
+  const updatePages = useBuilderStore((state) => state.updatePages);
   const currentQuestionIds = pages[currentPageIndex]?.questionIds || [];
   const [dragIndex, setDragIndex] = React.useState<number | null>(null);
   const [overIndex, setOverIndex] = React.useState<number | null>(null);
   const [versionComboOpen, setVersionComboOpen] = React.useState(false);
+  const [isSaving, setIsSaving] = React.useState(false);
 
-  // Get survey type and mode from URL parameters
   const surveyType = searchParams.get('type') as
     | 'TRACER_STUDY'
     | 'USER_SURVEY'
     | null;
-  const mode = searchParams.get('mode') as 'create' | 'edit' | null;
   const surveyId = searchParams.get('id');
   const isEditMode = searchParams.get('edit') === 'true';
+
+  // API Hooks
+  const saveBuilderMutation = useSaveBuilder();
 
   const activeQuestion = questions.find((q) => q.id === activeQuestionId);
 
@@ -202,7 +243,7 @@ function SurveyBuilder() {
     // Create base question with default values for the type
     const getDefaultQuestionData = (type: Question['type']) => {
       const baseData = {
-        id: `question_${Date.now()}`,
+        id: uuidv4(),
         type,
         label: 'Label pertanyaan',
         required: false,
@@ -222,13 +263,13 @@ function SurveyBuilder() {
         case 'single':
           return {
             ...baseData,
-            options: [{value: 'opsi1', label: 'Opsi 1'}],
+            options: [{value: uuidv4(), label: 'Opsi 1'}],
             layout: 'vertical' as const,
           };
         case 'multiple':
           return {
             ...baseData,
-            options: [{value: 'opsi1', label: 'Opsi 1'}],
+            options: [{value: uuidv4(), label: 'Opsi 1'}],
             layout: 'vertical' as const,
           };
         case 'combobox':
@@ -236,25 +277,25 @@ function SurveyBuilder() {
             ...baseData,
             comboboxItems: [
               {
-                id: 'item1',
+                id: uuidv4(),
                 label: 'Item 1',
                 placeholder: 'Pilih...',
                 searchPlaceholder: 'Cari...',
                 required: false,
-                options: [{value: 'opsi1', label: 'Opsi 1'}],
+                options: [{value: uuidv4(), label: 'Opsi 1'}],
               },
             ],
           };
         case 'rating':
           return {
             ...baseData,
-            ratingItems: [{id: 'rating1', label: 'Aspek 1'}],
+            ratingItems: [{id: uuidv4(), label: 'Aspek 1'}],
             ratingOptions: [
-              {value: '1', label: 'Sangat Buruk'},
-              {value: '2', label: 'Buruk'},
-              {value: '3', label: 'Cukup'},
-              {value: '4', label: 'Baik'},
-              {value: '5', label: 'Sangat Baik'},
+              {value: uuidv4(), label: 'Sangat Buruk'},
+              {value: uuidv4(), label: 'Buruk'},
+              {value: uuidv4(), label: 'Cukup'},
+              {value: uuidv4(), label: 'Baik'},
+              {value: uuidv4(), label: 'Sangat Baik'},
             ],
           };
         default:
@@ -273,10 +314,208 @@ function SurveyBuilder() {
     setActiveQuestion(newQuestionData.id);
   };
 
-  const handleSave = () => {
-    // TODO: Implement save logic
-    console.log('Saving survey...', {surveyType, mode, surveyId});
-    navigate('/admin/survey');
+  const handleSave = async () => {
+    if (!surveyId) {
+      toast.error('Survey ID tidak ditemukan');
+      return;
+    }
+
+    if (questions.length === 0) {
+      toast.error('Tidak ada pertanyaan untuk disimpan');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // Validate and fix pages ID to UUID format
+      const uuidRegex =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const updatedPages = pages.map((page) => {
+        if (!uuidRegex.test(page.id)) {
+          return {...page, id: uuidv4()};
+        }
+        return page;
+      });
+
+      // Update store if any pages ID were changed
+      const hasInvalidIds = pages.some(
+        (page, idx) => page.id !== updatedPages[idx].id
+      );
+      if (hasInvalidIds) {
+        updatePages(updatedPages);
+      }
+
+      // Transform questions ke format API
+      const transformedQuestions = questions.map((q, index) => {
+        const extQ = q as ExtendedQuestion;
+        const isValidUUID = uuidRegex.test(q.id);
+        const questionId = isValidUUID ? q.id : undefined;
+        const codeId = extQ.questionCode || `Q${index + 1}`;
+
+        // Ensure groupQuestionId is always UUID
+        let groupQuestionId = extQ.groupQuestionId || q.id;
+        if (!uuidRegex.test(groupQuestionId)) {
+          groupQuestionId = uuidv4();
+        }
+
+        const answerOptions = mapAnswerOptions(q);
+
+        // Transform questionTree: map option value to answerOption based on answerText and sortOrder
+        // We'll use answerText and sortOrder as temporary identifiers, backend will map to AnswerOptionQuestion ID
+        let questionTree:
+          | Array<{
+              answerQuestionTriggerId: string;
+              questionPointerToId: string;
+              _tempAnswerText?: string;
+              _tempSortOrder?: number;
+            }>
+          | undefined = undefined;
+        if (q.type === 'single' && extQ.questionTree) {
+          const singleQ = q as SingleChoiceQuestion;
+          const treeData = extQ.questionTree || [];
+          questionTree = treeData
+            .map((tree) => {
+              // Skip if questionPointerToId is empty (user checked trigger but didn't select question yet)
+              if (!tree.questionPointerToId) return null;
+
+              // Find the option by value
+              const option = singleQ.options?.find(
+                (opt) => opt.value === tree.answerQuestionTriggerId
+              );
+              if (!option) return null;
+
+              // Find the answer option by answerText and sortOrder
+              const answerOption = answerOptions.find(
+                (ao, idx) =>
+                  ao.answerText === option.label && ao.sortOrder === idx
+              );
+              if (!answerOption) return null;
+
+              // If answerOption has ID, use it; otherwise use answerText and sortOrder as temporary identifier
+              return {
+                answerQuestionTriggerId:
+                  answerOption.id ||
+                  `${answerOption.answerText}_${answerOption.sortOrder}`,
+                questionPointerToId: tree.questionPointerToId,
+                _tempAnswerText: answerOption.answerText,
+                _tempSortOrder: answerOption.sortOrder,
+              };
+            })
+            .filter((t): t is NonNullable<typeof t> => t !== null);
+        }
+
+        return {
+          ...(questionId ? {id: questionId} : {}),
+          codeId,
+          parentId: extQ.parentId || null,
+          groupQuestionId,
+          questionText: q.label,
+          questionType: mapQuestionTypeToAPI(q.type),
+          isRequired: q.required,
+          sortOrder: index,
+          placeholder: extQ.placeholder || '',
+          searchplaceholder: extQ.searchplaceholder || '',
+          version: extQ.version || '2024',
+          questionCode: codeId,
+          answerQuestion: answerOptions,
+          ...(questionTree && questionTree.length > 0 ? {questionTree} : {}),
+        };
+      });
+
+      await saveBuilderMutation.mutateAsync({
+        surveyId,
+        data: {
+          pages: updatedPages.map((page, idx) => ({
+            id: page.id,
+            title: page.title || `Halaman ${idx + 1}`,
+            description: page.description || '',
+            codeIds: page.questionIds.map((qid) => {
+              const q = questions.find((qq) => qq.id === qid) as
+                | ExtendedQuestion
+                | undefined;
+              return q?.questionCode || `Q${idx + 1}`;
+            }),
+          })),
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          questions: transformedQuestions as any,
+        },
+      });
+
+      toast.success('Survey berhasil disimpan');
+
+      // Only redirect if not in edit mode (if surveyId exists, it's edit mode)
+      if (!surveyId) {
+        navigate('/admin/survey');
+      }
+    } catch (error) {
+      const err = error as ErrorResponse;
+      const errorMessage = err?.response?.data?.message;
+
+      if (Array.isArray(errorMessage)) {
+        errorMessage.forEach((errDetail) => {
+          toast.error(`${errDetail.field}: ${errDetail.message}`);
+        });
+      } else if (typeof errorMessage === 'string') {
+        toast.error(errorMessage);
+      } else {
+        toast.error('Gagal menyimpan survey');
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const mapQuestionTypeToAPI = (type: Question['type']): string => {
+    const mapping: Record<string, string> = {
+      text: 'ESSAY',
+      textarea: 'LONG_TEST',
+      single: 'SINGLE_CHOICE',
+      multiple: 'MULTIPLE_CHOICE',
+      combobox: 'COMBO_BOX',
+      rating: 'MATRIX_SINGLE_CHOICE',
+    };
+    return mapping[type] || 'ESSAY';
+  };
+
+  const mapAnswerOptions = (question: Question): AnswerOption[] => {
+    if (question.type === 'single' || question.type === 'multiple') {
+      const options =
+        (question as SingleChoiceQuestion | MultipleChoiceQuestion).options ||
+        [];
+      return options.map(
+        (opt, idx): AnswerOption => ({
+          answerText: opt.label,
+          sortOrder: idx,
+          otherOptionPlaceholder: '',
+          isTriggered: false,
+        })
+      );
+    }
+    if (question.type === 'combobox') {
+      const items = (question as ComboBoxQuestion).comboboxItems || [];
+      return items.flatMap((item, itemIdx) =>
+        (item.options || []).map(
+          (opt, optIdx): AnswerOption => ({
+            answerText: opt.label,
+            sortOrder: itemIdx * 100 + optIdx,
+            otherOptionPlaceholder: '',
+            isTriggered: false,
+          })
+        )
+      );
+    }
+    if (question.type === 'rating') {
+      const options = (question as RatingQuestion).ratingOptions || [];
+      return options.map(
+        (opt, idx): AnswerOption => ({
+          answerText: opt.label,
+          sortOrder: idx,
+          otherOptionPlaceholder: '',
+          isTriggered: false,
+        })
+      );
+    }
+    return [];
   };
 
   const handleBack = () => {
@@ -350,10 +589,11 @@ function SurveyBuilder() {
             </Button>
             <Button
               onClick={handleSave}
+              disabled={isSaving}
               className='flex items-center gap-2'
             >
               <FileText className='h-4 w-4' />
-              Simpan
+              {isSaving ? 'Menyimpan...' : 'Simpan'}
             </Button>
           </div>
         </div>
@@ -987,7 +1227,7 @@ function SurveyBuilder() {
                                   const options = [
                                     ...currentOptions,
                                     {
-                                      value: `opsi_${Date.now()}`,
+                                      value: uuidv4(),
                                       label: 'Opsi Baru',
                                     },
                                   ];
@@ -1049,32 +1289,142 @@ function SurveyBuilder() {
                             </div>
                           </div>
                         )}
-                        {(activeQuestion.type === 'single' ||
-                          activeQuestion.type === 'multiple') && (
-                          <div className='space-y-1'>
+                        {activeQuestion.type === 'single' && (
+                          <div className='space-y-2 border-t pt-4'>
                             <label className='text-sm font-medium'>
-                              Layout
+                              Question Tree (Tampilkan pertanyaan jika opsi
+                              dipilih - Recursive)
                             </label>
-                            <select
-                              value={
-                                (
-                                  activeQuestion as
-                                    | SingleChoiceQuestion
-                                    | MultipleChoiceQuestion
-                                ).layout || 'vertical'
-                              }
-                              onChange={(e) =>
-                                patchActive({
-                                  layout: e.target.value as
-                                    | 'vertical'
-                                    | 'horizontal',
-                                })
-                              }
-                              className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
-                            >
-                              <option value='vertical'>Vertical</option>
-                              <option value='horizontal'>Horizontal</option>
-                            </select>
+                            <p className='text-xs text-gray-500'>
+                              Pilih opsi yang akan menjadi trigger untuk
+                              menampilkan pertanyaan berikutnya. Pertanyaan yang
+                              dipilih juga bisa memiliki question tree sendiri
+                              (recursive).
+                            </p>
+                            <div className='space-y-3'>
+                              {(
+                                (activeQuestion as SingleChoiceQuestion)
+                                  .options || []
+                              ).map((opt) => {
+                                const extQ = activeQuestion as ExtendedQuestion;
+                                const currentQuestionTree =
+                                  extQ.questionTree || [];
+                                const treeForOption = currentQuestionTree.find(
+                                  (tree) =>
+                                    tree.answerQuestionTriggerId === opt.value
+                                );
+                                return (
+                                  <div
+                                    key={opt.value}
+                                    className='p-3 border rounded-md space-y-2'
+                                  >
+                                    <div className='flex items-center justify-between'>
+                                      <div className='text-sm font-medium text-gray-700'>
+                                        Jika memilih: {opt.label}
+                                      </div>
+                                      <label className='flex items-center space-x-2 text-sm'>
+                                        <input
+                                          type='checkbox'
+                                          checked={!!treeForOption}
+                                          onChange={(e) => {
+                                            const extQ =
+                                              activeQuestion as ExtendedQuestion;
+                                            const currentQuestionTree =
+                                              extQ.questionTree || [];
+                                            if (!e.target.checked) {
+                                              // Remove question tree for this option
+                                              const newQuestionTree =
+                                                currentQuestionTree.filter(
+                                                  (t) =>
+                                                    t.answerQuestionTriggerId !==
+                                                    opt.value
+                                                );
+                                              patchActive({
+                                                questionTree: newQuestionTree,
+                                              } as Partial<ExtendedQuestion>);
+                                            } else {
+                                              // Add empty question tree (user needs to select question)
+                                              const newQuestionTree = [
+                                                ...currentQuestionTree.filter(
+                                                  (t) =>
+                                                    t.answerQuestionTriggerId !==
+                                                    opt.value
+                                                ),
+                                                {
+                                                  answerQuestionTriggerId:
+                                                    opt.value,
+                                                  questionPointerToId: '',
+                                                },
+                                              ];
+                                              patchActive({
+                                                questionTree: newQuestionTree,
+                                              } as Partial<ExtendedQuestion>);
+                                            }
+                                          }}
+                                          className='rounded border-gray-300'
+                                        />
+                                        <span>Jadikan trigger</span>
+                                      </label>
+                                    </div>
+                                    {treeForOption && (
+                                      <select
+                                        value={
+                                          treeForOption?.questionPointerToId ||
+                                          ''
+                                        }
+                                        onChange={(e) => {
+                                          const extQ =
+                                            activeQuestion as ExtendedQuestion;
+                                          const currentQuestionTree =
+                                            extQ.questionTree || [];
+                                          const newQuestionTree = e.target.value
+                                            ? [
+                                                ...currentQuestionTree.filter(
+                                                  (t) =>
+                                                    t.answerQuestionTriggerId !==
+                                                    opt.value
+                                                ),
+                                                {
+                                                  answerQuestionTriggerId:
+                                                    opt.value,
+                                                  questionPointerToId:
+                                                    e.target.value,
+                                                },
+                                              ]
+                                            : currentQuestionTree.filter(
+                                                (t) =>
+                                                  t.answerQuestionTriggerId !==
+                                                  opt.value
+                                              );
+                                          patchActive({
+                                            questionTree: newQuestionTree,
+                                          } as Partial<ExtendedQuestion>);
+                                        }}
+                                        className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
+                                      >
+                                        <option value=''>
+                                          Pilih pertanyaan lanjutan
+                                        </option>
+                                        {questions
+                                          .filter(
+                                            (q) => q.id !== activeQuestion.id
+                                          )
+                                          .map((q) => (
+                                            <option
+                                              key={q.id}
+                                              value={q.id}
+                                            >
+                                              {q.label} ({q.type})
+                                              {q.type === 'single' &&
+                                                ' - bisa recursive'}
+                                            </option>
+                                          ))}
+                                      </select>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
                         )}
                         {activeQuestion.type === 'combobox' && (
@@ -1091,14 +1441,14 @@ function SurveyBuilder() {
                                     (activeQuestion as ComboBoxQuestion)
                                       .comboboxItems || [];
                                   const newItem = {
-                                    id: `item_${Date.now()}`,
+                                    id: uuidv4(),
                                     label: 'Item Baru',
                                     placeholder: 'Pilih...',
                                     searchPlaceholder: 'Cari...',
                                     required: false,
                                     options: [
-                                      {value: 'opsi1', label: 'Opsi 1'},
-                                      {value: 'opsi2', label: 'Opsi 2'},
+                                      {value: uuidv4(), label: 'Opsi 1'},
+                                      {value: uuidv4(), label: 'Opsi 2'},
                                     ],
                                   };
                                   patchActive({
@@ -1188,7 +1538,7 @@ function SurveyBuilder() {
                                     (activeQuestion as RatingQuestion)
                                       .ratingItems || [];
                                   const newItem = {
-                                    id: `rating_${Date.now()}`,
+                                    id: uuidv4(),
                                     label: 'Aspek Baru',
                                   };
                                   patchActive({
@@ -1253,7 +1603,7 @@ function SurveyBuilder() {
                                     (activeQuestion as RatingQuestion)
                                       .ratingOptions || [];
                                   const newOption = {
-                                    value: `opt_${Date.now()}`,
+                                    value: uuidv4(),
                                     label: 'Opsi Baru',
                                   };
                                   patchActive({

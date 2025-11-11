@@ -1,13 +1,26 @@
 /** @format */
 
-import React, { useState, useEffect } from 'react';
-import { AdminLayout } from '@/components/layout/admin';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
+import React, {useState, useEffect} from 'react';
+import {AdminLayout} from '@/components/layout/admin';
+import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
+import {Button} from '@/components/ui/button';
+import {Input} from '@/components/ui/input';
+import {Label} from '@/components/ui/label';
+import {Textarea} from '@/components/ui/textarea';
+import {Badge} from '@/components/ui/badge';
+import {toast} from 'sonner';
+import {
+  useSurvey,
+  useUpdateSurvey,
+  useSurveyRules,
+  useCreateSurveyRule,
+  useDeleteSurveyRule,
+  type SurveyRule,
+} from '@/api/survey.api';
+import {
+  useFaculties,
+  useMajors as useMajorsByFaculty,
+} from '@/api/major-faculty.api';
 import {
   Select,
   SelectContent,
@@ -59,7 +72,22 @@ import {
   BreadcrumbLink,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import {useNavigate, useSearchParams} from 'react-router-dom';
+
+interface ErrorDetail {
+  field: string;
+  message: string;
+  type: string;
+}
+
+interface ErrorResponse {
+  response?: {
+    data?: {
+      message?: string | ErrorDetail[];
+      error?: string | unknown;
+    };
+  };
+}
 
 // Types untuk Survey Settings
 interface SurveySettings {
@@ -107,31 +135,27 @@ interface GreetingClosing {
     department: string;
     university: string;
   };
-  contact: {
-    phone: string;
-    email: string;
-    website: string;
+  contact?: {
+    phone?: string;
+    email?: string;
+    website?: string;
   };
-}
-
-interface SurveyRule {
-  id: string;
-  surveyId: string;
-  majorId: string;
-  major: Major;
-  degree: 'D3' | 'S1' | 'S2' | 'S3' | 'PROFESI';
-  targetRole: 'ALUMNI' | 'MANAGER' | 'BOTH';
-  createdAt: string;
-  updatedAt: string;
 }
 
 interface Major {
   id: string;
   name: string;
-  faculty: string;
+  majorName?: string;
+  faculty: {
+    id: string;
+    name: string;
+    facultyName?: string;
+  };
 }
 
 interface SurveySettingsFormData {
+  description: string;
+  documentUrl: string;
   title: string;
   greetingIslamic: string;
   greetingGeneral: string;
@@ -160,23 +184,32 @@ interface SurveySettingsFormData {
 const SurveySettings: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  
+
   // Get survey info from URL params
   const surveyId = searchParams.get('id');
-  const surveyType = searchParams.get('type') as 'TRACER_STUDY' | 'USER_SURVEY' | null;
+  const surveyType = searchParams.get('type') as
+    | 'TRACER_STUDY'
+    | 'USER_SURVEY'
+    | null;
   const surveyName = searchParams.get('name') || 'Survey';
 
   // State management
-  const [surveySettings, setSurveySettings] = useState<SurveySettings | null>(null);
+  const [surveySettings, setSurveySettings] = useState<SurveySettings | null>(
+    null
+  );
   const [majors, setMajors] = useState<Major[]>([]);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isRulesSheetOpen, setIsRulesSheetOpen] = useState(false);
   const [deleteRule, setDeleteRule] = useState<SurveyRule | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'opening' | 'closing' | 'rules'>('opening');
+  const [activeTab, setActiveTab] = useState<
+    'info' | 'opening' | 'closing' | 'rules'
+  >('info');
 
   // Form data
   const [formData, setFormData] = useState<SurveySettingsFormData>({
+    description: '',
+    documentUrl: '',
     title: '',
     greetingIslamic: '',
     greetingGeneral: '',
@@ -204,265 +237,344 @@ const SurveySettings: React.FC = () => {
 
   // Survey Rules form data
   const [rulesFormData, setRulesFormData] = useState({
+    facultyId: '',
     majorId: '',
-    degree: 'S1' as 'D3' | 'S1' | 'S2' | 'S3' | 'PROFESI',
-    targetRole: 'ALUMNI' as 'ALUMNI' | 'MANAGER' | 'BOTH',
+    degree: 'S1' as 'S1' | 'PASCA' | 'PROFESI' | 'VOKASI',
   });
 
-  // Mock data - replace with API calls
-  useEffect(() => {
-    const mockMajors: Major[] = [
-      { id: '1', name: 'Teknik Informatika', faculty: 'Fakultas Teknik' },
-      { id: '2', name: 'Manajemen', faculty: 'Fakultas Ekonomi' },
-      { id: '3', name: 'Kedokteran', faculty: 'Fakultas Kedokteran' },
-      { id: '4', name: 'Psikologi', faculty: 'Fakultas Psikologi' },
-      { id: '5', name: 'Teknik Sipil', faculty: 'Fakultas Teknik' },
-    ];
-    setMajors(mockMajors);
+  // API Hooks
+  const {data: surveyData} = useSurvey(surveyId || '');
+  const {data: rulesData, isLoading: isLoadingRules} = useSurveyRules(
+    surveyId || ''
+  );
+  const {data: facultiesData} = useFaculties();
+  const {data: majorsData} = useMajorsByFaculty(rulesFormData.facultyId);
+  const updateSurveyMutation = useUpdateSurvey();
+  const createRuleMutation = useCreateSurveyRule();
+  const deleteRuleMutation = useDeleteSurveyRule();
 
-    // Mock survey settings data
-    const mockSurveySettings: SurveySettings = {
-      id: '1',
-      surveyId: surveyId || '1',
-      surveyName: surveyName,
-      surveyType: surveyType || 'TRACER_STUDY',
-      greetingOpening: {
-        title: surveyType === 'USER_SURVEY' ? 'Survey Kepuasan Mahasiswa' : 'Tracer Study Lulusan Universitas Andalas',
-        greeting: {
-          islamic: "Assalaamu'alaikum warahmatullaahi wabarakatuh",
-          general: 'Salam sejahtera untuk kita semua',
+  // Load data from API
+  useEffect(() => {
+    if (majorsData) {
+      setMajors(majorsData);
+    }
+  }, [majorsData]);
+
+  useEffect(() => {
+    if (!surveyData) return;
+
+    const settingsData: SurveySettings = {
+      id: surveyData.id,
+      surveyId: surveyData.id,
+      surveyName: surveyData.name,
+      surveyType: surveyData.type || 'TRACER_STUDY',
+      greetingOpening: surveyData.greetingOpening ||
+        surveyData.greatingOpening || {
+          title: '',
+          greeting: {islamic: '', general: ''},
+          addressee: '',
+          introduction: '',
+          ikuList: {title: '', items: []},
+          purpose: '',
+          expectation: '',
+          signOff: {department: '', university: ''},
         },
-        addressee: surveyType === 'USER_SURVEY' 
-          ? 'Kepada Yth. Mahasiswa Universitas Andalas'
-          : 'Kepada Yth. lulusan Universitas Andalas wisuda tahun 2023 Dimana saja berada.',
-        introduction: surveyType === 'USER_SURVEY'
-          ? 'Dalam rangka meningkatkan kualitas layanan dan pendidikan di Universitas Andalas, kami mengundang Anda untuk berpartisipasi dalam survey kepuasan mahasiswa.'
-          : 'Kementerian Pendidikan, Kebudayaan, Riset, dan Teknologi (Kemendikbudristek) telah meluncurkan program "Merdeka Belajar" yang mencakup beberapa terobosan untuk meningkatkan kualitas pendidikan tinggi.',
-        ikuList: {
-          title: surveyType === 'USER_SURVEY' ? 'Aspek yang akan dievaluasi:' : 'Indikator Kinerja Utama (IKU) yang diukur:',
-          items: surveyType === 'USER_SURVEY' 
-            ? [
-                'Kualitas pembelajaran dan dosen',
-                'Fasilitas kampus dan laboratorium',
-                'Layanan administrasi dan kemahasiswaan',
-                'Sarana dan prasarana pendukung',
-              ]
-            : [
-                'Jumlah Lulusan mendapat pekerjaan',
-                'Jumlah Lulusan yang menjadi wirausaha, atau',
-                'Jumlah Lulusan yang melanjutkan studi',
-                'Jumlah lulusan yang belum bekerja/tidak bekerja',
-              ],
-        },
-        purpose: surveyType === 'USER_SURVEY'
-          ? 'Survey ini bertujuan untuk mengumpulkan feedback dari mahasiswa guna meningkatkan kualitas layanan dan pendidikan di Universitas Andalas.'
-          : 'Untuk mengukur kinerja tersebut, Perguruan Tinggi diwajibkan mengumpulkan data dari seluruh alumni yang telah lulus atau diwisuda dalam kurun waktu 1 tahun terakhir.',
-        expectation: surveyType === 'USER_SURVEY'
-          ? 'Partisipasi Anda sangat berharga untuk kemajuan kampus tercinta.'
-          : 'Partisipasi seluruh alumni sangat diharapkan untuk mengumpulkan data dan masukan agar Unand menjadi lebih baik.',
-        signOff: {
-          department: surveyType === 'USER_SURVEY' ? 'Biro Kemahasiswaan dan Alumni' : 'Pusat Karir, Konseling, dan Tracer Study',
-          university: 'Universitas Andalas',
-        },
+      greetingClosing: surveyData.greetingClosing || {
+        title: '',
+        greeting: {islamic: '', general: ''},
+        addressee: '',
+        introduction: '',
+        expectation: '',
+        signOff: {department: '', university: ''},
+        contact: {phone: '', email: '', website: ''},
       },
-      greetingClosing: {
-        title: 'Terima Kasih',
-        greeting: {
-          islamic: "Wassalaamu'alaikum warahmatullaahi wabarakatuh",
-          general: 'Salam sejahtera untuk kita semua',
-        },
-        addressee: surveyType === 'USER_SURVEY'
-          ? 'Kepada Yth. Mahasiswa yang telah berpartisipasi'
-          : 'Kepada Yth. lulusan Universitas Andalas yang telah berpartisipasi dalam survey ini.',
-        introduction: surveyType === 'USER_SURVEY'
-          ? 'Terima kasih atas partisipasi Anda dalam survey kepuasan mahasiswa ini.'
-          : 'Terima kasih atas partisipasi Anda dalam mengisi survey Tracer Study ini. Data yang Anda berikan sangat berharga untuk meningkatkan kualitas pendidikan di Universitas Andalas.',
-        expectation: surveyType === 'USER_SURVEY'
-          ? 'Feedback Anda akan membantu kami meningkatkan kualitas layanan kampus.'
-          : 'Kami berharap informasi yang telah Anda berikan dapat membantu kami dalam mengembangkan program studi dan layanan yang lebih baik untuk mahasiswa dan alumni di masa mendatang.',
-        signOff: {
-          department: surveyType === 'USER_SURVEY' ? 'Biro Kemahasiswaan dan Alumni' : 'Pusat Karir, Konseling, dan Tracer Study',
-          university: 'Universitas Andalas',
-        },
-        contact: {
-          phone: '(0751) 70537',
-          email: surveyType === 'USER_SURVEY' ? 'kemahasiswaan@unand.ac.id' : 'tracer@unand.ac.id',
-          website: 'www.unand.ac.id',
-        },
-      },
-      surveyRules: [
-        {
-          id: '1',
-          surveyId: surveyId || '1',
-          majorId: '1',
-          major: mockMajors[0],
-          degree: 'S1',
-          targetRole: surveyType === 'USER_SURVEY' ? 'MANAGER' : 'ALUMNI',
-          createdAt: '2024-01-15T10:00:00Z',
-          updatedAt: '2024-01-15T10:00:00Z',
-        },
-      ],
-      createdAt: '2024-01-15T10:00:00Z',
-      updatedAt: '2024-01-15T10:00:00Z',
+      surveyRules: rulesData || surveyData.surveyRules || [],
+      createdAt: surveyData.createdAt || new Date().toISOString(),
+      updatedAt: surveyData.updatedAt || new Date().toISOString(),
     };
-    setSurveySettings(mockSurveySettings);
+
+    setSurveySettings(settingsData);
 
     // Populate form data
     setFormData({
-      title: mockSurveySettings.greetingOpening.title,
-      greetingIslamic: mockSurveySettings.greetingOpening.greeting.islamic,
-      greetingGeneral: mockSurveySettings.greetingOpening.greeting.general,
-      addressee: mockSurveySettings.greetingOpening.addressee,
-      introduction: mockSurveySettings.greetingOpening.introduction,
-      ikuTitle: mockSurveySettings.greetingOpening.ikuList.title,
-      ikuItems: mockSurveySettings.greetingOpening.ikuList.items.length > 0 
-        ? mockSurveySettings.greetingOpening.ikuList.items 
-        : [''],
-      purpose: mockSurveySettings.greetingOpening.purpose,
-      expectation: mockSurveySettings.greetingOpening.expectation,
-      department: mockSurveySettings.greetingOpening.signOff.department,
-      university: mockSurveySettings.greetingOpening.signOff.university,
-      // Closing form data
-      closingTitle: mockSurveySettings.greetingClosing.title,
-      closingGreetingIslamic: mockSurveySettings.greetingClosing.greeting.islamic,
-      closingGreetingGeneral: mockSurveySettings.greetingClosing.greeting.general,
-      closingAddressee: mockSurveySettings.greetingClosing.addressee,
-      closingIntroduction: mockSurveySettings.greetingClosing.introduction,
-      closingExpectation: mockSurveySettings.greetingClosing.expectation,
-      closingDepartment: mockSurveySettings.greetingClosing.signOff.department,
-      closingUniversity: mockSurveySettings.greetingClosing.signOff.university,
-      contactPhone: mockSurveySettings.greetingClosing.contact.phone,
-      contactEmail: mockSurveySettings.greetingClosing.contact.email,
-      contactWebsite: mockSurveySettings.greetingClosing.contact.website,
+      description: surveyData.description || '',
+      documentUrl: surveyData.documentUrl || '',
+      title: settingsData.greetingOpening.title,
+      greetingIslamic: settingsData.greetingOpening.greeting.islamic,
+      greetingGeneral: settingsData.greetingOpening.greeting.general,
+      addressee: settingsData.greetingOpening.addressee,
+      introduction: settingsData.greetingOpening.introduction,
+      ikuTitle: settingsData.greetingOpening.ikuList.title,
+      ikuItems:
+        settingsData.greetingOpening.ikuList.items.length > 0
+          ? settingsData.greetingOpening.ikuList.items
+          : [''],
+      purpose: settingsData.greetingOpening.purpose,
+      expectation: settingsData.greetingOpening.expectation,
+      department: settingsData.greetingOpening.signOff.department,
+      university: settingsData.greetingOpening.signOff.university,
+      closingTitle: settingsData.greetingClosing.title,
+      closingGreetingIslamic: settingsData.greetingClosing.greeting.islamic,
+      closingGreetingGeneral: settingsData.greetingClosing.greeting.general,
+      closingAddressee: settingsData.greetingClosing.addressee,
+      closingIntroduction: settingsData.greetingClosing.introduction,
+      closingExpectation: settingsData.greetingClosing.expectation,
+      closingDepartment: settingsData.greetingClosing.signOff.department,
+      closingUniversity: settingsData.greetingClosing.signOff.university,
+      contactPhone: settingsData.greetingClosing.contact?.phone || '',
+      contactEmail: settingsData.greetingClosing.contact?.email || '',
+      contactWebsite: settingsData.greetingClosing.contact?.website || '',
     });
-  }, [surveyId, surveyType, surveyName]);
+  }, [surveyData, rulesData]);
 
   // Form handlers
-  const handleInputChange = (field: keyof SurveySettingsFormData, value: string | string[]) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  const handleInputChange = (
+    field: keyof SurveySettingsFormData,
+    value: string | string[]
+  ) => {
+    setFormData((prev) => ({...prev, [field]: value}));
   };
 
   const handleIkuItemChange = (index: number, value: string) => {
     const newItems = [...formData.ikuItems];
     newItems[index] = value;
-    setFormData((prev) => ({ ...prev, ikuItems: newItems }));
+    setFormData((prev) => ({...prev, ikuItems: newItems}));
   };
 
   const addIkuItem = () => {
-    setFormData((prev) => ({ ...prev, ikuItems: [...prev.ikuItems, ''] }));
+    setFormData((prev) => ({...prev, ikuItems: [...prev.ikuItems, '']}));
   };
 
   const removeIkuItem = (index: number) => {
     const newItems = formData.ikuItems.filter((_, i) => i !== index);
-    setFormData((prev) => ({ ...prev, ikuItems: newItems }));
+    setFormData((prev) => ({...prev, ikuItems: newItems}));
   };
 
   const handleSaveSettings = async () => {
+    if (!surveySettings || !surveyId) return;
+
     setLoading(true);
     try {
-      if (!surveySettings) return;
-
-      const updatedSettings: SurveySettings = {
-        ...surveySettings,
-        greetingOpening: {
-          title: formData.title,
-          greeting: {
-            islamic: formData.greetingIslamic,
-            general: formData.greetingGeneral,
+      await updateSurveyMutation.mutateAsync({
+        id: surveyId,
+        data: {
+          description: formData.description,
+          documentUrl: formData.documentUrl || undefined,
+          greetingOpening: {
+            title: formData.title,
+            greeting: {
+              islamic: formData.greetingIslamic,
+              general: formData.greetingGeneral,
+            },
+            addressee: formData.addressee,
+            introduction: formData.introduction,
+            ikuList: {
+              title: formData.ikuTitle,
+              items: formData.ikuItems.filter((item) => item.trim() !== ''),
+            },
+            purpose: formData.purpose,
+            expectation: formData.expectation,
+            signOff: {
+              department: formData.department,
+              university: formData.university,
+            },
           },
-          addressee: formData.addressee,
-          introduction: formData.introduction,
-          ikuList: {
-            title: formData.ikuTitle,
-            items: formData.ikuItems.filter(item => item.trim() !== ''),
-          },
-          purpose: formData.purpose,
-          expectation: formData.expectation,
-          signOff: {
-            department: formData.department,
-            university: formData.university,
+          greetingClosing: {
+            title: formData.closingTitle || 'Terima Kasih',
+            greeting: {
+              islamic: formData.closingGreetingIslamic,
+              general: formData.closingGreetingGeneral,
+            },
+            addressee: formData.closingAddressee,
+            introduction: formData.closingIntroduction,
+            expectation: formData.closingExpectation,
+            signOff: {
+              department: formData.closingDepartment || formData.department,
+              university: formData.closingUniversity || formData.university,
+            },
+            contact: {
+              phone: formData.contactPhone,
+              email: formData.contactEmail,
+              website: formData.contactWebsite,
+            },
           },
         },
-        greetingClosing: {
-          title: formData.closingTitle || 'Terima Kasih',
-          greeting: {
-            islamic: formData.closingGreetingIslamic,
-            general: formData.closingGreetingGeneral,
-          },
-          addressee: formData.closingAddressee,
-          introduction: formData.closingIntroduction,
-          expectation: formData.closingExpectation,
-          signOff: {
-            department: formData.closingDepartment || formData.department,
-            university: formData.closingUniversity || formData.university,
-          },
-          contact: {
-            phone: formData.contactPhone,
-            email: formData.contactEmail,
-            website: formData.contactWebsite,
-          },
-        },
-        updatedAt: new Date().toISOString(),
-      };
+      });
 
-      setSurveySettings(updatedSettings);
+      toast.success('Settings berhasil disimpan');
       setIsSheetOpen(false);
-    } catch (error) {
-      console.error('Error saving settings:', error);
+    } catch (error: unknown) {
+      try {
+        const err = error as ErrorResponse;
+        const errorData = err?.response?.data;
+
+        // Handle different error response structures
+        let errorMessages: string[] = [];
+
+        if (errorData?.message) {
+          const errorMessage = errorData.message;
+
+          if (Array.isArray(errorMessage)) {
+            errorMessages = errorMessage.map((errDetail) => {
+              if (
+                typeof errDetail === 'object' &&
+                errDetail !== null &&
+                !Array.isArray(errDetail)
+              ) {
+                const detail = errDetail as ErrorDetail;
+                return `${detail.field || 'Error'}: ${
+                  detail.message || 'Unknown error'
+                }`;
+              }
+              return String(errDetail);
+            });
+          } else if (typeof errorMessage === 'string') {
+            errorMessages = [errorMessage];
+          }
+        }
+
+        if (errorData?.error) {
+          errorMessages.push(String(errorData.error));
+        }
+
+        // Display errors
+        if (errorMessages.length > 0) {
+          errorMessages.forEach((msg) => {
+            toast.error(msg);
+          });
+        } else {
+          toast.error('Gagal menyimpan settings');
+        }
+      } catch {
+        // Fallback if error parsing fails
+        toast.error('Gagal menyimpan settings');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAddRule = () => {
-    if (!surveySettings || !rulesFormData.majorId) return;
+  const handleAddRule = async () => {
+    if (!surveyId || !rulesFormData.facultyId) return;
 
-    const selectedMajor = majors.find(m => m.id === rulesFormData.majorId);
-    if (!selectedMajor) return;
+    try {
+      await createRuleMutation.mutateAsync({
+        surveyId,
+        data: {
+          facultyId: rulesFormData.facultyId,
+          majorId: rulesFormData.majorId || null,
+          degree: rulesFormData.degree,
+        },
+      });
 
-    const newRule: SurveyRule = {
-      id: Date.now().toString(),
-      surveyId: surveySettings.surveyId,
-      majorId: rulesFormData.majorId,
-      major: selectedMajor,
-      degree: rulesFormData.degree,
-      targetRole: rulesFormData.targetRole,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+      toast.success('Rule berhasil ditambahkan');
+      setRulesFormData({
+        facultyId: '',
+        majorId: '',
+        degree: 'S1',
+      });
+      setIsRulesSheetOpen(false);
+    } catch (error: unknown) {
+      try {
+        const err = error as ErrorResponse;
+        const errorData = err?.response?.data;
 
-    setSurveySettings((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        surveyRules: [...prev.surveyRules, newRule],
-        updatedAt: new Date().toISOString(),
-      };
-    });
+        let errorMessages: string[] = [];
 
-    setRulesFormData({
-      majorId: '',
-      degree: 'S1',
-      targetRole: 'ALUMNI',
-    });
+        if (errorData?.message) {
+          const errorMessage = errorData.message;
+
+          if (Array.isArray(errorMessage)) {
+            errorMessages = errorMessage.map((errDetail) => {
+              if (
+                typeof errDetail === 'object' &&
+                errDetail !== null &&
+                !Array.isArray(errDetail)
+              ) {
+                const detail = errDetail as ErrorDetail;
+                return `${detail.field || 'Error'}: ${
+                  detail.message || 'Unknown error'
+                }`;
+              }
+              return String(errDetail);
+            });
+          } else if (typeof errorMessage === 'string') {
+            errorMessages = [errorMessage];
+          }
+        }
+
+        if (errorData?.error) {
+          errorMessages.push(String(errorData.error));
+        }
+
+        if (errorMessages.length > 0) {
+          errorMessages.forEach((msg) => {
+            toast.error(msg);
+          });
+        } else {
+          toast.error('Gagal menambahkan rule');
+        }
+      } catch {
+        toast.error('Gagal menambahkan rule');
+      }
+    }
   };
 
   const handleDeleteRule = async () => {
-    if (!deleteRule || !surveySettings) return;
+    if (!deleteRule || !surveyId) return;
 
     setLoading(true);
     try {
-      setSurveySettings((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          surveyRules: prev.surveyRules.filter(r => r.id !== deleteRule.id),
-          updatedAt: new Date().toISOString(),
-        };
+      await deleteRuleMutation.mutateAsync({
+        surveyId,
+        ruleId: deleteRule.id,
       });
+
+      toast.success('Rule berhasil dihapus');
       setDeleteRule(null);
-    } catch (error) {
-      console.error('Error deleting rule:', error);
+    } catch (error: unknown) {
+      try {
+        const err = error as ErrorResponse;
+        const errorData = err?.response?.data;
+
+        let errorMessages: string[] = [];
+
+        if (errorData?.message) {
+          const errorMessage = errorData.message;
+
+          if (Array.isArray(errorMessage)) {
+            errorMessages = errorMessage.map((errDetail) => {
+              if (
+                typeof errDetail === 'object' &&
+                errDetail !== null &&
+                !Array.isArray(errDetail)
+              ) {
+                const detail = errDetail as ErrorDetail;
+                return `${detail.field || 'Error'}: ${
+                  detail.message || 'Unknown error'
+                }`;
+              }
+              return String(errDetail);
+            });
+          } else if (typeof errorMessage === 'string') {
+            errorMessages = [errorMessage];
+          }
+        }
+
+        if (errorData?.error) {
+          errorMessages.push(String(errorData.error));
+        }
+
+        if (errorMessages.length > 0) {
+          errorMessages.forEach((msg) => {
+            toast.error(msg);
+          });
+        } else {
+          toast.error('Gagal menghapus rule');
+        }
+      } catch {
+        toast.error('Gagal menghapus rule');
+      }
     } finally {
       setLoading(false);
     }
@@ -476,24 +588,24 @@ const SurveySettings: React.FC = () => {
           description: 'Survey untuk melacak status lulusan dan alumni',
           icon: FileText,
           color: 'text-blue-600',
-          bgColor: 'bg-blue-50'
-        }
+          bgColor: 'bg-blue-50',
+        };
       case 'USER_SURVEY':
         return {
           title: 'User Survey',
           description: 'Survey untuk mengukur kepuasan mahasiswa',
           icon: Users,
           color: 'text-purple-600',
-          bgColor: 'bg-purple-50'
-        }
+          bgColor: 'bg-purple-50',
+        };
       default:
         return {
           title: 'Survey',
           description: 'Survey settings',
           icon: Settings,
           color: 'text-gray-600',
-          bgColor: 'bg-gray-50'
-        }
+          bgColor: 'bg-gray-50',
+        };
     }
   };
 
@@ -563,24 +675,77 @@ const SurveySettings: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className='text-sm text-gray-600 mb-4'>{surveyInfo.description}</p>
-            
+            {surveyData?.description && (
+              <div className='mb-4'>
+                <p className='text-sm font-medium text-gray-700 mb-1'>
+                  Deskripsi:
+                </p>
+                <p className='text-sm text-gray-600'>
+                  {surveyData.description}
+                </p>
+              </div>
+            )}
+            {surveyData?.documentUrl && (
+              <div className='mb-4'>
+                <p className='text-sm font-medium text-gray-700 mb-1'>
+                  Dokumen:
+                </p>
+                <a
+                  href={surveyData.documentUrl}
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  className='text-sm text-primary hover:underline'
+                >
+                  {surveyData.documentUrl}
+                </a>
+              </div>
+            )}
+            {!surveyData?.description && (
+              <p className='text-sm text-gray-600 mb-4'>
+                {surveyInfo.description}
+              </p>
+            )}
+
             {/* Quick Stats */}
-            <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+            <div className='grid grid-cols-2 md:grid-cols-5 gap-4'>
               <div className='flex items-center space-x-2'>
                 <Settings className='h-4 w-4 text-muted-foreground' />
-                <span className='text-sm'>{surveySettings?.surveyRules?.length || 0} Rules</span>
+                <span className='text-sm'>
+                  {surveySettings?.surveyRules?.length || 0} Rules
+                </span>
               </div>
               <div className='flex items-center space-x-2'>
-                <Calendar className='h-4 w-4 text-muted-foreground' />
+                <FileText className='h-4 w-4 text-muted-foreground' />
                 <span className='text-sm'>
-                  Dibuat: {surveySettings ? new Date(surveySettings.createdAt).toLocaleDateString('id-ID') : '-'}
+                  {surveyData?.questionCount || 0} Pertanyaan
+                </span>
+              </div>
+              <div className='flex items-center space-x-2'>
+                <Users className='h-4 w-4 text-muted-foreground' />
+                <span className='text-sm'>
+                  {surveyData?.responseCount || 0} Response
                 </span>
               </div>
               <div className='flex items-center space-x-2'>
                 <Calendar className='h-4 w-4 text-muted-foreground' />
                 <span className='text-sm'>
-                  Diupdate: {surveySettings ? new Date(surveySettings.updatedAt).toLocaleDateString('id-ID') : '-'}
+                  Dibuat:{' '}
+                  {surveySettings
+                    ? new Date(surveySettings.createdAt).toLocaleDateString(
+                        'id-ID'
+                      )
+                    : '-'}
+                </span>
+              </div>
+              <div className='flex items-center space-x-2'>
+                <Calendar className='h-4 w-4 text-muted-foreground' />
+                <span className='text-sm'>
+                  Diupdate:{' '}
+                  {surveySettings
+                    ? new Date(surveySettings.updatedAt).toLocaleDateString(
+                        'id-ID'
+                      )
+                    : '-'}
                 </span>
               </div>
             </div>
@@ -595,8 +760,8 @@ const SurveySettings: React.FC = () => {
                 <Settings className='h-5 w-5' />
                 <span>Survey Rules</span>
               </div>
-              <Button 
-                variant='outline' 
+              <Button
+                variant='outline'
                 size='sm'
                 onClick={() => setIsRulesSheetOpen(true)}
               >
@@ -609,65 +774,93 @@ const SurveySettings: React.FC = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Fakultas</TableHead>
                   <TableHead>Jurusan</TableHead>
                   <TableHead>Tingkat</TableHead>
-                  <TableHead>Target Role</TableHead>
                   <TableHead>Tanggal Dibuat</TableHead>
                   <TableHead className='text-right'>Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {surveySettings?.surveyRules?.map((rule) => (
-                  <TableRow key={rule.id}>
-                    <TableCell>{rule.major.name}</TableCell>
-                    <TableCell>
-                      <Badge variant='outline'>{rule.degree}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        className={
-                          rule.targetRole === 'ALUMNI'
-                            ? 'bg-blue-100 text-blue-800'
-                            : rule.targetRole === 'MANAGER'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-purple-100 text-purple-800'
-                        }
-                      >
-                        {rule.targetRole}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {new Date(rule.createdAt).toLocaleDateString('id-ID')}
-                    </TableCell>
-                    <TableCell className='text-right'>
-                      <Button
-                        variant='outline'
-                        size='sm'
-                        onClick={() => setDeleteRule(rule)}
-                      >
-                        <Trash2 className='h-4 w-4' />
-                      </Button>
+                {isLoadingRules ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={5}
+                      className='text-center'
+                    >
+                      Loading...
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : surveySettings?.surveyRules?.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={5}
+                      className='text-center text-muted-foreground'
+                    >
+                      Belum ada rule
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  surveySettings?.surveyRules?.map((rule) => (
+                    <TableRow key={rule.id}>
+                      <TableCell>
+                        {rule.major?.faculty?.facultyName ||
+                          rule.major?.faculty?.name ||
+                          rule.faculty?.facultyName ||
+                          rule.faculty?.name ||
+                          '-'}
+                      </TableCell>
+                      <TableCell>
+                        {rule.major
+                          ? rule.major.majorName || rule.major.name
+                          : 'Semua Jurusan'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant='outline'>{rule.degree}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        {new Date(rule.createdAt).toLocaleDateString('id-ID')}
+                      </TableCell>
+                      <TableCell className='text-right'>
+                        <Button
+                          variant='outline'
+                          size='sm'
+                          onClick={() => setDeleteRule(rule)}
+                        >
+                          <Trash2 className='h-4 w-4' />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </CardContent>
         </Card>
 
         {/* Edit Settings Sheet */}
-        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-          <SheetContent className='w-[95vw] max-w-[1200px] overflow-y-auto'>
-            <SheetHeader>
+        <Sheet
+          open={isSheetOpen}
+          onOpenChange={setIsSheetOpen}
+        >
+          <SheetContent className='w-[95vw] max-w-[1200px] flex flex-col'>
+            <SheetHeader className='flex-shrink-0'>
               <SheetTitle>Edit Survey Settings</SheetTitle>
               <SheetDescription>
                 Ubah pengaturan greeting opening dan closing untuk survey ini
               </SheetDescription>
             </SheetHeader>
 
-            <div className='px-4 space-y-8'>
-              {/* Tab Navigation */}
-              <div className='flex space-x-1 border-b'>
+            {/* Tab Navigation */}
+            <div className='flex-shrink-0 px-4 border-b overflow-x-scroll [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'>
+              <div className='flex space-x-1'>
+                <Button
+                  variant={activeTab === 'info' ? 'default' : 'ghost'}
+                  onClick={() => setActiveTab('info')}
+                  className='rounded-none'
+                >
+                  Informasi Survey
+                </Button>
                 <Button
                   variant={activeTab === 'opening' ? 'default' : 'ghost'}
                   onClick={() => setActiveTab('opening')}
@@ -683,19 +876,74 @@ const SurveySettings: React.FC = () => {
                   Penutup Survey
                 </Button>
               </div>
+            </div>
+
+            <div className='flex-1 overflow-y-auto px-4 space-y-8 pb-6 pt-6'>
+              {/* Info Tab */}
+              {activeTab === 'info' && (
+                <div className='space-y-6'>
+                  <div className='space-y-4'>
+                    <div className='space-y-2'>
+                      <Label
+                        htmlFor='description'
+                        className='text-sm font-medium'
+                      >
+                        Deskripsi Survey *
+                      </Label>
+                      <Textarea
+                        id='description'
+                        value={formData.description}
+                        onChange={(e) =>
+                          handleInputChange('description', e.target.value)
+                        }
+                        placeholder='Deskripsi singkat tentang survey ini'
+                        rows={4}
+                        className='text-sm'
+                      />
+                    </div>
+
+                    <div className='space-y-2'>
+                      <Label
+                        htmlFor='documentUrl'
+                        className='text-sm font-medium'
+                      >
+                        URL Dokumen
+                      </Label>
+                      <Input
+                        id='documentUrl'
+                        value={formData.documentUrl}
+                        onChange={(e) =>
+                          handleInputChange('documentUrl', e.target.value)
+                        }
+                        placeholder='https://example.com/document.pdf'
+                        className='text-sm'
+                        type='url'
+                      />
+                      <p className='text-xs text-muted-foreground'>
+                        URL untuk dokumen terkait survey (opsional)
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Opening Tab */}
               {activeTab === 'opening' && (
                 <div className='space-y-6'>
                   <div className='space-y-4'>
                     <div className='space-y-2'>
-                      <Label htmlFor='title' className='text-sm font-medium'>
+                      <Label
+                        htmlFor='title'
+                        className='text-sm font-medium'
+                      >
                         Judul Survey *
                       </Label>
                       <Input
                         id='title'
                         value={formData.title}
-                        onChange={(e) => handleInputChange('title', e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange('title', e.target.value)
+                        }
                         placeholder='Tracer Study Lulusan Universitas Andalas'
                         className='text-sm'
                       />
@@ -703,25 +951,35 @@ const SurveySettings: React.FC = () => {
 
                     <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                       <div className='space-y-2'>
-                        <Label htmlFor='greetingIslamic' className='text-sm font-medium'>
+                        <Label
+                          htmlFor='greetingIslamic'
+                          className='text-sm font-medium'
+                        >
                           Salam Islami
                         </Label>
                         <Input
                           id='greetingIslamic'
                           value={formData.greetingIslamic}
-                          onChange={(e) => handleInputChange('greetingIslamic', e.target.value)}
+                          onChange={(e) =>
+                            handleInputChange('greetingIslamic', e.target.value)
+                          }
                           placeholder="Assalaamu'alaikum warahmatullaahi wabarakatuh"
                           className='text-sm'
                         />
                       </div>
                       <div className='space-y-2'>
-                        <Label htmlFor='greetingGeneral' className='text-sm font-medium'>
+                        <Label
+                          htmlFor='greetingGeneral'
+                          className='text-sm font-medium'
+                        >
                           Salam Umum
                         </Label>
                         <Input
                           id='greetingGeneral'
                           value={formData.greetingGeneral}
-                          onChange={(e) => handleInputChange('greetingGeneral', e.target.value)}
+                          onChange={(e) =>
+                            handleInputChange('greetingGeneral', e.target.value)
+                          }
                           placeholder='Salam sejahtera untuk kita semua'
                           className='text-sm'
                         />
@@ -729,13 +987,18 @@ const SurveySettings: React.FC = () => {
                     </div>
 
                     <div className='space-y-2'>
-                      <Label htmlFor='addressee' className='text-sm font-medium'>
+                      <Label
+                        htmlFor='addressee'
+                        className='text-sm font-medium'
+                      >
                         Alamat Tujuan *
                       </Label>
                       <Textarea
                         id='addressee'
                         value={formData.addressee}
-                        onChange={(e) => handleInputChange('addressee', e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange('addressee', e.target.value)
+                        }
                         placeholder='Kepada Yth. lulusan Universitas Andalas wisuda tahun 2023 Dimana saja berada.'
                         rows={2}
                         className='text-sm'
@@ -743,13 +1006,18 @@ const SurveySettings: React.FC = () => {
                     </div>
 
                     <div className='space-y-2'>
-                      <Label htmlFor='introduction' className='text-sm font-medium'>
+                      <Label
+                        htmlFor='introduction'
+                        className='text-sm font-medium'
+                      >
                         Pengantar *
                       </Label>
                       <Textarea
                         id='introduction'
                         value={formData.introduction}
-                        onChange={(e) => handleInputChange('introduction', e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange('introduction', e.target.value)
+                        }
                         placeholder='Kementerian Pendidikan, Kebudayaan, Riset, dan Teknologi...'
                         rows={4}
                         className='text-sm'
@@ -758,25 +1026,37 @@ const SurveySettings: React.FC = () => {
 
                     <div className='space-y-4'>
                       <div className='space-y-2'>
-                        <Label htmlFor='ikuTitle' className='text-sm font-medium'>
+                        <Label
+                          htmlFor='ikuTitle'
+                          className='text-sm font-medium'
+                        >
                           Judul Daftar IKU
                         </Label>
                         <Input
                           id='ikuTitle'
                           value={formData.ikuTitle}
-                          onChange={(e) => handleInputChange('ikuTitle', e.target.value)}
+                          onChange={(e) =>
+                            handleInputChange('ikuTitle', e.target.value)
+                          }
                           placeholder='Indikator Kinerja Utama (IKU) yang diukur:'
                           className='text-sm'
                         />
                       </div>
 
                       <div className='space-y-2'>
-                        <Label className='text-sm font-medium'>Daftar IKU</Label>
+                        <Label className='text-sm font-medium'>
+                          Daftar IKU
+                        </Label>
                         {formData.ikuItems.map((item, index) => (
-                          <div key={index} className='flex space-x-2'>
+                          <div
+                            key={index}
+                            className='flex space-x-2'
+                          >
                             <Input
                               value={item}
-                              onChange={(e) => handleIkuItemChange(index, e.target.value)}
+                              onChange={(e) =>
+                                handleIkuItemChange(index, e.target.value)
+                              }
                               placeholder={`Item IKU ${index + 1}`}
                               className='text-sm'
                             />
@@ -804,13 +1084,18 @@ const SurveySettings: React.FC = () => {
                     </div>
 
                     <div className='space-y-2'>
-                      <Label htmlFor='purpose' className='text-sm font-medium'>
+                      <Label
+                        htmlFor='purpose'
+                        className='text-sm font-medium'
+                      >
                         Tujuan *
                       </Label>
                       <Textarea
                         id='purpose'
                         value={formData.purpose}
-                        onChange={(e) => handleInputChange('purpose', e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange('purpose', e.target.value)
+                        }
                         placeholder='Untuk mengukur kinerja tersebut...'
                         rows={3}
                         className='text-sm'
@@ -818,13 +1103,18 @@ const SurveySettings: React.FC = () => {
                     </div>
 
                     <div className='space-y-2'>
-                      <Label htmlFor='expectation' className='text-sm font-medium'>
+                      <Label
+                        htmlFor='expectation'
+                        className='text-sm font-medium'
+                      >
                         Harapan *
                       </Label>
                       <Textarea
                         id='expectation'
                         value={formData.expectation}
-                        onChange={(e) => handleInputChange('expectation', e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange('expectation', e.target.value)
+                        }
                         placeholder='Partisipasi seluruh alumni sangat diharapkan...'
                         rows={3}
                         className='text-sm'
@@ -833,25 +1123,35 @@ const SurveySettings: React.FC = () => {
 
                     <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                       <div className='space-y-2'>
-                        <Label htmlFor='department' className='text-sm font-medium'>
+                        <Label
+                          htmlFor='department'
+                          className='text-sm font-medium'
+                        >
                           Departemen *
                         </Label>
                         <Input
                           id='department'
                           value={formData.department}
-                          onChange={(e) => handleInputChange('department', e.target.value)}
+                          onChange={(e) =>
+                            handleInputChange('department', e.target.value)
+                          }
                           placeholder='Pusat Karir, Konseling, dan Tracer Study'
                           className='text-sm'
                         />
                       </div>
                       <div className='space-y-2'>
-                        <Label htmlFor='university' className='text-sm font-medium'>
+                        <Label
+                          htmlFor='university'
+                          className='text-sm font-medium'
+                        >
                           Universitas *
                         </Label>
                         <Input
                           id='university'
                           value={formData.university}
-                          onChange={(e) => handleInputChange('university', e.target.value)}
+                          onChange={(e) =>
+                            handleInputChange('university', e.target.value)
+                          }
                           placeholder='Universitas Andalas'
                           className='text-sm'
                         />
@@ -866,13 +1166,18 @@ const SurveySettings: React.FC = () => {
                 <div className='space-y-6'>
                   <div className='space-y-4'>
                     <div className='space-y-2'>
-                      <Label htmlFor='closingTitle' className='text-sm font-medium'>
+                      <Label
+                        htmlFor='closingTitle'
+                        className='text-sm font-medium'
+                      >
                         Judul Penutup *
                       </Label>
                       <Input
                         id='closingTitle'
                         value={formData.closingTitle}
-                        onChange={(e) => handleInputChange('closingTitle', e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange('closingTitle', e.target.value)
+                        }
                         placeholder='Terima Kasih'
                         className='text-sm'
                       />
@@ -880,25 +1185,41 @@ const SurveySettings: React.FC = () => {
 
                     <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                       <div className='space-y-2'>
-                        <Label htmlFor='closingGreetingIslamic' className='text-sm font-medium'>
+                        <Label
+                          htmlFor='closingGreetingIslamic'
+                          className='text-sm font-medium'
+                        >
                           Salam Penutup Islami
                         </Label>
                         <Input
                           id='closingGreetingIslamic'
                           value={formData.closingGreetingIslamic}
-                          onChange={(e) => handleInputChange('closingGreetingIslamic', e.target.value)}
+                          onChange={(e) =>
+                            handleInputChange(
+                              'closingGreetingIslamic',
+                              e.target.value
+                            )
+                          }
                           placeholder="Wassalaamu'alaikum warahmatullaahi wabarakatuh"
                           className='text-sm'
                         />
                       </div>
                       <div className='space-y-2'>
-                        <Label htmlFor='closingGreetingGeneral' className='text-sm font-medium'>
+                        <Label
+                          htmlFor='closingGreetingGeneral'
+                          className='text-sm font-medium'
+                        >
                           Salam Penutup Umum
                         </Label>
                         <Input
                           id='closingGreetingGeneral'
                           value={formData.closingGreetingGeneral}
-                          onChange={(e) => handleInputChange('closingGreetingGeneral', e.target.value)}
+                          onChange={(e) =>
+                            handleInputChange(
+                              'closingGreetingGeneral',
+                              e.target.value
+                            )
+                          }
                           placeholder='Salam sejahtera untuk kita semua'
                           className='text-sm'
                         />
@@ -906,13 +1227,18 @@ const SurveySettings: React.FC = () => {
                     </div>
 
                     <div className='space-y-2'>
-                      <Label htmlFor='closingAddressee' className='text-sm font-medium'>
+                      <Label
+                        htmlFor='closingAddressee'
+                        className='text-sm font-medium'
+                      >
                         Alamat Tujuan Penutup *
                       </Label>
                       <Textarea
                         id='closingAddressee'
                         value={formData.closingAddressee}
-                        onChange={(e) => handleInputChange('closingAddressee', e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange('closingAddressee', e.target.value)
+                        }
                         placeholder='Kepada Yth. lulusan Universitas Andalas yang telah berpartisipasi dalam survey ini.'
                         rows={2}
                         className='text-sm'
@@ -920,13 +1246,21 @@ const SurveySettings: React.FC = () => {
                     </div>
 
                     <div className='space-y-2'>
-                      <Label htmlFor='closingIntroduction' className='text-sm font-medium'>
+                      <Label
+                        htmlFor='closingIntroduction'
+                        className='text-sm font-medium'
+                      >
                         Pengantar Penutup *
                       </Label>
                       <Textarea
                         id='closingIntroduction'
                         value={formData.closingIntroduction}
-                        onChange={(e) => handleInputChange('closingIntroduction', e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange(
+                            'closingIntroduction',
+                            e.target.value
+                          )
+                        }
                         placeholder='Terima kasih atas partisipasi Anda dalam mengisi survey Tracer Study ini...'
                         rows={4}
                         className='text-sm'
@@ -934,13 +1268,21 @@ const SurveySettings: React.FC = () => {
                     </div>
 
                     <div className='space-y-2'>
-                      <Label htmlFor='closingExpectation' className='text-sm font-medium'>
+                      <Label
+                        htmlFor='closingExpectation'
+                        className='text-sm font-medium'
+                      >
                         Harapan Penutup *
                       </Label>
                       <Textarea
                         id='closingExpectation'
                         value={formData.closingExpectation}
-                        onChange={(e) => handleInputChange('closingExpectation', e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange(
+                            'closingExpectation',
+                            e.target.value
+                          )
+                        }
                         placeholder='Kami berharap informasi yang telah Anda berikan dapat membantu kami...'
                         rows={3}
                         className='text-sm'
@@ -949,25 +1291,41 @@ const SurveySettings: React.FC = () => {
 
                     <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                       <div className='space-y-2'>
-                        <Label htmlFor='closingDepartment' className='text-sm font-medium'>
+                        <Label
+                          htmlFor='closingDepartment'
+                          className='text-sm font-medium'
+                        >
                           Departemen Penutup *
                         </Label>
                         <Input
                           id='closingDepartment'
                           value={formData.closingDepartment}
-                          onChange={(e) => handleInputChange('closingDepartment', e.target.value)}
+                          onChange={(e) =>
+                            handleInputChange(
+                              'closingDepartment',
+                              e.target.value
+                            )
+                          }
                           placeholder='Pusat Karir, Konseling, dan Tracer Study'
                           className='text-sm'
                         />
                       </div>
                       <div className='space-y-2'>
-                        <Label htmlFor='closingUniversity' className='text-sm font-medium'>
+                        <Label
+                          htmlFor='closingUniversity'
+                          className='text-sm font-medium'
+                        >
                           Universitas Penutup *
                         </Label>
                         <Input
                           id='closingUniversity'
                           value={formData.closingUniversity}
-                          onChange={(e) => handleInputChange('closingUniversity', e.target.value)}
+                          onChange={(e) =>
+                            handleInputChange(
+                              'closingUniversity',
+                              e.target.value
+                            )
+                          }
                           placeholder='Universitas Andalas'
                           className='text-sm'
                         />
@@ -976,37 +1334,52 @@ const SurveySettings: React.FC = () => {
 
                     <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
                       <div className='space-y-2'>
-                        <Label htmlFor='contactPhone' className='text-sm font-medium'>
+                        <Label
+                          htmlFor='contactPhone'
+                          className='text-sm font-medium'
+                        >
                           Nomor Telepon
                         </Label>
                         <Input
                           id='contactPhone'
                           value={formData.contactPhone}
-                          onChange={(e) => handleInputChange('contactPhone', e.target.value)}
+                          onChange={(e) =>
+                            handleInputChange('contactPhone', e.target.value)
+                          }
                           placeholder='(0751) 70537'
                           className='text-sm'
                         />
                       </div>
                       <div className='space-y-2'>
-                        <Label htmlFor='contactEmail' className='text-sm font-medium'>
+                        <Label
+                          htmlFor='contactEmail'
+                          className='text-sm font-medium'
+                        >
                           Email Kontak
                         </Label>
                         <Input
                           id='contactEmail'
                           value={formData.contactEmail}
-                          onChange={(e) => handleInputChange('contactEmail', e.target.value)}
+                          onChange={(e) =>
+                            handleInputChange('contactEmail', e.target.value)
+                          }
                           placeholder='tracer@unand.ac.id'
                           className='text-sm'
                         />
                       </div>
                       <div className='space-y-2'>
-                        <Label htmlFor='contactWebsite' className='text-sm font-medium'>
+                        <Label
+                          htmlFor='contactWebsite'
+                          className='text-sm font-medium'
+                        >
                           Website
                         </Label>
                         <Input
                           id='contactWebsite'
                           value={formData.contactWebsite}
-                          onChange={(e) => handleInputChange('contactWebsite', e.target.value)}
+                          onChange={(e) =>
+                            handleInputChange('contactWebsite', e.target.value)
+                          }
                           placeholder='www.unand.ac.id'
                           className='text-sm'
                         />
@@ -1015,113 +1388,174 @@ const SurveySettings: React.FC = () => {
                   </div>
                 </div>
               )}
+            </div>
 
-              {/* Actions */}
-              <div className='flex justify-end space-x-2'>
-                <Button
-                  variant='outline'
-                  onClick={() => setIsSheetOpen(false)}
-                >
-                  Batal
-                </Button>
-                <Button
-                  onClick={handleSaveSettings}
-                  disabled={loading || !formData.title || !formData.addressee}
-                >
-                  <Save className='mr-2 h-4 w-4' />
-                  {loading ? 'Menyimpan...' : 'Simpan'}
-                </Button>
-              </div>
+            {/* Actions */}
+            <div className='flex-shrink-0 border-t bg-background px-4 py-4 flex justify-end space-x-2'>
+              <Button
+                variant='outline'
+                onClick={() => setIsSheetOpen(false)}
+              >
+                Batal
+              </Button>
+              <Button
+                onClick={handleSaveSettings}
+                disabled={loading || !formData.title || !formData.addressee}
+              >
+                <Save className='mr-2 h-4 w-4' />
+                {loading ? 'Menyimpan...' : 'Simpan'}
+              </Button>
             </div>
           </SheetContent>
         </Sheet>
 
         {/* Survey Rules Sheet */}
-        <Sheet open={isRulesSheetOpen} onOpenChange={setIsRulesSheetOpen}>
-          <SheetContent className='w-[95vw] max-w-[1000px] overflow-y-auto'>
-            <SheetHeader>
-              <SheetTitle>Tambah Survey Rule</SheetTitle>
-              <SheetDescription>
-                Atur aturan survey berdasarkan jurusan, tingkat pendidikan, dan target role
+        <Sheet
+          open={isRulesSheetOpen}
+          onOpenChange={setIsRulesSheetOpen}
+        >
+          <SheetContent className='w-[95vw] max-w-[900px] overflow-y-auto'>
+            <SheetHeader className='pb-6 border-b'>
+              <SheetTitle className='text-2xl font-semibold flex items-center gap-2'>
+                <div className='p-2 bg-primary/10 rounded-lg'>
+                  <Settings className='h-5 w-5 text-primary' />
+                </div>
+                Tambah Survey Rule
+              </SheetTitle>
+              <SheetDescription className='text-base mt-2'>
+                Atur aturan survey berdasarkan fakultas, jurusan, dan tingkat
+                pendidikan
               </SheetDescription>
             </SheetHeader>
 
-            <div className='px-4 space-y-6'>
+            <div className='mt-6 space-y-6'>
               {/* Add New Rule */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className='text-lg'>Tambah Rule Baru</CardTitle>
-                </CardHeader>
-                <CardContent className='space-y-4'>
-                  <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
-                    <div className='space-y-2'>
-                      <Label className='text-sm font-medium'>Jurusan *</Label>
-                      <Select
-                        value={rulesFormData.majorId}
-                        onValueChange={(value) =>
-                          setRulesFormData((prev) => ({ ...prev, majorId: value }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder='Pilih jurusan' />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {majors.map((major) => (
-                            <SelectItem key={major.id} value={major.id}>
-                              {major.name} ({major.faculty})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+              <div className='space-y-6'>
+                <div className='space-y-3'>
+                  <Label className='text-sm font-semibold flex items-center gap-2'>
+                    <Users className='h-4 w-4 text-muted-foreground' />
+                    Fakultas
+                    <span className='text-destructive'>*</span>
+                  </Label>
+                  <Select
+                    value={rulesFormData.facultyId}
+                    onValueChange={(value) => {
+                      setRulesFormData((prev) => ({
+                        ...prev,
+                        facultyId: value,
+                        majorId: '',
+                      }));
+                    }}
+                  >
+                    <SelectTrigger className='h-11'>
+                      <SelectValue placeholder='Pilih fakultas' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {facultiesData?.map((faculty) => (
+                        <SelectItem
+                          key={faculty.id}
+                          value={faculty.id}
+                        >
+                          {faculty.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className='text-xs text-muted-foreground'>
+                    Pilih fakultas yang akan diatur aturannya
+                  </p>
+                </div>
 
-                    <div className='space-y-2'>
-                      <Label className='text-sm font-medium'>Tingkat Pendidikan *</Label>
-                      <Select
-                        value={rulesFormData.degree}
-                        onValueChange={(value: 'D3' | 'S1' | 'S2' | 'S3' | 'PROFESI') =>
-                          setRulesFormData((prev) => ({ ...prev, degree: value }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value='D3'>D3</SelectItem>
-                          <SelectItem value='S1'>S1</SelectItem>
-                          <SelectItem value='S2'>S2</SelectItem>
-                          <SelectItem value='S3'>S3</SelectItem>
-                          <SelectItem value='PROFESI'>Profesi</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                <div className='space-y-3'>
+                  <Label className='text-sm font-semibold flex items-center gap-2'>
+                    <FileText className='h-4 w-4 text-muted-foreground' />
+                    Jurusan
+                    <span className='text-xs text-muted-foreground font-normal'>
+                      (Opsional)
+                    </span>
+                  </Label>
+                  <Select
+                    value={rulesFormData.majorId || 'all'}
+                    onValueChange={(value) =>
+                      setRulesFormData((prev) => ({
+                        ...prev,
+                        majorId: value === 'all' ? '' : value,
+                      }))
+                    }
+                    disabled={!rulesFormData.facultyId}
+                  >
+                    <SelectTrigger
+                      className='h-11'
+                      disabled={!rulesFormData.facultyId}
+                    >
+                      <SelectValue placeholder='Semua jurusan' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='all'>Semua Jurusan</SelectItem>
+                      {majors.map((major) => (
+                        <SelectItem
+                          key={major.id}
+                          value={major.id}
+                        >
+                          {major.majorName || major.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className='text-xs text-muted-foreground'>
+                    {!rulesFormData.facultyId
+                      ? 'Pilih fakultas terlebih dahulu'
+                      : 'Pilih jurusan spesifik atau biarkan "Semua Jurusan"'}
+                  </p>
+                </div>
 
-                    <div className='space-y-2'>
-                      <Label className='text-sm font-medium'>Target Role *</Label>
-                      <Select
-                        value={rulesFormData.targetRole}
-                        onValueChange={(value: 'ALUMNI' | 'MANAGER' | 'BOTH') =>
-                          setRulesFormData((prev) => ({ ...prev, targetRole: value }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value='ALUMNI'>Alumni</SelectItem>
-                          <SelectItem value='MANAGER'>Manager</SelectItem>
-                          <SelectItem value='BOTH'>Keduanya</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                <div className='space-y-3'>
+                  <Label className='text-sm font-semibold flex items-center gap-2'>
+                    <Calendar className='h-4 w-4 text-muted-foreground' />
+                    Tingkat Pendidikan
+                    <span className='text-destructive'>*</span>
+                  </Label>
+                  <Select
+                    value={rulesFormData.degree}
+                    onValueChange={(
+                      value: 'S1' | 'PASCA' | 'PROFESI' | 'VOKASI'
+                    ) => setRulesFormData((prev) => ({...prev, degree: value}))}
+                  >
+                    <SelectTrigger className='h-11'>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='S1'>S1 - Sarjana</SelectItem>
+                      <SelectItem value='PASCA'>Pasca Sarjana</SelectItem>
+                      <SelectItem value='PROFESI'>Profesi</SelectItem>
+                      <SelectItem value='VOKASI'>Vokasi</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className='text-xs text-muted-foreground'>
+                    Pilih tingkat pendidikan yang akan diatur
+                  </p>
+                </div>
+              </div>
+
+              <div className='pt-4 border-t'>
+                <div className='flex items-center justify-between'>
+                  <div className='text-sm text-muted-foreground'>
+                    <p>
+                      Pastikan semua field wajib telah diisi sebelum menambahkan
+                      rule
+                    </p>
                   </div>
-
-                  <Button onClick={handleAddRule} disabled={!rulesFormData.majorId}>
+                  <Button
+                    onClick={handleAddRule}
+                    disabled={!rulesFormData.facultyId}
+                    className='min-w-[140px] h-11'
+                    size='lg'
+                  >
                     <Plus className='mr-2 h-4 w-4' />
                     Tambah Rule
                   </Button>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </div>
           </SheetContent>
         </Sheet>
@@ -1137,7 +1571,18 @@ const SurveySettings: React.FC = () => {
               <AlertDialogDescription asChild>
                 <div>
                   Apakah Anda yakin ingin menghapus rule untuk{' '}
-                  <strong>{deleteRule?.major.name}</strong> - {deleteRule?.degree} - {deleteRule?.targetRole}?
+                  <strong>
+                    {deleteRule?.major?.faculty?.facultyName ||
+                      deleteRule?.major?.faculty?.name ||
+                      deleteRule?.faculty?.facultyName ||
+                      deleteRule?.faculty?.name ||
+                      '-'}
+                  </strong>
+                  {deleteRule?.major &&
+                    ` - ${
+                      deleteRule.major.majorName || deleteRule.major.name
+                    }`}{' '}
+                  - {deleteRule?.degree}?
                   <br />
                   <br />
                   Tindakan ini tidak dapat dibatalkan.

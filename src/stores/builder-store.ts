@@ -2,7 +2,7 @@
 
 import {create} from 'zustand';
 import {persist} from 'zustand/middleware';
-import {nanoid} from 'nanoid';
+import {v4 as uuidv4} from 'uuid';
 import type {
   BuilderQuestion,
   BuilderState,
@@ -11,7 +11,7 @@ import type {
 import type {Question} from '@/types/survey';
 
 function createDefaultQuestion(type: QuestionType): Question {
-  const id = nanoid();
+  const id = uuidv4();
   switch (type) {
     case 'text':
       return {
@@ -39,8 +39,8 @@ function createDefaultQuestion(type: QuestionType): Question {
         label: 'Pilih salah satu',
         required: false,
         options: [
-          {value: 'a', label: 'Opsi A'},
-          {value: 'b', label: 'Opsi B'},
+          {value: uuidv4(), label: 'Opsi A'},
+          {value: uuidv4(), label: 'Opsi B'},
         ],
         layout: 'vertical',
       };
@@ -51,8 +51,8 @@ function createDefaultQuestion(type: QuestionType): Question {
         label: 'Pilih beberapa',
         required: false,
         options: [
-          {value: 'a', label: 'Opsi A'},
-          {value: 'b', label: 'Opsi B'},
+          {value: uuidv4(), label: 'Opsi A'},
+          {value: uuidv4(), label: 'Opsi B'},
         ],
         layout: 'vertical',
       };
@@ -64,11 +64,11 @@ function createDefaultQuestion(type: QuestionType): Question {
         required: false,
         comboboxItems: [
           {
-            id: nanoid(),
+            id: uuidv4(),
             label: 'Item',
             options: [
-              {value: 'a', label: 'Opsi A'},
-              {value: 'b', label: 'Opsi B'},
+              {value: uuidv4(), label: 'Opsi A'},
+              {value: uuidv4(), label: 'Opsi B'},
             ],
           },
         ],
@@ -80,13 +80,13 @@ function createDefaultQuestion(type: QuestionType): Question {
         type,
         label: 'Beri penilaian',
         required: false,
-        ratingItems: [{id: nanoid(), label: 'Aspek'}],
+        ratingItems: [{id: uuidv4(), label: 'Aspek'}],
         ratingOptions: [
-          {value: '1', label: '1'},
-          {value: '2', label: '2'},
-          {value: '3', label: '3'},
-          {value: '4', label: '4'},
-          {value: '5', label: '5'},
+          {value: uuidv4(), label: '1'},
+          {value: uuidv4(), label: '2'},
+          {value: uuidv4(), label: '3'},
+          {value: uuidv4(), label: '4'},
+          {value: uuidv4(), label: '5'},
         ],
       };
     default:
@@ -117,18 +117,21 @@ interface BuilderStoreState extends BuilderState {
   setPackageMeta: (data: Partial<BuilderState['packageMeta']>) => void;
   resetBuilder: () => void;
   markSaved: () => void;
+  updatePages: (pages: BuilderState['pages']) => void;
 }
 
-const initialState: BuilderState = {
+const createInitialState = (): BuilderState => ({
   questions: [],
-  pages: [{id: nanoid(), title: 'Halaman 1', description: '', questionIds: []}],
+  pages: [{id: uuidv4(), title: 'Halaman 1', description: '', questionIds: []}],
   currentPageIndex: 0,
   activeQuestionId: undefined,
   isDirty: false,
   packageMeta: {
     version: 1,
   },
-};
+});
+
+const initialState = createInitialState();
 
 export const useBuilderStore = create<BuilderStoreState>()(
   persist(
@@ -183,7 +186,7 @@ export const useBuilderStore = create<BuilderStoreState>()(
             return {currentPageIndex: state.currentPageIndex + 1};
           }
           const newPage = {
-            id: nanoid(),
+            id: uuidv4(),
             title: `Halaman ${state.pages.length + 1}`,
             description: '',
             questionIds: [],
@@ -381,11 +384,16 @@ export const useBuilderStore = create<BuilderStoreState>()(
           packageMeta: {...state.packageMeta, ...data},
           isDirty: true,
         })),
-      resetBuilder: () => set(initialState),
+      resetBuilder: () => set(createInitialState()),
       markSaved: () =>
         set((state) => ({
           isDirty: false,
           questions: state.questions.map((q) => ({...q, status: 'saved'})),
+        })),
+      updatePages: (newPages) =>
+        set(() => ({
+          pages: newPages,
+          isDirty: true,
         })),
     }),
     {
