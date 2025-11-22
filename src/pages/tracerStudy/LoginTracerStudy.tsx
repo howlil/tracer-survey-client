@@ -1,198 +1,245 @@
-import { Layout } from "@/components/layout/Layout"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { validatePINAndGetUser } from "@/data/pinDatabase"
-import { cn } from "@/lib/utils"
-import { useAppDispatch } from "@/store/hooks"
-import { setUser } from "@/store/slices/authSlice"
-import { ArrowLeft, Lock, Shield, User } from "lucide-react"
-import * as React from "react"
-import ReCAPTCHA from "react-google-recaptcha"
-import { useNavigate } from "react-router-dom"
+/** @format */
+
+import {Layout} from '@/components/layout/Layout';
+import {Button} from '@/components/ui/button';
+import {Input} from '@/components/ui/input';
+import {Label} from '@/components/ui/label';
+import {alumniLogin} from '@/api/auth.api';
+import {cn} from '@/lib/utils';
+import {useAuthStore} from '@/stores/auth-store';
+import {toast} from 'sonner';
+import {ArrowLeft, Lock, Shield, User} from 'lucide-react';
+import * as React from 'react';
+import ReCAPTCHA from 'react-google-recaptcha';
+import {useNavigate} from 'react-router-dom';
 
 function LoginTracerStudy() {
-  const navigate = useNavigate()
-  const dispatch = useAppDispatch()
-  const recaptchaRef = React.useRef<ReCAPTCHA>(null)
-  
+  const navigate = useNavigate();
+  const setUser = useAuthStore((state) => state.setUser);
+  const recaptchaRef = React.useRef<ReCAPTCHA>(null);
+
   const [formData, setFormData] = React.useState({
-    pin: ""
-  })
-  const [errors, setErrors] = React.useState<Record<string, string>>({})
-  const [isLoading, setIsLoading] = React.useState(false)
-  const [error, setError] = React.useState("")
-  const [captchaValue, setCaptchaValue] = React.useState<string | null>(null)
+    pin: '',
+  });
+  const [errors, setErrors] = React.useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const [captchaValue, setCaptchaValue] = React.useState<string | null>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-    
+    const {name, value} = e.target;
+    setFormData((prev) => ({...prev, [name]: value}));
+
     // Clear error when user starts typing
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: "" }))
+      setErrors((prev) => ({...prev, [name]: ''}));
     }
-  }
+  };
 
   const handleCaptchaChange = (value: string | null) => {
-    setCaptchaValue(value)
+    setCaptchaValue(value);
     if (error) {
-      setError("")
+      setError('');
     }
-  }
+  };
 
   const validateForm = () => {
-    const newErrors: Record<string, string> = {}
+    const newErrors: Record<string, string> = {};
 
     if (!formData.pin.trim()) {
-      newErrors.pin = "PIN harus diisi"
+      newErrors.pin = 'PIN harus diisi';
     } else if (formData.pin.length < 6) {
-      newErrors.pin = "PIN minimal 6 karakter"
+      newErrors.pin = 'PIN minimal 6 karakter';
     } else if (!/^[a-zA-Z0-9]+$/.test(formData.pin)) {
-      newErrors.pin = "PIN hanya boleh berisi huruf dan angka"
+      newErrors.pin = 'PIN hanya boleh berisi huruf dan angka';
     }
 
-    if (import.meta.env.VITE_RECAPTCHA_SITE_KEY && !captchaValue) {
-      newErrors.captcha = "Captcha harus diselesaikan"
+    if (
+      (import.meta.env.VITE_RECAPTCHA_SITE_KEY ||
+        import.meta.env.VITE_RECAPTCHA_SITE_KEY_DEMO) &&
+      !captchaValue
+    ) {
+      newErrors.captcha = 'Captcha harus diselesaikan';
     }
 
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
+    e.preventDefault();
+
     if (validateForm()) {
-      setIsLoading(true)
-      setError("")
-      
+      setIsLoading(true);
+      setError('');
+
       try {
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 2000))
-        
-         // Validate PIN using encrypted database
-         const userRecord = validatePINAndGetUser(formData.pin, 'tracer-study')
-         
-         if (userRecord) {
-          // Save user data to Redux store (will be persisted)
-          dispatch(setUser({
-            id: userRecord.userID,
-            name: userRecord.name,
-            email: userRecord.email,
-            role: 'user'
-          }))
-          
-          // Navigate to survey form
-          navigate("/tracer-study/survey/1")
-        } else {
-          setError("PIN tidak valid")
+        // Get reCAPTCHA token
+        if (!recaptchaRef.current) {
+          setError('reCAPTCHA belum dimuat');
+          setIsLoading(false);
+          return;
         }
-      } catch (err) {
-        setError("Terjadi kesalahan saat login")
+
+        const recaptchaToken = await recaptchaRef.current.executeAsync();
+        if (!recaptchaToken) {
+          setError('reCAPTCHA tidak valid');
+          setIsLoading(false);
+          return;
+        }
+
+        // Call API
+        const response = await alumniLogin({
+          pin: formData.pin,
+          recaptchaToken,
+        });
+
+        // Save token to localStorage
+        localStorage.setItem('auth-token', response.token);
+
+        // Save user info
+        setUser({
+          id: response.id,
+          name: response.name,
+          email: response.email,
+          role: 'user',
+        });
+
+        toast.success('Login berhasil!', {
+          description: `Selamat datang, ${response.name}`,
+          duration: 3000,
+        });
+
+        // Navigate to survey
+        navigate('/tracer-study/survey/1');
+      } catch (error: unknown) {
+        const errorMessage =
+          (error as {response?: {data?: {message?: string}}})?.response?.data
+            ?.message ||
+          (error as {message?: string})?.message ||
+          'PIN tidak valid atau terjadi kesalahan saat login';
+        setError(errorMessage);
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
         // Reset captcha
         if (recaptchaRef.current) {
-          recaptchaRef.current.reset()
+          recaptchaRef.current.reset();
         }
-        setCaptchaValue(null)
+        setCaptchaValue(null);
       }
     }
-  }
+  };
 
   const handleBack = () => {
-    navigate("/tracer-study")
-  }
+    navigate('/tracer-study');
+  };
 
   return (
     <Layout>
-      <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
-        <div className="container mx-auto px-4 py-8">
-          <div className="max-w-md mx-auto">
+      <div className='min-h-screen bg-gradient-to-br from-background to-muted/20'>
+        <div className='container mx-auto px-4 py-8'>
+          <div className='max-w-md mx-auto'>
             {/* Header */}
-            <div className="text-center space-y-6 mb-8">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 rounded-full mb-4">
-                <Lock className="h-8 w-8 text-primary" />
+            <div className='text-center space-y-6 mb-8'>
+              <div className='inline-flex items-center justify-center w-16 h-16 bg-primary/10 rounded-full mb-4'>
+                <Lock className='h-8 w-8 text-primary' />
               </div>
-              <h1 className="text-3xl font-bold text-foreground">
+              <h1 className='text-3xl font-bold text-foreground'>
                 Login Tracer Study
               </h1>
-              <p className="text-muted-foreground">
+              <p className='text-muted-foreground'>
                 Masukkan PIN yang telah diberikan untuk mengakses survei
               </p>
             </div>
 
             {/* Login Form */}
-            <div className="bg-background border rounded-2xl shadow-xl p-8 space-y-6">
-              <form onSubmit={handleSubmit} className="space-y-6">
+            <div className='bg-background border rounded-2xl shadow-xl p-8 space-y-6'>
+              <form
+                onSubmit={handleSubmit}
+                className='space-y-6'
+              >
                 {/* PIN Field */}
-                <div className="space-y-2">
-                  <Label htmlFor="pin" className="text-sm font-medium">
+                <div className='space-y-2'>
+                  <Label
+                    htmlFor='pin'
+                    className='text-sm font-medium'
+                  >
                     PIN Tracer Study
                   </Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <div className='relative'>
+                    <User className='absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground' />
                     <Input
-                      id="pin"
-                      name="pin"
-                      type="text"
-                        placeholder="Masukkan PIN (6 karakter)"
+                      id='pin'
+                      name='pin'
+                      type='text'
+                      placeholder='Masukkan PIN (6 karakter)'
                       value={formData.pin}
                       onChange={handleInputChange}
-                        maxLength={20}
+                      maxLength={20}
                       className={cn(
-                        "pl-10",
-                        errors.pin && "border-destructive focus:border-destructive"
+                        'pl-10',
+                        errors.pin &&
+                          'border-destructive focus:border-destructive'
                       )}
                       disabled={isLoading}
                     />
                   </div>
                   {errors.pin && (
-                    <p className="text-xs text-destructive">{errors.pin}</p>
+                    <p className='text-xs text-destructive'>{errors.pin}</p>
                   )}
                 </div>
 
                 {/* Captcha Field */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">
+                <div className='space-y-2'>
+                  <Label className='text-sm font-medium'>
                     Verifikasi Keamanan
                   </Label>
-                  <div className="flex justify-center">
+                  <div className='flex justify-center'>
                     <ReCAPTCHA
                       ref={recaptchaRef}
-                      sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY_DEMO}
+                      sitekey={
+                        import.meta.env.VITE_RECAPTCHA_SITE_KEY_DEMO ||
+                        import.meta.env.VITE_RECAPTCHA_SITE_KEY ||
+                        '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'
+                      }
                       onChange={handleCaptchaChange}
-                      theme="light"
-                      size="normal"
+                      theme='light'
+                      size='normal'
+                      asyncScriptOnLoad={() => {
+                        // reCAPTCHA loaded
+                      }}
                     />
                   </div>
                   {errors.captcha && (
-                    <p className="text-xs text-destructive text-center">{errors.captcha}</p>
+                    <p className='text-xs text-destructive text-center'>
+                      {errors.captcha}
+                    </p>
                   )}
                 </div>
 
                 {/* Error Message */}
                 {error && (
-                  <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
-                    <p className="text-sm text-destructive text-center">{error}</p>
+                  <div className='p-3 bg-destructive/10 border border-destructive/20 rounded-md'>
+                    <p className='text-sm text-destructive text-center'>
+                      {error}
+                    </p>
                   </div>
                 )}
 
                 {/* Submit Button */}
                 <Button
-                  type="submit"
-                  className="w-full"
+                  type='submit'
+                  className='w-full'
                   disabled={isLoading}
                 >
                   {isLoading ? (
-                    <div className="flex items-center space-x-2">
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <div className='flex items-center space-x-2'>
+                      <div className='w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin' />
                       <span>Memproses...</span>
                     </div>
                   ) : (
-                    <div className="flex items-center space-x-2">
-                      <Shield className="h-4 w-4" />
+                    <div className='flex items-center space-x-2'>
+                      <Shield className='h-4 w-4' />
                       <span>Masuk ke Survei</span>
                     </div>
                   )}
@@ -200,30 +247,29 @@ function LoginTracerStudy() {
               </form>
 
               {/* Back Button */}
-              <div className="text-center">
+              <div className='text-center'>
                 <button
                   onClick={handleBack}
-                  className="inline-flex items-center space-x-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className='inline-flex items-center space-x-2 text-sm text-muted-foreground hover:text-foreground transition-colors'
                 >
-                  <ArrowLeft className="h-4 w-4" />
+                  <ArrowLeft className='h-4 w-4' />
                   <span>Kembali ke Halaman Utama</span>
                 </button>
               </div>
 
               {/* Additional Info */}
-              <div className="text-center space-y-2 pt-4 border-t">
-                <div className="flex flex-col items-center justify-center text-xs text-muted-foreground">
+              <div className='text-center space-y-2 pt-4 border-t'>
+                <div className='flex flex-col items-center justify-center text-xs text-muted-foreground'>
                   <span>© 2025 Tracer Study & User Survey</span>
                   <span>Universitas Andalas</span>
                 </div>
               </div>
             </div>
-            
           </div>
         </div>
       </div>
     </Layout>
-  )
+  );
 }
 
-export default LoginTracerStudy
+export default LoginTracerStudy;

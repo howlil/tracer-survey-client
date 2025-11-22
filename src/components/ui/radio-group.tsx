@@ -8,11 +8,19 @@ function RadioGroup({
   className,
   ...props
 }: React.ComponentProps<typeof RadioGroupPrimitive.Root>) {
+  // Filter out custom props that shouldn't be passed to DOM
+  const {
+    questionTree,
+    ...domProps
+  } = props as React.ComponentProps<typeof RadioGroupPrimitive.Root> & {
+    questionTree?: unknown;
+  }
+
   return (
     <RadioGroupPrimitive.Root
       data-slot="radio-group"
       className={cn("grid gap-3", className)}
-      {...props}
+      {...domProps}
     />
   )
 }

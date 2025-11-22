@@ -1,81 +1,261 @@
-import { SoalComboBox } from "@/components/kuisioner/soal/SoalComboBox"
-import { SoalMultiChoice } from "@/components/kuisioner/soal/SoalMultiChoice"
-import { SoalRating } from "@/components/kuisioner/soal/SoalRating"
-import { SoalSingleChoice } from "@/components/kuisioner/soal/SoalSingleChoice"
-import { SoalTeks } from "@/components/kuisioner/soal/SoalTeks"
-import { SoalTeksArea } from "@/components/kuisioner/soal/SoalTeksArea"
-import { AdminLayout } from "@/components/layout/admin"
+/** @format */
+
+import {SoalComboBox} from '@/components/kuisioner/soal/SoalComboBox';
+import {SoalMultiChoice} from '@/components/kuisioner/soal/SoalMultiChoice';
+import {SoalRating} from '@/components/kuisioner/soal/SoalRating';
+import {SoalSingleChoice} from '@/components/kuisioner/soal/SoalSingleChoice';
+import {SoalTeks} from '@/components/kuisioner/soal/SoalTeks';
+import {SoalTeksArea} from '@/components/kuisioner/soal/SoalTeksArea';
+import {AdminLayout} from '@/components/layout/admin';
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import {
-    Breadcrumb,
-    BreadcrumbItem,
-    BreadcrumbLink,
-    BreadcrumbList,
-    BreadcrumbPage,
-    BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
+import {Button} from '@/components/ui/button';
+import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList,
-} from "@/components/ui/command"
-import { Input } from "@/components/ui/input"
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {Input} from '@/components/ui/input';
+import {Popover, PopoverContent, PopoverTrigger} from '@/components/ui/popover';
 import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover"
-import { ResizableCard, ResizableContent, ResizablePanel } from "@/components/ui/resizable-card"
-import { useAppDispatch, useAppSelector } from "@/store/hooks"
+  ResizableCard,
+  ResizableContent,
+  ResizablePanel,
+} from '@/components/ui/resizable-card';
+import {useBuilderStore} from '@/stores/builder-store';
+import type {
+  ComboBoxQuestion,
+  MultipleChoiceQuestion,
+  Question,
+  RatingQuestion,
+  SingleChoiceQuestion,
+  TextAreaQuestion,
+  TextQuestion,
+} from '@/types/survey';
 import {
-    addQuestion,
-    createQuestionVersion,
-    nextPage,
-    prevPage,
-    removeQuestionVersion,
-    reorderCurrentPageQuestions,
-    replaceQuestionInCurrentPage,
-    setActiveQuestion,
-    setPageMeta,
-    updateQuestion
-} from "@/store/slices/builderSlice"
-import type { ComboBoxQuestion, MultipleChoiceQuestion, Question, RatingQuestion, SingleChoiceQuestion, TextAreaQuestion, TextQuestion } from "@/types/survey"
-import { CheckSquare, ChevronLeft, ChevronRight, ChevronsUpDown, Circle, Edit, FileText, ListFilter, Package, Plus, Star, Trash2, Type, X, ArrowLeft } from "lucide-react"
-import * as React from "react"
-import { useNavigate, useSearchParams } from "react-router-dom"
+  CheckSquare,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsUpDown,
+  Circle,
+  Edit,
+  FileText,
+  GitBranch,
+  ListFilter,
+  Package,
+  Plus,
+  Star,
+  Trash2,
+  Type,
+  X,
+  ArrowLeft,
+} from 'lucide-react';
+import * as React from 'react';
+import {useNavigate, useSearchParams} from 'react-router-dom';
+import {useQueryClient} from '@tanstack/react-query';
+import {toast} from 'sonner';
+import {
+  useSaveBuilder,
+  useSurveyQuestions,
+  useDeleteQuestion,
+  useDeleteCodeQuestion,
+  useReorderQuestions,
+  type Question as APIQuestion,
+} from '@/api/survey.api';
+import {v4 as uuidv4} from 'uuid';
+import {
+  getDetailedErrorMessage,
+  getAllErrorMessages,
+  logError,
+} from '@/utils/error-handler';
+
+// Error handling types are now in error-handler utility
+
+type ExtendedQuestion = Question & {
+  questionCode?: string;
+  version?: string;
+  parentId?: string | null;
+  groupQuestionId?: string;
+  placeholder?: string;
+  searchplaceholder?: string;
+  questionTree?: Array<{
+    answerQuestionTriggerId: string;
+    questionPointerToId: string;
+  }>;
+};
+
+interface AnswerOption {
+  id?: string;
+  answerText: string;
+  sortOrder: number;
+  otherOptionPlaceholder: string;
+  isTriggered: boolean;
+}
 
 function SurveyBuilder() {
-  const navigate = useNavigate()
-  const dispatch = useAppDispatch()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const { questions, activeQuestionId } = useAppSelector(state => state.builder)
-  const currentQuestionIds = useAppSelector(s=>s.builder.pages[s.builder.currentPageIndex]?.questionIds || [])
-  const [dragIndex, setDragIndex] = React.useState<number | null>(null)
-  const [overIndex, setOverIndex] = React.useState<number | null>(null)
-  const [versionComboOpen, setVersionComboOpen] = React.useState(false)
-  
-  // Get survey type and mode from URL parameters
-  const surveyType = searchParams.get('type') as 'TRACER_STUDY' | 'USER_SURVEY' | null
-  const mode = searchParams.get('mode') as 'create' | 'edit' | null
-  const surveyId = searchParams.get('id')
-  const isEditMode = searchParams.get('edit') === 'true'
-  
-  const activeQuestion = questions.find(q => q.id === activeQuestionId)
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const questions = useBuilderStore((state) => state.questions);
+  const activeQuestionId = useBuilderStore((state) => state.activeQuestionId);
+  const currentPageIndex = useBuilderStore((state) => state.currentPageIndex);
+  const pages = useBuilderStore((state) => state.pages);
+  const addQuestion = useBuilderStore((state) => state.addQuestion);
+  const createQuestionVersion = useBuilderStore(
+    (state) => state.createQuestionVersion
+  );
+  const nextPage = useBuilderStore((state) => state.nextPage);
+  const prevPage = useBuilderStore((state) => state.prevPage);
+  const removeQuestionVersion = useBuilderStore(
+    (state) => state.removeQuestionVersion
+  );
+  const {mutateAsync: deleteQuestion} = useDeleteQuestion();
+  const {mutateAsync: deleteCodeQuestion} = useDeleteCodeQuestion();
+  const queryClient = useQueryClient();
+
+  // Handle delete question with API sync
+  const handleDeleteQuestion = async (questionId: string) => {
+    if (!surveyId) {
+      // If no surveyId, just remove from state (new survey)
+      removeQuestionVersion(questionId);
+      return;
+    }
+
+    try {
+      // Delete from API first
+      await deleteQuestion({surveyId, questionId});
+
+      // Reset hasLoadedQuestions flag to reload data from API
+      setHasLoadedQuestions(false);
+
+      // Invalidate and refetch queries to refresh data from API
+      await queryClient.invalidateQueries({
+        queryKey: ['surveyQuestions', surveyId],
+      });
+
+      // Wait for refetch to complete
+      await queryClient.refetchQueries({
+        queryKey: ['surveyQuestions', surveyId],
+      });
+
+      toast.success('Pertanyaan berhasil dihapus');
+    } catch (error) {
+      logError(error, 'handleDeleteQuestion');
+      const errorMessage = getDetailedErrorMessage(
+        error,
+        'Gagal menghapus pertanyaan'
+      );
+      toast.error(errorMessage);
+    }
+  };
+  const reorderCurrentPageQuestions = useBuilderStore(
+    (state) => state.reorderCurrentPageQuestions
+  );
+  const replaceQuestionInCurrentPage = useBuilderStore(
+    (state) => state.replaceQuestionInCurrentPage
+  );
+  const setActiveQuestion = useBuilderStore((state) => state.setActiveQuestion);
+  const setPageMeta = useBuilderStore((state) => state.setPageMeta);
+  const updateQuestion = useBuilderStore((state) => state.updateQuestion);
+  const updatePages = useBuilderStore((state) => state.updatePages);
+  const loadQuestionsFromAPI = useBuilderStore(
+    (state) => state.loadQuestionsFromAPI
+  );
+  const addChildQuestion = useBuilderStore((state) => state.addChildQuestion);
+  const removeQuestion = useBuilderStore((state) => state.removeQuestion);
+  const resetBuilder = useBuilderStore((state) => state.resetBuilder);
+
+  // Handle delete group question (delete all questions with same questionCode)
+  const handleDeleteGroupQuestion = async (codeId: string) => {
+    if (!surveyId) {
+      // If no surveyId, just remove from state (new survey)
+      const questionsToDelete = questions.filter(
+        (q) => (q as ExtendedQuestion).questionCode === codeId
+      );
+      questionsToDelete.forEach((q) => removeQuestion(q.id));
+      toast.success('Group pertanyaan berhasil dihapus');
+      return;
+    }
+
+    try {
+      // Use the new deleteCodeQuestion endpoint which handles all related deletions
+      await deleteCodeQuestion({surveyId, codeId});
+
+      // Reset hasLoadedQuestions flag to reload data from API
+      setHasLoadedQuestions(false);
+
+      // Invalidate and refetch queries to refresh data from API
+      await queryClient.invalidateQueries({
+        queryKey: ['surveyQuestions', surveyId],
+      });
+
+      // Wait for refetch to complete
+      await queryClient.refetchQueries({
+        queryKey: ['surveyQuestions', surveyId],
+      });
+
+      toast.success('Group pertanyaan berhasil dihapus');
+    } catch (error) {
+      logError(error, 'handleDeleteGroupQuestion');
+      const errorMessage = getDetailedErrorMessage(
+        error,
+        'Gagal menghapus group pertanyaan'
+      );
+      toast.error(errorMessage);
+    }
+  };
+  const currentQuestionIds = pages[currentPageIndex]?.questionIds || [];
+  const [dragIndex, setDragIndex] = React.useState<number | null>(null);
+  const [overIndex, setOverIndex] = React.useState<number | null>(null);
+  const [versionComboOpen, setVersionComboOpen] = React.useState(false);
+  const [isSaving, setIsSaving] = React.useState(false);
+  const [createChildDialogOpen, setCreateChildDialogOpen] =
+    React.useState(false);
+  const [selectedOptionForChild, setSelectedOptionForChild] = React.useState<{
+    value: string;
+    label: string;
+  } | null>(null);
+  const [childQuestionType, setChildQuestionType] =
+    React.useState<Question['type']>('text');
+  const [collapsedQuestions, setCollapsedQuestions] = React.useState<
+    Set<string>
+  >(new Set());
+
+  const surveyType = searchParams.get('type') as
+    | 'TRACER_STUDY'
+    | 'USER_SURVEY'
+    | null;
+  const surveyId = searchParams.get('id');
+  const isEditMode = searchParams.get('edit') === 'true';
+
+  // API Hooks
+  const saveBuilderMutation = useSaveBuilder();
+  const {data: apiQuestions, isLoading: isLoadingQuestions} =
+    useSurveyQuestions(surveyId || '');
+  const {mutateAsync: reorderQuestions} = useReorderQuestions();
+
+  const activeQuestion = questions.find((q) => q.id === activeQuestionId);
 
   // Get survey type info
   const getSurveyTypeInfo = () => {
@@ -86,167 +266,656 @@ function SurveyBuilder() {
           description: 'Survey untuk melacak status lulusan dan alumni',
           icon: FileText,
           color: 'text-blue-600',
-          bgColor: 'bg-blue-50'
-        }
+          bgColor: 'bg-blue-50',
+        };
       case 'USER_SURVEY':
         return {
           title: 'User Survey',
           description: 'Survey untuk mengukur kepuasan mahasiswa',
           icon: Package,
           color: 'text-purple-600',
-          bgColor: 'bg-purple-50'
-        }
+          bgColor: 'bg-purple-50',
+        };
       default:
         return {
           title: 'Survey',
           description: 'Survey builder',
           icon: FileText,
           color: 'text-gray-600',
-          bgColor: 'bg-gray-50'
-        }
+          bgColor: 'bg-gray-50',
+        };
     }
-  }
+  };
 
-  const surveyInfo = getSurveyTypeInfo()
+  const surveyInfo = getSurveyTypeInfo();
 
-  const handleAdd = (type: Question["type"]) => {
-    dispatch(addQuestion(type))
-  }
+  const handleAdd = (type: Question['type']) => {
+    addQuestion(type);
+  };
 
   // Toggle edit mode and update URL
   const toggleEditMode = () => {
-    const newEditMode = !isEditMode
+    const newEditMode = !isEditMode;
     if (newEditMode) {
-      setSearchParams(prev => {
-        const newParams = new URLSearchParams(prev)
-        newParams.set('edit', 'true')
-        return newParams
-      })
+      setSearchParams((prev) => {
+        const newParams = new URLSearchParams(prev);
+        newParams.set('edit', 'true');
+        return newParams;
+      });
     } else {
-      setSearchParams(prev => {
-        const newParams = new URLSearchParams(prev)
-        newParams.delete('edit')
-        return newParams
-      })
+      setSearchParams((prev) => {
+        const newParams = new URLSearchParams(prev);
+        newParams.delete('edit');
+        return newParams;
+      });
     }
-  }
+  };
 
   const patchActive = (patch: Partial<Question>) => {
-    if (!activeQuestion) return
-    dispatch(updateQuestion({ id: activeQuestion.id, patch }))
-  }
+    if (!activeQuestion) return;
+    updateQuestion({id: activeQuestion.id, patch});
+  };
 
   // Get all questions with same questionCode for version selection
   const getVersionQuestions = () => {
-    if (!activeQuestion) return []
-    const questionCode = (activeQuestion as Question & { questionCode?: string }).questionCode || `Q${currentQuestionIds.findIndex(id => id === activeQuestion.id) + 1}`
-    return questions.filter(q => (q as Question & { questionCode?: string }).questionCode === questionCode)
-  }
+    if (!activeQuestion) return [];
+    const questionCode =
+      (activeQuestion as Question & {questionCode?: string}).questionCode ||
+      `Q${currentQuestionIds.findIndex((id) => id === activeQuestion.id) + 1}`;
+    return questions.filter(
+      (q) =>
+        (q as Question & {questionCode?: string}).questionCode === questionCode
+    );
+  };
 
   // Create new version of current question
   const createNewVersion = () => {
-    if (!activeQuestion) return
-    const questionCode = (activeQuestion as Question & { questionCode?: string }).questionCode || `Q${currentQuestionIds.findIndex(id => id === activeQuestion.id) + 1}`
-    const existingVersions = getVersionQuestions()
-    const maxVersion = Math.max(...existingVersions.map(q => parseInt((q as Question & { version?: string }).version || '2024')))
-    const newVersion = (maxVersion + 1).toString()
-    
+    if (!activeQuestion) return;
+    const questionCode =
+      (activeQuestion as Question & {questionCode?: string}).questionCode ||
+      `Q${currentQuestionIds.findIndex((id) => id === activeQuestion.id) + 1}`;
+    const existingVersions = getVersionQuestions();
+    const maxVersion = Math.max(
+      ...existingVersions.map((q) =>
+        parseInt((q as Question & {version?: string}).version || '2024')
+      )
+    );
+    const newVersion = (maxVersion + 1).toString();
+
     // Create base question with default values for the type
-    const getDefaultQuestionData = (type: Question["type"]) => {
+    const getDefaultQuestionData = (type: Question['type']) => {
       const baseData = {
-        id: `question_${Date.now()}`,
+        id: uuidv4(),
         type,
-        label: "Label pertanyaan",
+        label: 'Label pertanyaan',
         required: false,
         questionCode,
-        version: newVersion
-      }
+        version: newVersion,
+      };
 
       switch (type) {
         case 'text':
-          return { ...baseData, placeholder: "Masukkan jawaban...", inputType: 'text' as const }
+          return {
+            ...baseData,
+            placeholder: 'Masukkan jawaban...',
+            inputType: 'text' as const,
+          };
         case 'textarea':
-          return { ...baseData, placeholder: "Masukkan jawaban...", rows: 3 }
+          return {...baseData, placeholder: 'Masukkan jawaban...', rows: 3};
         case 'single':
-          return { ...baseData, options: [{ value: 'opsi1', label: 'Opsi 1' }], layout: 'vertical' as const }
+          return {
+            ...baseData,
+            options: [{value: uuidv4(), label: 'Opsi 1'}],
+            layout: 'vertical' as const,
+          };
         case 'multiple':
-          return { ...baseData, options: [{ value: 'opsi1', label: 'Opsi 1' }], layout: 'vertical' as const }
+          return {
+            ...baseData,
+            options: [{value: uuidv4(), label: 'Opsi 1'}],
+            layout: 'vertical' as const,
+          };
         case 'combobox':
-          return { 
-            ...baseData, 
-            comboboxItems: [{
-              id: 'item1',
-              label: 'Item 1',
-              placeholder: 'Pilih...',
-              searchPlaceholder: 'Cari...',
-              required: false,
-              options: [{ value: 'opsi1', label: 'Opsi 1' }]
-            }]
-          }
+          return {
+            ...baseData,
+            comboboxItems: [
+              {
+                id: uuidv4(),
+                label: 'Item 1',
+                placeholder: 'Pilih...',
+                searchPlaceholder: 'Cari...',
+                required: false,
+                options: [{value: uuidv4(), label: 'Opsi 1'}],
+              },
+            ],
+          };
         case 'rating':
-          return { 
-            ...baseData, 
-            ratingItems: [{ id: 'rating1', label: 'Aspek 1' }],
+          return {
+            ...baseData,
+            ratingItems: [{id: uuidv4(), label: 'Aspek 1'}],
             ratingOptions: [
-              { value: '1', label: 'Sangat Buruk' },
-              { value: '2', label: 'Buruk' },
-              { value: '3', label: 'Cukup' },
-              { value: '4', label: 'Baik' },
-              { value: '5', label: 'Sangat Baik' }
-            ]
-          }
+              {value: uuidv4(), label: 'Sangat Buruk'},
+              {value: uuidv4(), label: 'Buruk'},
+              {value: uuidv4(), label: 'Cukup'},
+              {value: uuidv4(), label: 'Baik'},
+              {value: uuidv4(), label: 'Sangat Baik'},
+            ],
+          };
         default:
-          return baseData
+          return baseData;
       }
-    }
-    
-    const newQuestionData = getDefaultQuestionData(activeQuestion.type)
-    
-    // Create new version without adding to page - just add to questions pool
-    dispatch(createQuestionVersion(newQuestionData))
-    
-    // Replace current question in page with new version and set as active
-    dispatch(replaceQuestionInCurrentPage({ 
-      oldQuestionId: activeQuestion.id, 
-      newQuestionId: newQuestionData.id 
-    }))
-    dispatch(setActiveQuestion(newQuestionData.id))
-  }
+    };
 
-  const handleSave = () => {
-    // TODO: Implement save logic
-    console.log('Saving survey...', { surveyType, mode, surveyId })
-    navigate('/admin/survey')
-  }
+    const newQuestionData = getDefaultQuestionData(activeQuestion.type);
+
+    createQuestionVersion(newQuestionData);
+
+    replaceQuestionInCurrentPage({
+      oldQuestionId: activeQuestion.id,
+      newQuestionId: newQuestionData.id,
+    });
+    setActiveQuestion(newQuestionData.id);
+  };
+
+  const handleSave = async () => {
+    if (!surveyId) {
+      toast.error('Survey ID tidak ditemukan');
+      return;
+    }
+
+    if (questions.length === 0) {
+      toast.error('Tidak ada pertanyaan untuk disimpan');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // Validate and fix pages ID to UUID format
+      const uuidRegex =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const updatedPages = pages.map((page) => {
+        if (!uuidRegex.test(page.id)) {
+          return {...page, id: uuidv4()};
+        }
+        return page;
+      });
+
+      // Update store if any pages ID were changed
+      const hasInvalidIds = pages.some(
+        (page, idx) => page.id !== updatedPages[idx].id
+      );
+      if (hasInvalidIds) {
+        updatePages(updatedPages);
+      }
+
+      // Transform questions ke format API
+      const transformedQuestions = questions.map((q, index) => {
+        const extQ = q as ExtendedQuestion;
+        const isValidUUID = uuidRegex.test(q.id);
+        const questionId = isValidUUID ? q.id : undefined;
+        const codeId = extQ.questionCode || `Q${index + 1}`;
+
+        // Ensure groupQuestionId is always UUID
+        let groupQuestionId = extQ.groupQuestionId || q.id;
+        if (!uuidRegex.test(groupQuestionId)) {
+          groupQuestionId = uuidv4();
+        }
+
+        const answerOptions = mapAnswerOptions(q);
+
+        // Transform questionTree: map option value to answerOption based on answerText and sortOrder
+        // We'll use answerText and sortOrder as temporary identifiers, backend will map to AnswerOptionQuestion ID
+        let questionTree:
+          | Array<{
+              answerQuestionTriggerId: string;
+              questionPointerToId: string;
+              _tempAnswerText?: string;
+              _tempSortOrder?: number;
+            }>
+          | undefined = undefined;
+        if (q.type === 'single' && extQ.questionTree) {
+          const singleQ = q as SingleChoiceQuestion;
+          const treeData = extQ.questionTree || [];
+          questionTree = treeData
+            .map((tree) => {
+              // Skip if questionPointerToId is empty (user checked trigger but didn't select question yet)
+              if (!tree.questionPointerToId) return null;
+
+              // Find the option by value
+              const option = singleQ.options?.find(
+                (opt) => opt.value === tree.answerQuestionTriggerId
+              );
+              if (!option) return null;
+
+              // Find the answer option by answerText and sortOrder
+              const answerOption = answerOptions.find(
+                (ao, idx) =>
+                  ao.answerText === option.label && ao.sortOrder === idx
+              );
+              if (!answerOption) return null;
+
+              // If answerOption has ID, use it; otherwise use answerText and sortOrder as temporary identifier
+              return {
+                answerQuestionTriggerId:
+                  answerOption.id ||
+                  `${answerOption.answerText}_${answerOption.sortOrder}`,
+                questionPointerToId: tree.questionPointerToId,
+                _tempAnswerText: answerOption.answerText,
+                _tempSortOrder: answerOption.sortOrder,
+              };
+            })
+            .filter((t): t is NonNullable<typeof t> => t !== null);
+        }
+
+        return {
+          ...(questionId ? {id: questionId} : {}),
+          codeId,
+          parentId: extQ.parentId || null,
+          groupQuestionId,
+          questionText: q.label,
+          questionType: mapQuestionTypeToAPI(q.type),
+          isRequired: q.required,
+          sortOrder: index,
+          placeholder: extQ.placeholder || '',
+          searchplaceholder: extQ.searchplaceholder || '',
+          version: extQ.version || '2024',
+          questionCode: codeId,
+          answerQuestion: answerOptions,
+          ...(questionTree && questionTree.length > 0 ? {questionTree} : {}),
+        };
+      });
+
+      // Filter pages yang tidak memiliki questions (group question kosong)
+      const filteredPages = updatedPages
+        .map((page, idx) => {
+          // Get codeIds from questions in this page
+          const codeIds = page.questionIds
+            .map((qid) => {
+              const q = questions.find((qq) => qq.id === qid) as
+                | ExtendedQuestion
+                | undefined;
+              return q?.questionCode;
+            })
+            .filter((codeId): codeId is string => !!codeId);
+
+          // Only include page if it has at least one codeId
+          if (codeIds.length === 0) return null;
+
+          return {
+            id: page.id,
+            title: page.title || `Halaman ${idx + 1}`,
+            description: page.description || '',
+            codeIds,
+          };
+        })
+        .filter((page): page is NonNullable<typeof page> => page !== null);
+
+      // Filter questions yang belong to non-empty groups (codeIds that exist in filteredPages)
+      const validCodeIds = new Set(
+        filteredPages.flatMap((page) => page.codeIds)
+      );
+      const filteredQuestions = transformedQuestions.filter((q) =>
+        validCodeIds.has(q.codeId)
+      );
+
+      await saveBuilderMutation.mutateAsync({
+        surveyId,
+        data: {
+          pages: filteredPages,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          questions: filteredQuestions as any,
+        },
+      });
+
+      // Reset hasLoadedQuestions flag to reload data from API
+      setHasLoadedQuestions(false);
+
+      // Invalidate queries to refresh data from API
+      await queryClient.invalidateQueries({
+        queryKey: ['surveyQuestions', surveyId],
+      });
+
+      // Wait for refetch to complete
+      await queryClient.refetchQueries({
+        queryKey: ['surveyQuestions', surveyId],
+      });
+
+      toast.success('Survey berhasil disimpan');
+
+      // Only redirect if not in edit mode (if surveyId exists, it's edit mode)
+      if (!surveyId) {
+        navigate('/admin/survey');
+      }
+    } catch (error) {
+      logError(error, 'handleSave');
+      const errorMessages = getAllErrorMessages(
+        error,
+        'Gagal menyimpan survey'
+      );
+
+      if (errorMessages.length === 1) {
+        toast.error(errorMessages[0]);
+      } else {
+        // Show multiple errors sequentially
+        errorMessages.forEach((msg, index) => {
+          setTimeout(() => {
+            toast.error(msg);
+          }, index * 500);
+        });
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Transform API Question type to Builder Question type
+  const mapAPIQuestionTypeToBuilder = (apiType: string): Question['type'] => {
+    const mapping: Record<string, Question['type']> = {
+      ESSAY: 'text',
+      LONG_TEST: 'textarea',
+      SINGLE_CHOICE: 'single',
+      MULTIPLE_CHOICE: 'multiple',
+      COMBO_BOX: 'combobox',
+      MATRIX_SINGLE_CHOICE: 'rating',
+    };
+    return mapping[apiType] || 'text';
+  };
+
+  // Transform API Question to Builder Question
+  const transformAPIQuestionToBuilder = (
+    apiQ: APIQuestion
+  ): ExtendedQuestion & {
+    order: number;
+    status: 'saved';
+    questionCode?: string;
+  } => {
+    const builderType = mapAPIQuestionTypeToBuilder(apiQ.questionType);
+    const baseQuestion: Partial<Question> = {
+      id: apiQ.id,
+      type: builderType,
+      label: apiQ.questionText,
+      required: apiQ.isRequired,
+    };
+
+    // Transform answer options based on question type
+    if (builderType === 'single' || builderType === 'multiple') {
+      const options = (apiQ.answerQuestion || []).map((opt) => ({
+        value: opt.id || uuidv4(),
+        label: opt.answerText,
+        isOther: opt.otherOptionPlaceholder ? true : false,
+      }));
+      (baseQuestion as SingleChoiceQuestion | MultipleChoiceQuestion).options =
+        options;
+      (baseQuestion as SingleChoiceQuestion | MultipleChoiceQuestion).layout =
+        'vertical';
+      if (
+        (apiQ.answerQuestion || []).some((opt) => opt.otherOptionPlaceholder)
+      ) {
+        const otherOption = (apiQ.answerQuestion || []).find(
+          (opt) => opt.otherOptionPlaceholder
+        );
+        if (otherOption) {
+          (
+            baseQuestion as SingleChoiceQuestion | MultipleChoiceQuestion
+          ).otherInputPlaceholder = otherOption.otherOptionPlaceholder || '';
+        }
+      }
+    } else if (builderType === 'combobox') {
+      // For combobox, group answer options by combobox item
+      // This is simplified - actual implementation may need more logic
+      const items = (apiQ.answerQuestion || []).map((opt) => ({
+        id: uuidv4(),
+        label: opt.answerText,
+        options: [{value: uuidv4(), label: opt.answerText}],
+      }));
+      (baseQuestion as ComboBoxQuestion).comboboxItems = items;
+      (baseQuestion as ComboBoxQuestion).layout = 'vertical';
+    } else if (builderType === 'rating') {
+      // For rating, extract rating options from answerQuestion
+      const ratingOptions = (apiQ.answerQuestion || []).map((opt) => ({
+        value: opt.id || uuidv4(),
+        label: opt.answerText,
+      }));
+      (baseQuestion as RatingQuestion).ratingOptions = ratingOptions;
+
+      // Rating items will be populated from children questions later in useEffect
+      // For now, create a placeholder
+      (baseQuestion as RatingQuestion).ratingItems = [
+        {id: uuidv4(), label: apiQ.questionText},
+      ];
+    } else if (builderType === 'text' || builderType === 'textarea') {
+      (baseQuestion as TextQuestion | TextAreaQuestion).placeholder =
+        apiQ.placeholder || '';
+    }
+
+    return {
+      ...(baseQuestion as Question),
+      order: apiQ.sortOrder || 0,
+      status: 'saved' as const,
+      questionCode: apiQ.codeId || apiQ.questionCode,
+      version: apiQ.version || '2024',
+      parentId: apiQ.parentId || null,
+      groupQuestionId: apiQ.groupQuestionId || apiQ.id,
+      placeholder: apiQ.placeholder || '',
+      searchplaceholder: apiQ.searchplaceholder || '',
+      questionTree: apiQ.questionTree?.map((tree) => ({
+        answerQuestionTriggerId: tree.answerQuestionTriggerId,
+        questionPointerToId: tree.questionPointerToId,
+      })),
+    } as ExtendedQuestion & {
+      order: number;
+      status: 'saved';
+      questionCode?: string;
+    };
+  };
+
+  // Load questions from API when surveyId exists and questions are loaded
+  const [hasLoadedQuestions, setHasLoadedQuestions] = React.useState(false);
+
+  React.useEffect(() => {
+    // Reset state and flag when surveyId changes
+    if (surveyId) {
+      resetBuilder(); // Clear all local state
+      setHasLoadedQuestions(false); // Allow reload from API
+    }
+  }, [surveyId, resetBuilder]);
+
+  React.useEffect(() => {
+    // Always load from API, don't check local storage
+    if (!surveyId || isLoadingQuestions || hasLoadedQuestions) {
+      return;
+    }
+
+    if (!apiQuestions || apiQuestions.length === 0) {
+      // If no questions from API, reset store to empty
+      loadQuestionsFromAPI(
+        [],
+        [{id: uuidv4(), title: 'Halaman 1', description: '', questionIds: []}]
+      );
+      setHasLoadedQuestions(true);
+      return;
+    }
+
+    try {
+      // Separate parent and child questions
+      const parentQuestions = apiQuestions.filter((q) => !q.parentId);
+      const childQuestions = apiQuestions.filter((q) => q.parentId);
+
+      // Transform parent questions first
+      const transformedParents = parentQuestions
+        .map((apiQ) => transformAPIQuestionToBuilder(apiQ))
+        .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+      // Update parent rating questions with children as ratingItems FIRST
+      // This needs to happen before transforming children
+      transformedParents.forEach((parentQ) => {
+        if (parentQ.type === 'rating') {
+          const ratingQ = parentQ as RatingQuestion;
+          const parentApiQ = parentQuestions.find((q) => q.id === parentQ.id);
+
+          // Get all children that belong to this rating parent
+          const ratingItemChildren = childQuestions
+            .filter(
+              (c) =>
+                c.parentId === parentQ.id && c.questionType === 'SINGLE_CHOICE'
+            )
+            .map((c) => ({
+              id: c.id,
+              label: c.questionText,
+            }));
+
+          if (ratingItemChildren.length > 0) {
+            ratingQ.ratingItems = ratingItemChildren;
+          }
+
+          // Get rating options from parent's answerQuestion
+          if (
+            parentApiQ?.answerQuestion &&
+            parentApiQ.answerQuestion.length > 0
+          ) {
+            ratingQ.ratingOptions = parentApiQ.answerQuestion.map((opt) => ({
+              value: opt.id || uuidv4(),
+              label: opt.answerText,
+            }));
+          }
+        }
+      });
+
+      // Transform ALL child questions (including rating items)
+      // They will be displayed in builder, but rating items are also part of parent rating question
+      const transformedChildren = childQuestions
+        .map((apiQ) => transformAPIQuestionToBuilder(apiQ))
+        .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+      // Combine all questions - include ALL children questions
+      // Rating items are both part of parent rating question AND displayed as separate questions
+      // This allows users to see and edit all questions in the builder
+      const allQuestions = [...transformedParents, ...transformedChildren];
+
+      // Sort all questions by sortOrder to maintain proper order
+      allQuestions.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+      // Group ALL questions (parents + children) by questionCode for pages
+      // questionCode is already set from API in getSurveyQuestionsApi
+      const questionsByCode = allQuestions.reduce((acc, q) => {
+        const codeId = q.questionCode || 'A';
+        if (!acc[codeId]) {
+          acc[codeId] = [];
+        }
+        acc[codeId].push(q);
+        return acc;
+      }, {} as Record<string, typeof allQuestions>);
+
+      // Create pages from codeIds (sorted by question order)
+      const codeIds = Object.keys(questionsByCode).sort();
+      const newPages = codeIds.map((codeId, idx) => ({
+        id: uuidv4(),
+        title: `Halaman ${idx + 1}`,
+        description: `Pertanyaan ${codeId}`,
+        questionIds: questionsByCode[codeId]
+          .sort((a, b) => (a.order || 0) - (b.order || 0))
+          .map((q) => q.id),
+      }));
+
+      // Load questions and pages into store
+      loadQuestionsFromAPI(allQuestions, newPages);
+      setHasLoadedQuestions(true);
+
+      if (allQuestions.length > 0) {
+        setActiveQuestion(allQuestions[0].id);
+      }
+    } catch (error) {
+      logError(error, 'loadQuestionsFromAPI');
+      const errorMessage = getDetailedErrorMessage(
+        error,
+        'Gagal memuat pertanyaan dari server'
+      );
+      toast.error(errorMessage);
+      setHasLoadedQuestions(true); // Set to true even on error to prevent infinite retry
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [surveyId, apiQuestions, isLoadingQuestions, hasLoadedQuestions]);
+
+  const mapQuestionTypeToAPI = (type: Question['type']): string => {
+    const mapping: Record<string, string> = {
+      text: 'ESSAY',
+      textarea: 'LONG_TEST',
+      single: 'SINGLE_CHOICE',
+      multiple: 'MULTIPLE_CHOICE',
+      combobox: 'COMBO_BOX',
+      rating: 'MATRIX_SINGLE_CHOICE',
+    };
+    return mapping[type] || 'ESSAY';
+  };
+
+  const mapAnswerOptions = (question: Question): AnswerOption[] => {
+    if (question.type === 'single' || question.type === 'multiple') {
+      const options =
+        (question as SingleChoiceQuestion | MultipleChoiceQuestion).options ||
+        [];
+      return options.map(
+        (opt, idx): AnswerOption => ({
+          answerText: opt.label,
+          sortOrder: idx,
+          otherOptionPlaceholder: '',
+          isTriggered: false,
+        })
+      );
+    }
+    if (question.type === 'combobox') {
+      const items = (question as ComboBoxQuestion).comboboxItems || [];
+      return items.flatMap((item, itemIdx) =>
+        (item.options || []).map(
+          (opt, optIdx): AnswerOption => ({
+            answerText: opt.label,
+            sortOrder: itemIdx * 100 + optIdx,
+            otherOptionPlaceholder: '',
+            isTriggered: false,
+          })
+        )
+      );
+    }
+    if (question.type === 'rating') {
+      const options = (question as RatingQuestion).ratingOptions || [];
+      return options.map(
+        (opt, idx): AnswerOption => ({
+          answerText: opt.label,
+          sortOrder: idx,
+          otherOptionPlaceholder: '',
+          isTriggered: false,
+        })
+      );
+    }
+    return [];
+  };
 
   const handleBack = () => {
-    navigate('/admin/survey')
-  }
+    navigate('/admin/survey');
+  };
 
   return (
     <AdminLayout>
-      <div className="h-[calc(100vh-4rem)] p-6">
+      <div className='h-[calc(100vh-4rem)] p-6'>
         {/* Header */}
-        <div className="mb-6 relative">
+        <div className='mb-6 relative'>
           {/* Breadcrumb */}
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem>
-                <BreadcrumbLink 
-                  onClick={() => navigate("/admin/dashboard")}
-                  className="flex items-center space-x-1 cursor-pointer hover:text-primary"
+                <BreadcrumbLink
+                  onClick={() => navigate('/admin/dashboard')}
+                  className='flex items-center space-x-1 cursor-pointer hover:text-primary'
                 >
-                  <Package className="h-4 w-4" />
+                  <Package className='h-4 w-4' />
                   <span>Dashboard</span>
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
-                <BreadcrumbLink 
-                  onClick={() => navigate("/admin/survey")}
-                  className="flex items-center space-x-1 cursor-pointer hover:text-primary"
+                <BreadcrumbLink
+                  onClick={() => navigate('/admin/survey')}
+                  className='flex items-center space-x-1 cursor-pointer hover:text-primary'
                 >
-                  <FileText className="h-4 w-4" />
+                  <FileText className='h-4 w-4' />
                   <span>Pengaturan Survey</span>
                 </BreadcrumbLink>
               </BreadcrumbItem>
@@ -258,548 +927,1609 @@ function SurveyBuilder() {
           </Breadcrumb>
 
           {/* Title - Centered */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="text-center">
-              <h1 className="text-xl font-bold text-foreground flex items-center justify-center space-x-2">
+          <div className='absolute inset-0 flex items-center justify-center pointer-events-none'>
+            <div className='text-center'>
+              <h1 className='text-xl font-bold text-foreground flex items-center justify-center space-x-2'>
                 <surveyInfo.icon className={`h-6 w-6 ${surveyInfo.color}`} />
                 <span>Kelola {surveyInfo.title}</span>
               </h1>
-              <p className="text-sm text-muted-foreground mt-1">{surveyInfo.description}</p>
+              <p className='text-sm text-muted-foreground mt-1'>
+                {surveyInfo.description}
+              </p>
             </div>
           </div>
 
           {/* Action Buttons - Top Right */}
-          <div className="absolute top-0 right-0 pointer-events-auto flex items-center space-x-2">
+          <div className='absolute top-0 right-0 pointer-events-auto flex items-center space-x-2'>
             <Button
-              variant="outline"
+              variant='outline'
               onClick={handleBack}
-              className="flex items-center gap-2"
+              className='flex items-center gap-2'
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className='h-4 w-4' />
               Kembali
             </Button>
             <Button
-              variant={isEditMode ? "default" : "outline"}
+              variant={isEditMode ? 'default' : 'outline'}
               onClick={toggleEditMode}
-              className="flex items-center gap-2"
+              className='flex items-center gap-2'
             >
-              <Edit className="h-4 w-4" />
-              {isEditMode ? "Keluar Edit" : "Edit"}
+              <Edit className='h-4 w-4' />
+              {isEditMode ? 'Keluar Edit' : 'Edit'}
             </Button>
             <Button
               onClick={handleSave}
-              className="flex items-center gap-2"
+              disabled={isSaving}
+              className='flex items-center gap-2'
             >
-              <FileText className="h-4 w-4" />
-              Simpan
+              <FileText className='h-4 w-4' />
+              {isSaving ? 'Menyimpan...' : 'Simpan'}
             </Button>
           </div>
         </div>
 
         {/* Resizable Card Container */}
-        <div className="h-[calc(100%-5rem)]">
-          <ResizableCard className="gap-4">
+        <div className='h-[calc(100%-5rem)]'>
+          <ResizableCard className='gap-4'>
             {/* Panel Kiri - Jenis Soal - Hanya muncul saat edit mode */}
             {isEditMode && (
-            <ResizablePanel
-              defaultWidth={220}
-              minWidth={220}
-              maxWidth={220}
-              resizable="right"
-                className="animate-in slide-in-from-left duration-300"
-            >
-              <Card className="h-full">
-                <CardHeader className="p-3">
-                  <CardTitle className="text-md">Jenis Soal</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="grid grid-cols-1 gap-2">
-                    <Button variant="outline" className="justify-start" onClick={()=>handleAdd('text')}>
-                      <Type className="h-4 w-4 mr-2" /> Teks Pendek
-                    </Button>
-                    <Button variant="outline" className="justify-start" onClick={()=>handleAdd('textarea')}>
-                      <FileText className="h-4 w-4 mr-2" /> Teks Panjang
-                    </Button>
-                    <Button variant="outline" className="justify-start" onClick={()=>handleAdd('single')}>
-                      <Circle className="h-4 w-4 mr-2" /> Single Choice
-                    </Button>
-                    <Button variant="outline" className="justify-start" onClick={()=>handleAdd('multiple')}>
-                      <CheckSquare className="h-4 w-4 mr-2" /> Multiple Choice
-                    </Button>
-                    <Button variant="outline" className="justify-start" onClick={()=>handleAdd('combobox')}>
-                      <ListFilter className="h-4 w-4 mr-2" /> Combo Box
-                    </Button>
-                    <Button variant="outline" className="justify-start" onClick={()=>handleAdd('rating')}>
-                      <Star className="h-4 w-4 mr-2" /> Rating
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </ResizablePanel>
+              <ResizablePanel
+                defaultWidth={220}
+                minWidth={220}
+                maxWidth={220}
+                resizable='right'
+                className='animate-in slide-in-from-left duration-300'
+              >
+                <Card className='h-full flex flex-col'>
+                  <CardHeader className='p-3 flex-shrink-0'>
+                    <CardTitle className='text-md'>Jenis Soal</CardTitle>
+                  </CardHeader>
+                  <CardContent className='flex-1 overflow-y-auto space-y-3 p-4'>
+                    <div className='grid grid-cols-1 gap-2'>
+                      <Button
+                        variant='outline'
+                        className='justify-start'
+                        onClick={() => handleAdd('text')}
+                      >
+                        <Type className='h-4 w-4 mr-2' /> Teks Pendek
+                      </Button>
+                      <Button
+                        variant='outline'
+                        className='justify-start'
+                        onClick={() => handleAdd('textarea')}
+                      >
+                        <FileText className='h-4 w-4 mr-2' /> Teks Panjang
+                      </Button>
+                      <Button
+                        variant='outline'
+                        className='justify-start'
+                        onClick={() => handleAdd('single')}
+                      >
+                        <Circle className='h-4 w-4 mr-2' /> Single Choice
+                      </Button>
+                      <Button
+                        variant='outline'
+                        className='justify-start'
+                        onClick={() => handleAdd('multiple')}
+                      >
+                        <CheckSquare className='h-4 w-4 mr-2' /> Multiple Choice
+                      </Button>
+                      <Button
+                        variant='outline'
+                        className='justify-start'
+                        onClick={() => handleAdd('combobox')}
+                      >
+                        <ListFilter className='h-4 w-4 mr-2' /> Combo Box
+                      </Button>
+                      <Button
+                        variant='outline'
+                        className='justify-start'
+                        onClick={() => handleAdd('rating')}
+                      >
+                        <Star className='h-4 w-4 mr-2' /> Rating
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </ResizablePanel>
             )}
 
             {/* Panel Tengah - Preview Form */}
             <ResizableContent>
-              <Card className="h-full">
-                <div className="h-full flex flex-col">
-                  <CardHeader className="p-3">
-                    <div className="flex items-center justify-between gap-4">
-                      <Button variant="outline" size="icon" onClick={()=>dispatch(prevPage())} aria-label="Sebelumnya">
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-                      <div className="text-center flex-1 px-16">
-                        <Input value={useAppSelector(s=>s.builder.pages[s.builder.currentPageIndex]?.title)||""} onChange={(e)=>dispatch(setPageMeta({ title: e.target.value }))} className="text-center font-semibold" />
-                        <Input value={useAppSelector(s=>s.builder.pages[s.builder.currentPageIndex]?.description)||""} onChange={(e)=>dispatch(setPageMeta({ description: e.target.value }))} className="mt-2 text-center" />
-                      </div>
-                      <Button size="icon" onClick={()=>dispatch(nextPage())} aria-label="Berikutnya">
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
+              <Card className='h-full flex flex-col'>
+                <CardHeader className='p-3 flex-shrink-0'>
+                  <div className='flex items-center justify-between gap-4'>
+                    <Button
+                      variant='outline'
+                      size='icon'
+                      onClick={() => prevPage()}
+                      aria-label='Sebelumnya'
+                      disabled={currentPageIndex === 0}
+                    >
+                      <ChevronLeft className='h-4 w-4' />
+                    </Button>
+                    <div className='text-center flex-1 px-16'>
+                      <Input
+                        value={pages[currentPageIndex]?.title || ''}
+                        onChange={(e) => setPageMeta({title: e.target.value})}
+                        className='text-center font-semibold'
+                      />
+                      <Input
+                        value={pages[currentPageIndex]?.description || ''}
+                        onChange={(e) =>
+                          setPageMeta({description: e.target.value})
+                        }
+                        className='mt-2 text-center'
+                      />
                     </div>
-                  </CardHeader>
-                  <CardContent className="flex-1 overflow-auto space-y-4">
-                  {questions.length === 0 && (
-                    <div className="text-sm text-muted-foreground">Belum ada soal untuk dipreview.</div>
-                  )}
-                  {/* Render hanya pertanyaan di halaman aktif */}
-                  {currentQuestionIds.map((qid, idx) => {
-                    const q = questions.find(qq=>qq.id===qid)
-                    if(!q) return null
-                     const questionCode = `Q${idx + 1}`
-                     const common = { label: q.label, required: q.required, disabled: false }
-                    const isActive = activeQuestionId === q.id
-                    const Wrap = (children: React.ReactNode) => (
-                      <div key={q.id} className="flex items-start gap-3">
-                        <div className={`mt-2 w-7 h-7 rounded-full border flex items-center justify-center text-xs ${isActive ? 'border-primary text-primary' : 'text-muted-foreground'}`}>{idx + 1}</div>
-                        <div
-                           className={`relative p-3 rounded-md border flex-1 ${isEditMode ? 'cursor-pointer' : 'cursor-default'} ${isActive ? 'border-primary' : ''} ${dragIndex===idx ? 'opacity-90' : ''} ${overIndex===idx && dragIndex!==null && dragIndex!==idx ? 'ring-2 ring-primary ring-offset-2' : ''}`}
-                           onClick={() => isEditMode && dispatch(setActiveQuestion(q.id))}
-                           draggable={isEditMode}
-                           onDragStart={() => isEditMode && setDragIndex(idx)}
-                           onDragOver={(e) => { if(isEditMode) { e.preventDefault(); setOverIndex(idx) } }}
-                           onDrop={() => { if(isEditMode && dragIndex!==null && dragIndex!==idx) { dispatch(reorderCurrentPageQuestions({ from: dragIndex, to: idx })) } setDragIndex(null); setOverIndex(null) }}
-                          onDragEnd={() => { setDragIndex(null); setOverIndex(null) }}
+                    <div className='flex items-center gap-2'>
+                      {isEditMode && (
+                        <Button
+                          size='icon'
+                          variant='outline'
+                          onClick={() => {
+                            // Add new page/group
+                            const newCodeId = `Q${pages.length + 1}`;
+                            const newPage = {
+                              id: uuidv4(),
+                              title: `Halaman ${pages.length + 1}`,
+                              description: `Pertanyaan ${newCodeId}`,
+                              questionIds: [],
+                            };
+                            updatePages([...pages, newPage]);
+                            nextPage();
+                            toast.success(
+                              'Grup soal baru berhasil ditambahkan'
+                            );
+                          }}
+                          aria-label='Tambah grup soal'
+                          title='Tambah grup soal baru'
                         >
-                         {isEditMode && (
+                          <Plus className='h-4 w-4' />
+                        </Button>
+                      )}
+                      {isEditMode && currentQuestionIds.length > 0 && (
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <button
-                              className="absolute top-2 right-2 text-muted-foreground hover:text-destructive"
-                              aria-label="Hapus pertanyaan"
+                            <Button
+                              size='icon'
+                              variant='destructive'
+                              aria-label='Hapus group pertanyaan'
+                              title='Hapus semua pertanyaan di halaman ini'
                             >
-                              <X className="h-4 w-4" />
-                            </button>
+                              <Trash2 className='h-4 w-4' />
+                            </Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>Hapus versi pertanyaan?</AlertDialogTitle>
-                              <AlertDialogDescription className="space-y-2">
-                                <div>
-                                  Tindakan ini tidak dapat dibatalkan. Hanya versi pertanyaan yang dipilih akan dihapus.
-                                </div>
-                                <div className="bg-muted p-3 rounded-md">
-                                  <div className="text-sm font-medium">Detail pertanyaan yang akan dihapus:</div>
-                                  <div className="text-sm space-y-1 mt-1">
-                                    <div><span className="font-medium">Kode:</span> {(q as Question & { questionCode?: string }).questionCode || `Q${idx + 1}`}</div>
-                                    <div><span className="font-medium">Versi:</span> v{(q as Question & { version?: string }).version || '2024'}</div>
-                                    <div><span className="font-medium">Label:</span> {q.label}</div>
-                                    <div><span className="font-medium">Tipe:</span> {q.type}</div>
+                              <AlertDialogTitle>
+                                Hapus Group Pertanyaan?
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Tindakan ini tidak dapat dibatalkan. Semua
+                                pertanyaan dengan code{' '}
+                                <strong>
+                                  {pages[currentPageIndex]?.description ||
+                                    `Halaman ${currentPageIndex + 1}`}
+                                </strong>{' '}
+                                akan dihapus.
+                              </AlertDialogDescription>
+                              <div className='space-y-2 mt-4'>
+                                <div className='bg-muted p-3 rounded-md'>
+                                  <div className='text-sm font-medium'>
+                                    Detail group pertanyaan yang akan dihapus:
+                                  </div>
+                                  <div className='text-sm space-y-1 mt-1'>
+                                    <div>
+                                      <span className='font-medium'>Code:</span>{' '}
+                                      {(() => {
+                                        const firstQ = questions.find((q) =>
+                                          currentQuestionIds.includes(q.id)
+                                        );
+                                        return (
+                                          (firstQ as ExtendedQuestion)
+                                            ?.questionCode || '-'
+                                        );
+                                      })()}
+                                    </div>
+                                    <div>
+                                      <span className='font-medium'>
+                                        Jumlah pertanyaan:
+                                      </span>{' '}
+                                      {currentQuestionIds.length}
+                                    </div>
                                   </div>
                                 </div>
-                                <div className="text-xs text-muted-foreground">
-                                  Versi lain dengan kode yang sama akan tetap tersimpan.
-                                </div>
-                              </AlertDialogDescription>
+                              </div>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Batal</AlertDialogCancel>
-                              <AlertDialogAction onClick={()=>dispatch(removeQuestionVersion(q.id))}>
-                                Hapus Versi
+                              <AlertDialogAction
+                                onClick={() => {
+                                  const firstQ = questions.find((q) =>
+                                    currentQuestionIds.includes(q.id)
+                                  );
+                                  if (firstQ) {
+                                    const codeId = (firstQ as ExtendedQuestion)
+                                      ?.questionCode;
+                                    if (codeId) {
+                                      handleDeleteGroupQuestion(codeId);
+                                    }
+                                  }
+                                }}
+                              >
+                                Hapus Group
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
-                         )}
-                        <div className="pointer-events-none select-none">
-                           <div className="flex items-center gap-2 mb-2">
-                             <span className="text-sm font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                               {(q as Question & { questionCode?: string }).questionCode || questionCode}
-                             </span>
-                             {(q as Question & { version?: string }).version && (
-                               <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded">
-                                 v{(q as Question & { version?: string }).version}
-                               </span>
-                             )}
-                           </div>
-                          {children}
+                      )}
+                      <Button
+                        size='icon'
+                        onClick={() => nextPage()}
+                        aria-label='Berikutnya'
+                        disabled={currentPageIndex >= pages.length - 1}
+                      >
+                        <ChevronRight className='h-4 w-4' />
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className='flex-1 overflow-y-auto space-y-4 p-4'>
+                  {/* Render hanya pertanyaan di halaman aktif dengan hierarchy */}
+                  {(() => {
+                    // Filter: hanya tampilkan questions yang sudah disimpan (status: 'saved')
+                    // Kecuali saat edit mode, tampilkan semua untuk bisa diedit
+                    const displayQuestions = isEditMode
+                      ? questions
+                      : questions.filter((q) => {
+                          const builderQ = q as Question & {
+                            status?: 'new' | 'edited' | 'saved';
+                          };
+                          return builderQ.status === 'saved';
+                        });
+
+                    if (displayQuestions.length === 0) {
+                      return (
+                        <div className='text-sm text-muted-foreground'>
+                          Belum ada soal untuk dipreview.
                         </div>
-                        </div>
-                      </div>
-                    )
-                    
-                    // Filter out non-DOM props before passing to components
-                    const getCleanProps = (question: Question) => {
-                      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                      const { questionCode, version, ...cleanProps } = question as Question & { questionCode?: string; version?: string }
-                      return cleanProps
+                      );
                     }
-                    
-                    switch(q.type){
-                      case 'text': {
-                        const textQuestion = q as TextQuestion
-                        const textProps = getCleanProps(textQuestion)
-                        // Ensure type is only "text" for SoalTeks
-                        return Wrap(<SoalTeks {...{...textProps, type: "text"}} {...common} value="" onChange={()=>{}} />)
+
+                    // Filter currentQuestionIds untuk hanya include questions yang ada di displayQuestions
+                    const displayQuestionIds = currentQuestionIds.filter(
+                      (qid) => displayQuestions.some((q) => q.id === qid)
+                    );
+
+                    // Helper function to get child questions from questionTree
+                    const getChildQuestions = (parentId: string): string[] => {
+                      const parentQ = displayQuestions.find(
+                        (q) => q.id === parentId
+                      );
+                      if (!parentQ) return [];
+                      const extQ = parentQ as ExtendedQuestion;
+                      const questionTree = extQ.questionTree || [];
+                      return questionTree
+                        .map((tree) => tree.questionPointerToId)
+                        .filter(Boolean)
+                        .filter((childId) =>
+                          displayQuestions.some((q) => q.id === childId)
+                        );
+                    };
+
+                    // Separate parent and child questions - remove duplicates
+                    // Only render parent questions that are NOT children of other questions
+                    // Remove duplicates by using Set and filter by parentId
+                    const seenIds = new Set<string>();
+                    const parentQuestionIds = displayQuestionIds.filter(
+                      (qid, index, self) => {
+                        // Remove duplicates - if we've seen this ID before, skip it
+                        if (seenIds.has(qid)) return false;
+                        seenIds.add(qid);
+
+                        // Also check if it's a duplicate in the array itself
+                        if (self.indexOf(qid) !== index) return false;
+
+                        const q = displayQuestions.find((qq) => qq.id === qid);
+                        if (!q) return false;
+
+                        // Only include if it's not a child question (parentId is null/undefined)
+                        const extQ = q as ExtendedQuestion;
+                        return !extQ.parentId;
                       }
-                      case 'textarea': {
-                        const textareaQuestion = q as TextAreaQuestion
-                        const textareaProps = getCleanProps(textareaQuestion)
-                        return Wrap(<SoalTeksArea {...textareaProps} {...common} value="" onChange={()=>{}} />)
-                      }
-                      case 'single': {
-                        const singleQuestion = q as SingleChoiceQuestion
-                        const singleProps = getCleanProps(singleQuestion)
-                        return Wrap(<SoalSingleChoice {...singleProps} {...common} opsiJawaban={singleQuestion.options} value="" onChange={()=>{}} />)
-                      }
-                      case 'multiple': {
-                        const multipleQuestion = q as MultipleChoiceQuestion
-                        const multipleProps = getCleanProps(multipleQuestion)
-                        return Wrap(<SoalMultiChoice {...multipleProps} {...common} opsiJawaban={multipleQuestion.options} value={[]} onChange={()=>{}} />)
-                      }
-                      case 'combobox': {
-                        const comboQuestion = q as ComboBoxQuestion
-                        const comboProps = getCleanProps(comboQuestion)
-                        return Wrap(<SoalComboBox {...comboProps} {...common} comboboxItems={comboQuestion.comboboxItems.map((it)=>({...it, opsiComboBox: it.options}))} values={{}} onChange={()=>{}} />)
-                      }
-                      case 'rating': {
-                        const ratingQuestion = q as RatingQuestion
-                        const ratingProps = getCleanProps(ratingQuestion)
-                        return Wrap(<SoalRating {...ratingProps} {...common} ratingItems={ratingQuestion.ratingItems} values={{}} onChange={()=>{}} />)
-                      }
-                      default:
-                        return null
-                    }
-                  })}
-                  </CardContent>
-                </div>
+                    );
+
+                    // Render question with hierarchy
+                    const renderQuestion = (
+                      qid: string,
+                      idx: number,
+                      level: number = 0,
+                      parentId?: string
+                    ) => {
+                      const q = displayQuestions.find((qq) => qq.id === qid);
+                      if (!q) return null;
+
+                      const questionCode = `Q${idx + 1}`;
+                      const isChild = !!parentId;
+                      const childQuestionIds = getChildQuestions(qid);
+                      const hasChildren = childQuestionIds.length > 0;
+                      const isCollapsed = collapsedQuestions.has(qid);
+                      const isActive = activeQuestionId === q.id;
+
+                      const common = {
+                        label: q.label,
+                        required: q.required,
+                        disabled: false,
+                      };
+
+                      // Filter out non-DOM props before passing to components
+                      const getCleanProps = (question: Question) => {
+                        const {
+                          questionCode: _,
+                          version: __,
+                          ...cleanProps
+                        } = question as Question & {
+                          questionCode?: string;
+                          version?: string;
+                        };
+                        void _; // Mark as intentionally unused
+                        void __; // Mark as intentionally unused
+                        return cleanProps;
+                      };
+
+                      const renderQuestionContent = () => {
+                        switch (q.type) {
+                          case 'text': {
+                            const textQuestion = q as TextQuestion;
+                            const textProps = getCleanProps(textQuestion);
+                            return (
+                              <SoalTeks
+                                {...{...textProps, type: 'text'}}
+                                {...common}
+                                value=''
+                                onChange={() => {}}
+                              />
+                            );
+                          }
+                          case 'textarea': {
+                            const textareaQuestion = q as TextAreaQuestion;
+                            const textareaProps =
+                              getCleanProps(textareaQuestion);
+                            return (
+                              <SoalTeksArea
+                                {...textareaProps}
+                                {...common}
+                                value=''
+                                onChange={() => {}}
+                              />
+                            );
+                          }
+                          case 'single': {
+                            const singleQuestion = q as SingleChoiceQuestion;
+                            const singleProps = getCleanProps(singleQuestion);
+                            return (
+                              <SoalSingleChoice
+                                {...singleProps}
+                                {...common}
+                                opsiJawaban={singleQuestion.options}
+                                value=''
+                                onChange={() => {}}
+                              />
+                            );
+                          }
+                          case 'multiple': {
+                            const multipleQuestion =
+                              q as MultipleChoiceQuestion;
+                            const multipleProps =
+                              getCleanProps(multipleQuestion);
+                            return (
+                              <SoalMultiChoice
+                                {...multipleProps}
+                                {...common}
+                                opsiJawaban={multipleQuestion.options}
+                                value={[]}
+                                onChange={() => {}}
+                              />
+                            );
+                          }
+                          case 'combobox': {
+                            const comboQuestion = q as ComboBoxQuestion;
+                            const comboProps = getCleanProps(comboQuestion);
+                            return (
+                              <SoalComboBox
+                                {...comboProps}
+                                {...common}
+                                comboboxItems={comboQuestion.comboboxItems.map(
+                                  (it) => ({...it, opsiComboBox: it.options})
+                                )}
+                                values={{}}
+                                onChange={() => {}}
+                              />
+                            );
+                          }
+                          case 'rating': {
+                            const ratingQuestion = q as RatingQuestion;
+                            const ratingProps = getCleanProps(ratingQuestion);
+                            return (
+                              <SoalRating
+                                {...ratingProps}
+                                {...common}
+                                ratingItems={ratingQuestion.ratingItems}
+                                values={{}}
+                                onChange={() => {}}
+                              />
+                            );
+                          }
+                          default:
+                            return null;
+                        }
+                      };
+
+                      return (
+                        <React.Fragment key={qid}>
+                          <div className='flex items-start gap-3'>
+                            {/* Indentation and vertical line for child questions */}
+                            {isChild && (
+                              <div
+                                className='relative flex flex-col items-center'
+                                style={{width: '28px', minHeight: '40px'}}
+                              >
+                                {/* Vertical line */}
+                                <div className='absolute left-1/2 top-0 bottom-0 w-px bg-border' />
+                                {/* Horizontal line */}
+                                <div
+                                  className='absolute left-1/2 top-5 w-3 h-px bg-border'
+                                  style={{transform: 'translateX(-100%)'}}
+                                />
+                              </div>
+                            )}
+
+                            {/* Question number */}
+                            <div
+                              className={`mt-2 w-7 h-7 rounded-full border flex items-center justify-center text-xs flex-shrink-0 ${
+                                isActive
+                                  ? 'border-primary text-primary'
+                                  : 'text-muted-foreground'
+                              }`}
+                            >
+                              {idx + 1}
+                            </div>
+
+                            {/* Question card */}
+                            <div
+                              className={`relative p-3 rounded-md border flex-1 ${
+                                isEditMode ? 'cursor-pointer' : 'cursor-default'
+                              } ${isActive ? 'border-primary' : ''} ${
+                                dragIndex === idx ? 'opacity-90' : ''
+                              } ${
+                                overIndex === idx &&
+                                dragIndex !== null &&
+                                dragIndex !== idx
+                                  ? 'ring-2 ring-primary ring-offset-2'
+                                  : ''
+                              } ${isChild ? 'ml-0' : ''}`}
+                              onClick={() =>
+                                isEditMode && setActiveQuestion(q.id)
+                              }
+                              draggable={isEditMode}
+                              onDragStart={() =>
+                                isEditMode && setDragIndex(idx)
+                              }
+                              onDragOver={(e) => {
+                                if (isEditMode) {
+                                  e.preventDefault();
+                                  setOverIndex(idx);
+                                }
+                              }}
+                              onDrop={async () => {
+                                if (
+                                  isEditMode &&
+                                  dragIndex !== null &&
+                                  dragIndex !== idx
+                                ) {
+                                  // Update local state first
+                                  reorderCurrentPageQuestions({
+                                    from: dragIndex,
+                                    to: idx,
+                                  });
+
+                                  // Auto-save reorder to API if surveyId exists
+                                  if (surveyId) {
+                                    try {
+                                      const page = pages[currentPageIndex];
+                                      if (page) {
+                                        // Get all questions in current page after reorder
+                                        const pageQuestions = page.questionIds
+                                          .map((qid) =>
+                                            questions.find((q) => q.id === qid)
+                                          )
+                                          .filter(
+                                            (
+                                              q
+                                            ): q is NonNullable<
+                                              (typeof questions)[0]
+                                            > => q !== undefined
+                                          );
+
+                                        // Create questionOrders with global sortOrder
+                                        // Find the minimum sortOrder from all questions to maintain relative order
+                                        const allQuestionsSorted = [
+                                          ...questions,
+                                        ].sort((a, b) => {
+                                          const aOrder =
+                                            (a as Question & {order?: number})
+                                              .order || 0;
+                                          const bOrder =
+                                            (b as Question & {order?: number})
+                                              .order || 0;
+                                          return aOrder - bOrder;
+                                        });
+
+                                        // Get the first question's order in current page as base
+                                        const firstPageQuestion =
+                                          pageQuestions[0];
+                                        const baseOrder = firstPageQuestion
+                                          ? allQuestionsSorted.findIndex(
+                                              (q) =>
+                                                q.id === firstPageQuestion.id
+                                            )
+                                          : 0;
+
+                                        // Create questionOrders with updated sortOrder
+                                        const questionOrders =
+                                          pageQuestions.map((q, orderIdx) => ({
+                                            questionId: q.id,
+                                            sortOrder: baseOrder + orderIdx,
+                                          }));
+
+                                        await reorderQuestions({
+                                          surveyId,
+                                          questionOrders,
+                                        });
+                                        // Invalidate queries to refresh data
+                                        await queryClient.invalidateQueries({
+                                          queryKey: [
+                                            'surveyQuestions',
+                                            surveyId,
+                                          ],
+                                        });
+                                      }
+                                    } catch (error) {
+                                      logError(error, 'reorderQuestions');
+                                      const errorMessage =
+                                        getDetailedErrorMessage(
+                                          error,
+                                          'Gagal menyimpan urutan pertanyaan'
+                                        );
+                                      toast.error(errorMessage);
+                                    }
+                                  }
+                                }
+                                setDragIndex(null);
+                                setOverIndex(null);
+                              }}
+                              onDragEnd={() => {
+                                setDragIndex(null);
+                                setOverIndex(null);
+                              }}
+                            >
+                              {isEditMode && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <button
+                                      className='absolute top-2 right-2 text-muted-foreground hover:text-destructive'
+                                      aria-label='Hapus pertanyaan'
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <X className='h-4 w-4' />
+                                    </button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>
+                                        Hapus versi pertanyaan?
+                                      </AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Tindakan ini tidak dapat dibatalkan.
+                                        Hanya versi pertanyaan yang dipilih akan
+                                        dihapus.
+                                      </AlertDialogDescription>
+                                      <div className='space-y-2 mt-4'>
+                                        <div className='bg-muted p-3 rounded-md'>
+                                          <div className='text-sm font-medium'>
+                                            Detail pertanyaan yang akan dihapus:
+                                          </div>
+                                          <div className='text-sm space-y-1 mt-1'>
+                                            <div>
+                                              <span className='font-medium'>
+                                                Kode:
+                                              </span>{' '}
+                                              {(
+                                                q as Question & {
+                                                  questionCode?: string;
+                                                }
+                                              ).questionCode || `Q${idx + 1}`}
+                                            </div>
+                                            <div>
+                                              <span className='font-medium'>
+                                                Versi:
+                                              </span>{' '}
+                                              v
+                                              {(
+                                                q as Question & {
+                                                  version?: string;
+                                                }
+                                              ).version || '2024'}
+                                            </div>
+                                            <div>
+                                              <span className='font-medium'>
+                                                Label:
+                                              </span>{' '}
+                                              {q.label}
+                                            </div>
+                                            <div>
+                                              <span className='font-medium'>
+                                                Tipe:
+                                              </span>{' '}
+                                              {q.type}
+                                            </div>
+                                          </div>
+                                        </div>
+                                        <div className='text-xs text-muted-foreground'>
+                                          Versi lain dengan kode yang sama akan
+                                          tetap tersimpan.
+                                        </div>
+                                      </div>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>
+                                        Batal
+                                      </AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() =>
+                                          handleDeleteQuestion(q.id)
+                                        }
+                                      >
+                                        Hapus Versi
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
+
+                              <div className='pointer-events-none select-none'>
+                                <div className='flex items-center gap-2 mb-2'>
+                                  {/* Collapse/Expand button */}
+                                  {hasChildren && (
+                                    <button
+                                      className='pointer-events-auto -ml-1 text-muted-foreground hover:text-foreground'
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setCollapsedQuestions((prev) => {
+                                          const newSet = new Set(prev);
+                                          if (newSet.has(qid)) {
+                                            newSet.delete(qid);
+                                          } else {
+                                            newSet.add(qid);
+                                          }
+                                          return newSet;
+                                        });
+                                      }}
+                                    >
+                                      {isCollapsed ? (
+                                        <ChevronRight className='h-4 w-4' />
+                                      ) : (
+                                        <ChevronDown className='h-4 w-4' />
+                                      )}
+                                    </button>
+                                  )}
+
+                                  {isChild && !hasChildren && (
+                                    <div className='w-4' />
+                                  )}
+
+                                  <span className='text-sm font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded'>
+                                    {(q as Question & {questionCode?: string})
+                                      .questionCode || questionCode}
+                                  </span>
+                                  {(q as Question & {version?: string})
+                                    .version && (
+                                    <span className='text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded'>
+                                      v
+                                      {
+                                        (q as Question & {version?: string})
+                                          .version
+                                      }
+                                    </span>
+                                  )}
+                                  {isChild && (
+                                    <span className='text-xs font-medium text-orange-600 bg-orange-50 px-2 py-1 rounded flex items-center gap-1'>
+                                      <GitBranch className='h-3 w-3' />
+                                      Kondisional
+                                    </span>
+                                  )}
+                                </div>
+                                {renderQuestionContent()}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Render child questions */}
+                          {hasChildren && !isCollapsed && (
+                            <div className='ml-12 space-y-2 border-l-2 border-border pl-4'>
+                              {childQuestionIds.map((childQid, childIdx) => {
+                                const childQ = displayQuestions.find(
+                                  (qq) => qq.id === childQid
+                                );
+                                if (!childQ) return null;
+                                const childIndexInPage =
+                                  displayQuestionIds.indexOf(childQid);
+                                return renderQuestion(
+                                  childQid,
+                                  childIndexInPage >= 0
+                                    ? childIndexInPage
+                                    : idx + childIdx + 1,
+                                  level + 1,
+                                  qid
+                                );
+                              })}
+                            </div>
+                          )}
+                        </React.Fragment>
+                      );
+                    };
+
+                    return parentQuestionIds.map((qid, idx) => {
+                      const q = displayQuestions.find((qq) => qq.id === qid);
+                      if (!q) return null;
+                      const originalIndex = displayQuestionIds.indexOf(qid);
+                      return renderQuestion(
+                        qid,
+                        originalIndex >= 0 ? originalIndex : idx,
+                        0
+                      );
+                    });
+                  })()}
+                </CardContent>
               </Card>
             </ResizableContent>
 
             {/* Panel Kanan - Detail per Soal - Hanya muncul saat edit mode */}
             {isEditMode && (
-            <ResizablePanel
-              defaultWidth={350}
-              minWidth={300}
-              maxWidth={500}
-              resizable="left"
-                className="animate-in slide-in-from-right duration-300"
-            >
-              <Card className="h-full">
-                <CardHeader className="p-3">
-                  <CardTitle className="text-md">Detail per Soal</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {!activeQuestion && (
-                    <div className="text-sm text-muted-foreground">Pilih atau tambah soal untuk mengedit.</div>
-                  )}
-                  {activeQuestion && (
-                    <div className="space-y-3">
-                         <div className="space-y-1">
-                           <label className="text-sm font-medium">Kode Soal</label>
-                           <Input 
-                             value={(activeQuestion as Question & { questionCode?: string }).questionCode || `Q${currentQuestionIds.findIndex(id => id === activeQuestion.id) + 1}`} 
-                             onChange={(e)=>patchActive({ questionCode: e.target.value } as Partial<Question & { questionCode?: string }>)} 
-                             placeholder="Q1, Q2, dst..."
-                           />
-                         </div>
-                         <div className="space-y-1">
-                           <label className="text-sm font-medium">Versi Soal</label>
-                           <div className="text-xs text-muted-foreground mb-2">
-                             Pilih versi atau buat versi baru
-                           </div>
-                           <Popover open={versionComboOpen} onOpenChange={setVersionComboOpen}>
-                             <PopoverTrigger asChild>
-                               <Button
-                                 variant="outline"
-                                 role="combobox"
-                                 aria-expanded={versionComboOpen}
-                                 className="w-full justify-between"
-                               >
-                                 {activeQuestion ? 
-                                   `v${(activeQuestion as Question & { version?: string }).version || '2024'}` :
-                                   "Pilih versi..."
-                                 }
-                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                               </Button>
-                             </PopoverTrigger>
-                             <PopoverContent className="w-full p-0">
-                               <Command>
-                                 <CommandInput placeholder="Cari versi..." />
-                                 <CommandList>
-                                   <CommandEmpty>Versi tidak ditemukan.</CommandEmpty>
-                                   <CommandGroup>
-                                     {getVersionQuestions().map((versionQuestion) => (
-                                       <CommandItem
-                                         key={versionQuestion.id}
-                                         value={`v${(versionQuestion as Question & { version?: string }).version || '2024'}`}
-                                         className="bg-background hover:bg-muted data-[selected=true]:bg-muted data-[selected=true]:text-foreground"
-                                         onSelect={() => {
-                                           // Switch version: replace current question in page with selected version
-                                           if (activeQuestion && versionQuestion.id !== activeQuestion.id) {
-                                             dispatch(replaceQuestionInCurrentPage({ 
-                                               oldQuestionId: activeQuestion.id, 
-                                               newQuestionId: versionQuestion.id 
-                                             }))
-                                           }
-                                           dispatch(setActiveQuestion(versionQuestion.id))
-                                           setVersionComboOpen(false)
-                                         }}
-                                       >
-                                         <div className="flex items-center justify-between w-full">
-                                           <div className="flex items-center gap-2">
-                                             <span className="font-medium">v{(versionQuestion as Question & { version?: string }).version || '2024'}</span>
-                                           </div>
-                                           {versionQuestion.id === activeQuestion?.id && (
-                                             <span className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded">
-                                               Aktif
-                                             </span>
-                                           )}
-                                         </div>
-                                       </CommandItem>
-                                     ))}
-                                     <CommandItem
-                                       onSelect={() => {
-                                         createNewVersion()
-                                         setVersionComboOpen(false)
-                                       }}
-                                       className="border-t"
-                                     >
-                                       <div className="flex items-center gap-2 text-primary">
-                                         <Plus className="h-4 w-4" />
-                                         <span className="font-medium">Buat Versi Baru</span>
-                                       </div>
-                                     </CommandItem>
-                                   </CommandGroup>
-                                 </CommandList>
-                               </Command>
-                             </PopoverContent>
-                           </Popover>
-                         </div>
-                      <div className="space-y-1">
-                        <label className="text-sm font-medium">Label</label>
-                        <Input value={activeQuestion.label} onChange={(e)=>patchActive({ label: e.target.value })} />
+              <ResizablePanel
+                defaultWidth={350}
+                minWidth={300}
+                maxWidth={500}
+                resizable='left'
+                className='animate-in slide-in-from-right duration-300'
+              >
+                <Card className='h-full flex flex-col'>
+                  <CardHeader className='p-3 flex-shrink-0'>
+                    <CardTitle className='text-md'>Detail per Soal</CardTitle>
+                  </CardHeader>
+                  <CardContent className='flex-1 overflow-y-auto space-y-4 p-4'>
+                    {!activeQuestion && (
+                      <div className='text-sm text-muted-foreground'>
+                        Pilih atau tambah soal untuk mengedit.
                       </div>
-                      {(activeQuestion.type==='text' || activeQuestion.type==='textarea') && (
-                        <div className="space-y-1">
-                          <label className="text-sm font-medium">Placeholder</label>
-                            <Input value={(activeQuestion as TextQuestion | TextAreaQuestion).placeholder || ''} onChange={(e)=>patchActive({ placeholder: e.target.value })} />
-                          </div>
-                        )}
-                        {(activeQuestion.type==='text') && (
-                          <div className="space-y-1">
-                            <label className="text-sm font-medium">Input Type</label>
-                            <select 
-                              value={(activeQuestion as TextQuestion).inputType || 'text'} 
-                              onChange={(e)=>patchActive({ inputType: e.target.value as 'text' | 'email' | 'number' | 'tel' | 'url' })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                              <option value="text">Text</option>
-                              <option value="email">Email</option>
-                              <option value="number">Number</option>
-                              <option value="tel">Telephone</option>
-                              <option value="url">URL</option>
-                            </select>
-                          </div>
-                        )}
-                        {(activeQuestion.type==='textarea') && (
-                          <div className="space-y-1">
-                            <label className="text-sm font-medium">Rows</label>
-                            <Input 
-                              type="number" 
-                              value={(activeQuestion as TextAreaQuestion).rows || 3} 
-                              onChange={(e)=>patchActive({ rows: parseInt(e.target.value) })} 
-                              min="1" 
-                              max="10"
-                            />
-                        </div>
-                      )}
-                      {(activeQuestion.type==='single' || activeQuestion.type==='multiple') && (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <label className="text-sm font-medium">Opsi Jawaban</label>
-                            <Button size="sm" variant="outline" onClick={()=>{
-                                const currentOptions = (activeQuestion as SingleChoiceQuestion | MultipleChoiceQuestion).options || []
-                                const options = [ ...currentOptions, { value: `opsi_${Date.now()}`, label: 'Opsi Baru' } ]
-                                patchActive({ options })
-                            }}><Plus className="h-4 w-4 mr-1" />Tambah</Button>
-                          </div>
-                          <div className="space-y-2">
-                              {((activeQuestion as SingleChoiceQuestion | MultipleChoiceQuestion).options || []).map((opt, i:number) => (
-                              <div key={opt.value} className="flex items-center space-x-2">
-                                <Input value={opt.label} onChange={(e)=>{
-                                    const currentOptions = (activeQuestion as SingleChoiceQuestion | MultipleChoiceQuestion).options || []
-                                    const options = [ ...currentOptions ]
-                                  options[i] = { ...opt, label: e.target.value }
-                                    patchActive({ options })
-                                }} />
-                                <Button size="icon" variant="ghost" onClick={()=>{
-                                    const currentOptions = (activeQuestion as SingleChoiceQuestion | MultipleChoiceQuestion).options || []
-                                    const options = [ ...currentOptions ]
-                                  options.splice(i,1)
-                                    patchActive({ options })
-                                  }}>
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                  </Button>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {(activeQuestion.type==='single' || activeQuestion.type==='multiple') && (
-                          <div className="space-y-1">
-                            <label className="text-sm font-medium">Layout</label>
-                            <select 
-                              value={(activeQuestion as SingleChoiceQuestion | MultipleChoiceQuestion).layout || 'vertical'} 
-                              onChange={(e)=>patchActive({ layout: e.target.value as 'vertical' | 'horizontal' })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                              <option value="vertical">Vertical</option>
-                              <option value="horizontal">Horizontal</option>
-                            </select>
-                          </div>
-                        )}
-                        {(activeQuestion.type==='combobox') && (
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <label className="text-sm font-medium">ComboBox Items</label>
-                              <Button size="sm" variant="outline" onClick={()=>{
-                                const currentItems = (activeQuestion as ComboBoxQuestion).comboboxItems || []
-                                const newItem = {
-                                  id: `item_${Date.now()}`,
-                                  label: 'Item Baru',
-                                  placeholder: 'Pilih...',
-                                  searchPlaceholder: 'Cari...',
-                                  required: false,
-                                  options: [
-                                    { value: 'opsi1', label: 'Opsi 1' },
-                                    { value: 'opsi2', label: 'Opsi 2' }
-                                  ]
+                    )}
+                    {activeQuestion && (
+                      <div className='space-y-3'>
+                        <div className='space-y-1'>
+                          <label className='text-sm font-medium'>
+                            Kode Soal
+                          </label>
+                          <Input
+                            value={
+                              (
+                                activeQuestion as Question & {
+                                  questionCode?: string;
                                 }
-                                patchActive({ comboboxItems: [...currentItems, newItem] })
-                              }}><Plus className="h-4 w-4 mr-1" />Tambah Item</Button>
+                              ).questionCode ||
+                              `Q${
+                                currentQuestionIds.findIndex(
+                                  (id) => id === activeQuestion.id
+                                ) + 1
+                              }`
+                            }
+                            onChange={(e) =>
+                              patchActive({
+                                questionCode: e.target.value,
+                              } as Partial<Question & {questionCode?: string}>)
+                            }
+                            placeholder='Q1, Q2, dst...'
+                          />
+                        </div>
+                        <div className='space-y-1'>
+                          <label className='text-sm font-medium'>
+                            Versi Soal
+                          </label>
+                          <div className='text-xs text-muted-foreground mb-2'>
+                            Pilih versi atau buat versi baru
+                          </div>
+                          <Popover
+                            open={versionComboOpen}
+                            onOpenChange={setVersionComboOpen}
+                          >
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant='outline'
+                                role='combobox'
+                                aria-expanded={versionComboOpen}
+                                className='w-full justify-between'
+                              >
+                                {activeQuestion
+                                  ? `v${
+                                      (
+                                        activeQuestion as Question & {
+                                          version?: string;
+                                        }
+                                      ).version || '2024'
+                                    }`
+                                  : 'Pilih versi...'}
+                                <ChevronsUpDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className='w-full p-0'>
+                              <Command>
+                                <CommandInput placeholder='Cari versi...' />
+                                <CommandList>
+                                  <CommandEmpty>
+                                    Versi tidak ditemukan.
+                                  </CommandEmpty>
+                                  <CommandGroup>
+                                    {getVersionQuestions().map(
+                                      (versionQuestion) => (
+                                        <CommandItem
+                                          key={versionQuestion.id}
+                                          value={`v${
+                                            (
+                                              versionQuestion as Question & {
+                                                version?: string;
+                                              }
+                                            ).version || '2024'
+                                          }`}
+                                          className='bg-background hover:bg-muted data-[selected=true]:bg-muted data-[selected=true]:text-foreground'
+                                          onSelect={() => {
+                                            // Switch version: replace current question in page with selected version
+                                            if (
+                                              activeQuestion &&
+                                              versionQuestion.id !==
+                                                activeQuestion.id
+                                            ) {
+                                              replaceQuestionInCurrentPage({
+                                                oldQuestionId:
+                                                  activeQuestion.id,
+                                                newQuestionId:
+                                                  versionQuestion.id,
+                                              });
+                                            }
+                                            setActiveQuestion(
+                                              versionQuestion.id
+                                            );
+                                            setVersionComboOpen(false);
+                                          }}
+                                        >
+                                          <div className='flex items-center justify-between w-full'>
+                                            <div className='flex items-center gap-2'>
+                                              <span className='font-medium'>
+                                                v
+                                                {(
+                                                  versionQuestion as Question & {
+                                                    version?: string;
+                                                  }
+                                                ).version || '2024'}
+                                              </span>
+                                            </div>
+                                            {versionQuestion.id ===
+                                              activeQuestion?.id && (
+                                              <span className='text-xs bg-primary text-primary-foreground px-2 py-1 rounded'>
+                                                Aktif
+                                              </span>
+                                            )}
+                                          </div>
+                                        </CommandItem>
+                                      )
+                                    )}
+                                    <CommandItem
+                                      onSelect={() => {
+                                        createNewVersion();
+                                        setVersionComboOpen(false);
+                                      }}
+                                      className='border-t'
+                                    >
+                                      <div className='flex items-center gap-2 text-primary'>
+                                        <Plus className='h-4 w-4' />
+                                        <span className='font-medium'>
+                                          Buat Versi Baru
+                                        </span>
+                                      </div>
+                                    </CommandItem>
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        <div className='space-y-1'>
+                          <label className='text-sm font-medium'>Label</label>
+                          <Input
+                            value={activeQuestion.label}
+                            onChange={(e) =>
+                              patchActive({label: e.target.value})
+                            }
+                          />
+                        </div>
+                        {(activeQuestion.type === 'text' ||
+                          activeQuestion.type === 'textarea') && (
+                          <div className='space-y-1'>
+                            <label className='text-sm font-medium'>
+                              Placeholder
+                            </label>
+                            <Input
+                              value={
+                                (
+                                  activeQuestion as
+                                    | TextQuestion
+                                    | TextAreaQuestion
+                                ).placeholder || ''
+                              }
+                              onChange={(e) =>
+                                patchActive({placeholder: e.target.value})
+                              }
+                            />
+                          </div>
+                        )}
+                        {activeQuestion.type === 'text' && (
+                          <div className='space-y-1'>
+                            <label className='text-sm font-medium'>
+                              Input Type
+                            </label>
+                            <select
+                              value={
+                                (activeQuestion as TextQuestion).inputType ||
+                                'text'
+                              }
+                              onChange={(e) =>
+                                patchActive({
+                                  inputType: e.target.value as
+                                    | 'text'
+                                    | 'email'
+                                    | 'number'
+                                    | 'tel'
+                                    | 'url',
+                                })
+                              }
+                              className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
+                            >
+                              <option value='text'>Text</option>
+                              <option value='email'>Email</option>
+                              <option value='number'>Number</option>
+                              <option value='tel'>Telephone</option>
+                              <option value='url'>URL</option>
+                            </select>
+                          </div>
+                        )}
+                        {activeQuestion.type === 'textarea' && (
+                          <div className='space-y-1'>
+                            <label className='text-sm font-medium'>Rows</label>
+                            <Input
+                              type='number'
+                              value={
+                                (activeQuestion as TextAreaQuestion).rows || 3
+                              }
+                              onChange={(e) =>
+                                patchActive({rows: parseInt(e.target.value)})
+                              }
+                              min='1'
+                              max='10'
+                            />
+                          </div>
+                        )}
+                        {(activeQuestion.type === 'single' ||
+                          activeQuestion.type === 'multiple') && (
+                          <div className='space-y-2'>
+                            <div className='flex items-center justify-between'>
+                              <label className='text-sm font-medium'>
+                                Opsi Jawaban
+                              </label>
+                              <Button
+                                size='sm'
+                                variant='outline'
+                                onClick={() => {
+                                  const currentOptions =
+                                    (
+                                      activeQuestion as
+                                        | SingleChoiceQuestion
+                                        | MultipleChoiceQuestion
+                                    ).options || [];
+                                  const options = [
+                                    ...currentOptions,
+                                    {
+                                      value: uuidv4(),
+                                      label: 'Opsi Baru',
+                                    },
+                                  ];
+                                  patchActive({options});
+                                }}
+                              >
+                                <Plus className='h-4 w-4 mr-1' />
+                                Tambah
+                              </Button>
                             </div>
-                            <div className="space-y-2">
-                              {((activeQuestion as ComboBoxQuestion).comboboxItems || []).map((item, i) => (
-                                <div key={item.id} className="p-3 border rounded-md space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-sm font-medium">Item {i + 1}</span>
-                                    <Button size="icon" variant="ghost" onClick={()=>{
-                                      const currentItems = (activeQuestion as ComboBoxQuestion).comboboxItems || []
-                                      const newItems = currentItems.filter((_, idx) => idx !== i)
-                                      patchActive({ comboboxItems: newItems })
-                                    }}>
-                                      <Trash2 className="h-4 w-4 text-destructive" />
+                            <div className='space-y-2'>
+                              {(
+                                (
+                                  activeQuestion as
+                                    | SingleChoiceQuestion
+                                    | MultipleChoiceQuestion
+                                ).options || []
+                              ).map((opt, i: number) => {
+                                const extQ = activeQuestion as ExtendedQuestion;
+                                const currentQuestionTree =
+                                  extQ.questionTree || [];
+                                const hasChildQuestion =
+                                  currentQuestionTree.some(
+                                    (tree) =>
+                                      tree.answerQuestionTriggerId === opt.value
+                                  );
+                                return (
+                                  <div
+                                    key={opt.value}
+                                    className='flex items-center space-x-2'
+                                  >
+                                    <Input
+                                      value={opt.label}
+                                      onChange={(e) => {
+                                        const currentOptions =
+                                          (
+                                            activeQuestion as
+                                              | SingleChoiceQuestion
+                                              | MultipleChoiceQuestion
+                                          ).options || [];
+                                        const options = [...currentOptions];
+                                        options[i] = {
+                                          ...opt,
+                                          label: e.target.value,
+                                        };
+                                        patchActive({options});
+                                      }}
+                                      className='flex-1'
+                                    />
+                                    {activeQuestion.type === 'single' && (
+                                      <Button
+                                        size='icon'
+                                        variant={
+                                          hasChildQuestion
+                                            ? 'default'
+                                            : 'outline'
+                                        }
+                                        onClick={() => {
+                                          if (hasChildQuestion) {
+                                            // Show child question if exists
+                                            const treeForOption =
+                                              currentQuestionTree.find(
+                                                (tree) =>
+                                                  tree.answerQuestionTriggerId ===
+                                                  opt.value
+                                              );
+                                            if (
+                                              treeForOption?.questionPointerToId
+                                            ) {
+                                              const childQ = questions.find(
+                                                (q) =>
+                                                  q.id ===
+                                                  treeForOption.questionPointerToId
+                                              );
+                                              if (childQ) {
+                                                // Check if child question is saved (only navigate if saved or in edit mode)
+                                                const builderQ =
+                                                  childQ as Question & {
+                                                    status?:
+                                                      | 'new'
+                                                      | 'edited'
+                                                      | 'saved';
+                                                  };
+                                                if (
+                                                  isEditMode ||
+                                                  builderQ.status === 'saved'
+                                                ) {
+                                                  setActiveQuestion(childQ.id);
+                                                }
+                                              }
+                                            }
+                                          } else {
+                                            // Open dialog to select question type
+                                            setSelectedOptionForChild(opt);
+                                            setChildQuestionType('text');
+                                            setCreateChildDialogOpen(true);
+                                          }
+                                        }}
+                                        title={
+                                          hasChildQuestion
+                                            ? 'Edit pertanyaan lanjutan'
+                                            : 'Buat pertanyaan lanjutan'
+                                        }
+                                      >
+                                        <GitBranch
+                                          className={`h-4 w-4 ${
+                                            hasChildQuestion
+                                              ? 'text-white'
+                                              : 'text-primary'
+                                          }`}
+                                        />
+                                      </Button>
+                                    )}
+                                    <Button
+                                      size='icon'
+                                      variant='ghost'
+                                      onClick={() => {
+                                        const currentOptions =
+                                          (
+                                            activeQuestion as
+                                              | SingleChoiceQuestion
+                                              | MultipleChoiceQuestion
+                                          ).options || [];
+                                        const options = [...currentOptions];
+                                        options.splice(i, 1);
+                                        patchActive({options});
+
+                                        // Remove question tree if exists
+                                        if (activeQuestion.type === 'single') {
+                                          const extQ =
+                                            activeQuestion as ExtendedQuestion;
+                                          const newTree = (
+                                            extQ.questionTree || []
+                                          ).filter(
+                                            (t) =>
+                                              t.answerQuestionTriggerId !==
+                                              opt.value
+                                          );
+                                          patchActive({
+                                            questionTree: newTree,
+                                          } as Partial<ExtendedQuestion>);
+                                        }
+                                      }}
+                                    >
+                                      <Trash2 className='h-4 w-4 text-destructive' />
                                     </Button>
                                   </div>
-                                  <Input 
-                                    value={item.label} 
-                                    onChange={(e)=>{
-                                      const currentItems = (activeQuestion as ComboBoxQuestion).comboboxItems || []
-                                      const newItems = [...currentItems]
-                                      newItems[i] = { ...item, label: e.target.value }
-                                      patchActive({ comboboxItems: newItems })
-                                    }} 
-                                    placeholder="Label item"
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        {activeQuestion.type === 'single' && (
+                          <div className='space-y-3 border-t pt-4'>
+                            <div className='flex items-center gap-2'>
+                              <GitBranch className='h-4 w-4 text-primary' />
+                              <label className='text-sm font-medium'>
+                                Question Tree (Pertanyaan Kondisional)
+                              </label>
+                            </div>
+                            <p className='text-xs text-muted-foreground'>
+                              Klik icon branch di opsi jawaban untuk membuat
+                              pertanyaan lanjutan. Pertanyaan yang dibuat bisa
+                              memiliki jenis dan opsi jawaban sendiri
+                              (recursive).
+                            </p>
+                            {/* Show existing child questions */}
+                            {(() => {
+                              const extQ = activeQuestion as ExtendedQuestion;
+                              const currentQuestionTree =
+                                extQ.questionTree || [];
+                              if (currentQuestionTree.length === 0) {
+                                return (
+                                  <div className='text-sm text-muted-foreground py-4 text-center border rounded-md'>
+                                    Belum ada pertanyaan kondisional. Klik icon
+                                    branch di opsi jawaban untuk membuat.
+                                  </div>
+                                );
+                              }
+                              return (
+                                <div className='space-y-2'>
+                                  {currentQuestionTree.map((tree) => {
+                                    const childQ = questions.find(
+                                      (q) => q.id === tree.questionPointerToId
+                                    );
+                                    const triggerOpt = (
+                                      (activeQuestion as SingleChoiceQuestion)
+                                        .options || []
+                                    ).find(
+                                      (opt) =>
+                                        opt.value ===
+                                        tree.answerQuestionTriggerId
+                                    );
+                                    if (!childQ || !triggerOpt) return null;
+                                    return (
+                                      <div
+                                        key={tree.answerQuestionTriggerId}
+                                        className='p-3 border rounded-md bg-muted/30 space-y-2'
+                                      >
+                                        <div className='flex items-center justify-between'>
+                                          <div className='flex items-center gap-2'>
+                                            <GitBranch className='h-4 w-4 text-primary' />
+                                            <span className='text-sm font-medium'>
+                                              Jika memilih:{' '}
+                                              <strong>
+                                                {triggerOpt.label}
+                                              </strong>
+                                            </span>
+                                          </div>
+                                          <Button
+                                            size='sm'
+                                            variant='ghost'
+                                            onClick={() =>
+                                              setActiveQuestion(childQ.id)
+                                            }
+                                          >
+                                            <Edit className='h-3 w-3 mr-1' />
+                                            Edit
+                                          </Button>
+                                        </div>
+                                        <div className='pl-6 space-y-1'>
+                                          <div className='text-sm text-muted-foreground'>
+                                            Pertanyaan:{' '}
+                                            <strong>{childQ.label}</strong>
+                                          </div>
+                                          <div className='text-xs text-muted-foreground'>
+                                            Tipe: {childQ.type}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        )}
+                        {activeQuestion.type === 'combobox' && (
+                          <div className='space-y-2'>
+                            <div className='flex items-center justify-between'>
+                              <label className='text-sm font-medium'>
+                                ComboBox Items
+                              </label>
+                              <Button
+                                size='sm'
+                                variant='outline'
+                                onClick={() => {
+                                  const currentItems =
+                                    (activeQuestion as ComboBoxQuestion)
+                                      .comboboxItems || [];
+                                  const newItem = {
+                                    id: uuidv4(),
+                                    label: 'Item Baru',
+                                    placeholder: 'Pilih...',
+                                    searchPlaceholder: 'Cari...',
+                                    required: false,
+                                    options: [
+                                      {value: uuidv4(), label: 'Opsi 1'},
+                                      {value: uuidv4(), label: 'Opsi 2'},
+                                    ],
+                                  };
+                                  patchActive({
+                                    comboboxItems: [...currentItems, newItem],
+                                  });
+                                }}
+                              >
+                                <Plus className='h-4 w-4 mr-1' />
+                                Tambah Item
+                              </Button>
+                            </div>
+                            <div className='space-y-2'>
+                              {(
+                                (activeQuestion as ComboBoxQuestion)
+                                  .comboboxItems || []
+                              ).map((item, i) => (
+                                <div
+                                  key={item.id}
+                                  className='p-3 border rounded-md space-y-2'
+                                >
+                                  <div className='flex items-center justify-between'>
+                                    <span className='text-sm font-medium'>
+                                      Item {i + 1}
+                                    </span>
+                                    <Button
+                                      size='icon'
+                                      variant='ghost'
+                                      onClick={() => {
+                                        const currentItems =
+                                          (activeQuestion as ComboBoxQuestion)
+                                            .comboboxItems || [];
+                                        const newItems = currentItems.filter(
+                                          (_, idx) => idx !== i
+                                        );
+                                        patchActive({comboboxItems: newItems});
+                                      }}
+                                    >
+                                      <Trash2 className='h-4 w-4 text-destructive' />
+                                    </Button>
+                                  </div>
+                                  <Input
+                                    value={item.label}
+                                    onChange={(e) => {
+                                      const currentItems =
+                                        (activeQuestion as ComboBoxQuestion)
+                                          .comboboxItems || [];
+                                      const newItems = [...currentItems];
+                                      newItems[i] = {
+                                        ...item,
+                                        label: e.target.value,
+                                      };
+                                      patchActive({comboboxItems: newItems});
+                                    }}
+                                    placeholder='Label item'
                                   />
-                                  <Input 
-                                    value={item.placeholder || ''} 
-                                    onChange={(e)=>{
-                                      const currentItems = (activeQuestion as ComboBoxQuestion).comboboxItems || []
-                                      const newItems = [...currentItems]
-                                      newItems[i] = { ...item, placeholder: e.target.value }
-                                      patchActive({ comboboxItems: newItems })
-                                    }} 
-                                    placeholder="Placeholder"
+                                  <Input
+                                    value={item.placeholder || ''}
+                                    onChange={(e) => {
+                                      const currentItems =
+                                        (activeQuestion as ComboBoxQuestion)
+                                          .comboboxItems || [];
+                                      const newItems = [...currentItems];
+                                      newItems[i] = {
+                                        ...item,
+                                        placeholder: e.target.value,
+                                      };
+                                      patchActive({comboboxItems: newItems});
+                                    }}
+                                    placeholder='Placeholder'
                                   />
                                 </div>
                               ))}
                             </div>
                           </div>
                         )}
-                        {(activeQuestion.type==='rating') && (
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <label className="text-sm font-medium">Rating Items</label>
-                              <Button size="sm" variant="outline" onClick={()=>{
-                                const currentItems = (activeQuestion as RatingQuestion).ratingItems || []
-                                const newItem = { id: `rating_${Date.now()}`, label: 'Aspek Baru' }
-                                patchActive({ ratingItems: [...currentItems, newItem] })
-                              }}><Plus className="h-4 w-4 mr-1" />Tambah Aspek</Button>
+                        {activeQuestion.type === 'rating' && (
+                          <div className='space-y-4 border-t pt-4'>
+                            <div className='flex items-center justify-between'>
+                              <label className='text-sm font-medium'>
+                                Rating Items
+                              </label>
+                              <Button
+                                size='sm'
+                                variant='outline'
+                                onClick={() => {
+                                  const currentItems =
+                                    (activeQuestion as RatingQuestion)
+                                      .ratingItems || [];
+                                  const newItem = {
+                                    id: uuidv4(),
+                                    label: 'Aspek Baru',
+                                  };
+                                  patchActive({
+                                    ratingItems: [...currentItems, newItem],
+                                  });
+                                }}
+                              >
+                                <Plus className='h-4 w-4 mr-1' />
+                                Tambah Aspek
+                              </Button>
                             </div>
-                            <div className="space-y-2">
-                              {((activeQuestion as RatingQuestion).ratingItems || []).map((item, i) => (
-                                <div key={item.id} className="flex items-center space-x-2">
-                                  <Input 
-                                    value={item.label} 
-                                    onChange={(e)=>{
-                                      const currentItems = (activeQuestion as RatingQuestion).ratingItems || []
-                                      const newItems = [...currentItems]
-                                      newItems[i] = { ...item, label: e.target.value }
-                                      patchActive({ ratingItems: newItems })
-                                    }} 
+                            <div className='space-y-2 max-h-[300px] overflow-y-auto pr-2'>
+                              {(
+                                (activeQuestion as RatingQuestion)
+                                  .ratingItems || []
+                              ).map((item, i) => (
+                                <div
+                                  key={item.id}
+                                  className='flex items-center space-x-2'
+                                >
+                                  <Input
+                                    value={item.label}
+                                    onChange={(e) => {
+                                      const currentItems =
+                                        (activeQuestion as RatingQuestion)
+                                          .ratingItems || [];
+                                      const newItems = [...currentItems];
+                                      newItems[i] = {
+                                        ...item,
+                                        label: e.target.value,
+                                      };
+                                      patchActive({ratingItems: newItems});
+                                    }}
+                                    className='flex-1'
                                   />
-                                  <Button size="icon" variant="ghost" onClick={()=>{
-                                    const currentItems = (activeQuestion as RatingQuestion).ratingItems || []
-                                    const newItems = currentItems.filter((_, idx) => idx !== i)
-                                    patchActive({ ratingItems: newItems })
-                                  }}>
-                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  <Button
+                                    size='icon'
+                                    variant='ghost'
+                                    onClick={() => {
+                                      const currentItems =
+                                        (activeQuestion as RatingQuestion)
+                                          .ratingItems || [];
+                                      const newItems = currentItems.filter(
+                                        (_, idx) => idx !== i
+                                      );
+                                      patchActive({ratingItems: newItems});
+                                    }}
+                                  >
+                                    <Trash2 className='h-4 w-4 text-destructive' />
                                   </Button>
                                 </div>
                               ))}
                             </div>
-                            <div className="flex items-center justify-between">
-                              <label className="text-sm font-medium">Rating Options</label>
-                              <Button size="sm" variant="outline" onClick={()=>{
-                                const currentOptions = (activeQuestion as RatingQuestion).ratingOptions || []
-                                const newOption = { value: `opt_${Date.now()}`, label: 'Opsi Baru' }
-                                patchActive({ ratingOptions: [...currentOptions, newOption] })
-                              }}><Plus className="h-4 w-4 mr-1" />Tambah Opsi</Button>
+                            <div className='flex items-center justify-between border-t pt-4'>
+                              <label className='text-sm font-medium'>
+                                Rating Options
+                              </label>
+                              <Button
+                                size='sm'
+                                variant='outline'
+                                onClick={() => {
+                                  const currentOptions =
+                                    (activeQuestion as RatingQuestion)
+                                      .ratingOptions || [];
+                                  const newOption = {
+                                    value: uuidv4(),
+                                    label: 'Opsi Baru',
+                                  };
+                                  patchActive({
+                                    ratingOptions: [
+                                      ...currentOptions,
+                                      newOption,
+                                    ],
+                                  });
+                                }}
+                              >
+                                <Plus className='h-4 w-4 mr-1' />
+                                Tambah Opsi
+                              </Button>
                             </div>
-                            <div className="space-y-2">
-                              {((activeQuestion as RatingQuestion).ratingOptions || []).map((opt, i) => (
-                                <div key={opt.value} className="flex items-center space-x-2">
-                                  <Input 
-                                    value={opt.label} 
-                                    onChange={(e)=>{
-                                      const currentOptions = (activeQuestion as RatingQuestion).ratingOptions || []
-                                      const newOptions = [...currentOptions]
-                                      newOptions[i] = { ...opt, label: e.target.value }
-                                      patchActive({ ratingOptions: newOptions })
-                                    }} 
+                            <div className='space-y-2 max-h-[200px] overflow-y-auto pr-2'>
+                              {(
+                                (activeQuestion as RatingQuestion)
+                                  .ratingOptions || []
+                              ).map((opt, i) => (
+                                <div
+                                  key={opt.value}
+                                  className='flex items-center space-x-2'
+                                >
+                                  <Input
+                                    value={opt.label}
+                                    onChange={(e) => {
+                                      const currentOptions =
+                                        (activeQuestion as RatingQuestion)
+                                          .ratingOptions || [];
+                                      const newOptions = [...currentOptions];
+                                      newOptions[i] = {
+                                        ...opt,
+                                        label: e.target.value,
+                                      };
+                                      patchActive({ratingOptions: newOptions});
+                                    }}
+                                    className='flex-1'
                                   />
-                                  <Button size="icon" variant="ghost" onClick={()=>{
-                                    const currentOptions = (activeQuestion as RatingQuestion).ratingOptions || []
-                                    const newOptions = currentOptions.filter((_, idx) => idx !== i)
-                                    patchActive({ ratingOptions: newOptions })
-                                }}>
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
-                              </div>
-                            ))}
+                                  <Button
+                                    size='icon'
+                                    variant='ghost'
+                                    onClick={() => {
+                                      const currentOptions =
+                                        (activeQuestion as RatingQuestion)
+                                          .ratingOptions || [];
+                                      const newOptions = currentOptions.filter(
+                                        (_, idx) => idx !== i
+                                      );
+                                      patchActive({ratingOptions: newOptions});
+                                    }}
+                                  >
+                                    <Trash2 className='h-4 w-4 text-destructive' />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </ResizablePanel>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </ResizablePanel>
             )}
           </ResizableCard>
         </div>
+
+        {/* Dialog untuk memilih jenis question saat membuat child question */}
+        <AlertDialog
+          open={createChildDialogOpen}
+          onOpenChange={setCreateChildDialogOpen}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Buat Pertanyaan Lanjutan</AlertDialogTitle>
+              <AlertDialogDescription>
+                Pilih jenis pertanyaan untuk opsi:{' '}
+                <strong>{selectedOptionForChild?.label}</strong>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className='space-y-4 py-4'>
+              <div className='space-y-2'>
+                <label className='text-sm font-medium'>Jenis Pertanyaan</label>
+                <select
+                  value={childQuestionType}
+                  onChange={(e) =>
+                    setChildQuestionType(e.target.value as Question['type'])
+                  }
+                  className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
+                >
+                  <option value='text'>Text (Input Teks)</option>
+                  <option value='textarea'>Textarea (Input Panjang)</option>
+                  <option value='single'>
+                    Single Choice (Pilihan Tunggal)
+                  </option>
+                  <option value='multiple'>
+                    Multiple Choice (Pilihan Ganda)
+                  </option>
+                  <option value='combobox'>ComboBox (Dropdown)</option>
+                  <option value='rating'>Rating (Penilaian)</option>
+                </select>
+              </div>
+              <div className='text-xs text-muted-foreground'>
+                Pertanyaan lanjutan akan muncul ketika opsi "
+                {selectedOptionForChild?.label}" dipilih. Anda bisa mengedit
+                pertanyaan setelah dibuat.
+              </div>
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel
+                onClick={() => {
+                  setCreateChildDialogOpen(false);
+                  setSelectedOptionForChild(null);
+                }}
+              >
+                Batal
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (!selectedOptionForChild || !activeQuestion) {
+                    return;
+                  }
+
+                  const childQId = uuidv4();
+                  const parentExtQ = activeQuestion as ExtendedQuestion;
+
+                  // Create child question
+                  addChildQuestion(activeQuestion.id, {
+                    id: childQId,
+                    type: childQuestionType,
+                    label: 'Pertanyaan lanjutan',
+                    required: false,
+                    ...(parentExtQ.questionCode && {
+                      questionCode: parentExtQ.questionCode,
+                    }),
+                    ...(parentExtQ.groupQuestionId && {
+                      groupQuestionId: parentExtQ.groupQuestionId,
+                    }),
+                  } as Partial<Question> & {type: Question['type']; parentId?: string; groupQuestionId?: string; questionCode?: string});
+
+                  // Update parent question tree
+                  const extQ = activeQuestion as ExtendedQuestion;
+                  const newTree = [
+                    ...(extQ.questionTree || []),
+                    {
+                      answerQuestionTriggerId: selectedOptionForChild.value,
+                      questionPointerToId: childQId,
+                    },
+                  ];
+                  patchActive({
+                    questionTree: newTree,
+                  } as Partial<ExtendedQuestion>);
+
+                  setActiveQuestion(childQId);
+                  setCreateChildDialogOpen(false);
+                  setSelectedOptionForChild(null);
+                  toast.success('Pertanyaan lanjutan berhasil dibuat');
+                }}
+              >
+                Buat Pertanyaan
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AdminLayout>
-  )
+  );
 }
 
-export default SurveyBuilder
+export default SurveyBuilder;

@@ -1,6 +1,6 @@
 /** @format */
 
-import React, {useState, useEffect} from 'react';
+import React, {useState} from 'react';
 import {AdminLayout} from '@/components/layout/admin';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {Button} from '@/components/ui/button';
@@ -70,205 +70,334 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
 import {useNavigate} from 'react-router-dom';
-import type {EmailTemplate} from '@/types/emailTemplate';
+import {toast} from 'sonner';
 import {replaceEmailVariables} from '@/types/emailTemplate';
+import {
+  useBlastEmails,
+  useCreateBlastEmail,
+  useDeleteBlastEmail,
+  usePreviewRecipientCount,
+  useEmailTemplates,
+  type BlastEmail,
+  type BlastEmailFormData,
+} from '@/api/email.api';
+import {useFaculties, useMajors} from '@/api/major-faculty.api';
+import {useSurveys} from '@/api/survey.api';
 
-// Types untuk BlastEmail
-interface BlastEmail {
-  id: string;
+interface BlastEmailFormDataLocal {
   surveyId: string;
   emailTemplateId: string;
-  emailTemplate: EmailTemplate;
-  emailType: 'WELCOME' | 'REMINDER' | 'NOTIFICATION' | 'CUSTOM';
-  title: string;
-  dateToSend: string;
-  status: 'SCHEDULED' | 'SENDING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
-  createdAt: string;
-  updatedAt: string;
-  recipientCount: number;
-  sentCount: number;
-  failedCount: number;
-}
-
-interface BlastEmailFormData {
-  emailTemplateId: string;
-  emailType: 'WELCOME' | 'REMINDER' | 'NOTIFICATION' | 'CUSTOM';
+  emailType: 'INVITATION' | 'REMINDER' | 'CUSTOM';
   title: string;
   dateToSend: string;
   recipientType: 'ALUMNI' | 'MANAGER' | 'ALL' | 'CUSTOM';
   customRecipients: string;
+  customFilters: {
+    facultyId: string;
+    majorId: string;
+    graduatedYear: string;
+  };
   message: string;
 }
 
 const KirimEmail: React.FC = () => {
   const navigate = useNavigate();
 
+  // API hooks
+  const [page] = useState(1);
+  const [searchQuery] = useState('');
+  const [statusFilter] = useState<string>('');
+  const [emailTypeFilter] = useState<string>('');
+
+  const {data: blastEmailsData, isLoading: isLoadingBlastEmails} =
+    useBlastEmails({
+      page,
+      limit: 10,
+      search: searchQuery || undefined,
+      status: statusFilter || undefined,
+      emailType: emailTypeFilter || undefined,
+    });
+  const {data: templatesData} = useEmailTemplates({limit: 100});
+  const {data: surveysData, isLoading: isLoadingSurveys} = useSurveys({
+    page: 1,
+    limit: 100,
+  });
+  const createBlastEmailMutation = useCreateBlastEmail();
+  const deleteBlastEmailMutation = useDeleteBlastEmail();
+  const previewCountMutation = usePreviewRecipientCount();
+
   // State management
-  const [blastEmails, setBlastEmails] = useState<BlastEmail[]>([]);
-  const [emailTemplates, setEmailTemplates] = useState<EmailTemplate[]>([]);
+  const blastEmails = blastEmailsData?.blastEmails || [];
+  const emailTemplates = templatesData?.templates || [];
+  const surveys = surveysData?.surveys || [];
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [previewData, setPreviewData] = useState<BlastEmailFormData | null>(
-    null
-  );
+  const [previewData, setPreviewData] =
+    useState<BlastEmailFormDataLocal | null>(null);
   const [deleteBlastEmail, setDeleteBlastEmail] = useState<BlastEmail | null>(
     null
   );
-  const [loading, setLoading] = useState(false);
+  const [recipientCount, setRecipientCount] = useState<number | null>(null);
 
   // Form data
-  const [formData, setFormData] = useState<BlastEmailFormData>({
+  const [formData, setFormData] = useState<BlastEmailFormDataLocal>({
+    surveyId: '',
     emailTemplateId: '',
     emailType: 'CUSTOM',
     title: '',
     dateToSend: '',
     recipientType: 'ALUMNI',
     customRecipients: '',
+    customFilters: {
+      facultyId: '',
+      majorId: '',
+      graduatedYear: '',
+    },
     message: '',
   });
 
-  // Mock data - replace with API calls
-  useEffect(() => {
-    const mockTemplates: EmailTemplate[] = [
-      {
-        id: '1',
-        code: 'WELCOME_EMAIL',
-        templateName: 'Email Selamat Datang',
-        subject: 'Selamat Datang di Sistem Tracer Study - {{user.name}}',
-        bodyText:
-          'Halo {{user.name}},\n\nSelamat datang di sistem Tracer Study Universitas Andalas.',
-        bodyHtml:
-          '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;"><h2>Halo {{user.name}},</h2><p>Selamat datang di sistem Tracer Study Universitas Andalas.</p></div>',
-        createdAt: '2024-01-15T10:00:00Z',
-        updatedAt: '2024-01-15T10:00:00Z',
-      },
-      {
-        id: '2',
-        code: 'SURVEY_REMINDER',
-        templateName: 'Pengingat Survey',
-        subject:
-          'Pengingat: Survey Tracer Study - Batas Waktu {{survey.deadline}}',
-        bodyText:
-          'Halo {{user.name}},\n\nIni adalah pengingat bahwa survey Tracer Study akan berakhir pada {{survey.deadline}}.',
-        bodyHtml:
-          '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;"><h2>⏰ Pengingat Survey</h2><p>Halo {{user.name}},</p><p>Ini adalah pengingat bahwa survey Tracer Study akan berakhir pada <strong>{{survey.deadline}}</strong>.</p></div>',
-        createdAt: '2024-01-15T11:00:00Z',
-        updatedAt: '2024-01-15T11:00:00Z',
-      },
-    ];
-    setEmailTemplates(mockTemplates);
+  // API hooks for faculties and majors
+  const {data: facultiesData = [], isLoading: isLoadingFaculties} =
+    useFaculties();
+  const {data: majorsData = [], isLoading: isLoadingMajors} = useMajors(
+    formData.customFilters.facultyId &&
+      formData.customFilters.facultyId !== 'all'
+      ? formData.customFilters.facultyId
+      : undefined
+  );
 
-    const mockBlastEmails: BlastEmail[] = [
-      {
-        id: '1',
-        surveyId: 'survey-1',
-        emailTemplateId: '1',
-        emailTemplate: mockTemplates[0],
-        emailType: 'WELCOME',
-        title: 'Email Selamat Datang untuk Alumni 2024',
-        dateToSend: '2024-01-20',
-        status: 'COMPLETED',
-        createdAt: '2024-01-15T10:00:00Z',
-        updatedAt: '2024-01-20T15:30:00Z',
-        recipientCount: 150,
-        sentCount: 148,
-        failedCount: 2,
-      },
-      {
-        id: '2',
-        surveyId: 'survey-1',
-        emailTemplateId: '2',
-        emailTemplate: mockTemplates[1],
-        emailType: 'REMINDER',
-        title: 'Pengingat Survey Tracer Study',
-        dateToSend: '2024-01-25',
-        status: 'SCHEDULED',
-        createdAt: '2024-01-18T14:00:00Z',
-        updatedAt: '2024-01-18T14:00:00Z',
-        recipientCount: 200,
-        sentCount: 0,
-        failedCount: 0,
-      },
-    ];
-    setBlastEmails(mockBlastEmails);
+  const faculties = facultiesData;
+  const majors = majorsData;
+
+  // Majors are already filtered by API based on selected faculty
+  const filteredMajors = majors;
+
+  // Get available graduation years
+  const graduationYears = React.useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let i = currentYear; i >= 2000; i--) {
+      years.push(i.toString());
+    }
+    return years;
   }, []);
 
   // Form handlers
   const resetForm = () => {
     setFormData({
+      surveyId: '',
       emailTemplateId: '',
       emailType: 'CUSTOM',
       title: '',
       dateToSend: '',
       recipientType: 'ALUMNI',
       customRecipients: '',
+      customFilters: {
+        facultyId: '',
+        majorId: '',
+        graduatedYear: '',
+      },
       message: '',
     });
+    setRecipientCount(null);
   };
 
   const handleInputChange = (
-    field: keyof BlastEmailFormData,
+    field: keyof BlastEmailFormDataLocal,
     value: string
   ) => {
     setFormData((prev) => ({...prev, [field]: value}));
+    if (field === 'recipientType' || field === 'customFilters') {
+      setRecipientCount(null);
+    }
+  };
+
+  const handleFilterChange = (
+    field: keyof BlastEmailFormDataLocal['customFilters'],
+    value: string
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      customFilters: {
+        ...prev.customFilters,
+        [field]: value,
+        // Reset major when faculty changes
+        ...(field === 'facultyId' ? {majorId: ''} : {}),
+      },
+    }));
+    setRecipientCount(null);
+  };
+
+  const handlePreviewCount = async () => {
+    try {
+      const recipientFilters: {
+        facultyId?: string;
+        majorId?: string;
+        graduatedYear?: number;
+        customRecipients?: string[];
+      } = {};
+      if (
+        formData.customFilters.facultyId &&
+        formData.customFilters.facultyId !== 'all'
+      ) {
+        recipientFilters.facultyId = formData.customFilters.facultyId;
+      }
+      if (
+        formData.customFilters.majorId &&
+        formData.customFilters.majorId !== 'all'
+      ) {
+        recipientFilters.majorId = formData.customFilters.majorId;
+      }
+      if (
+        formData.customFilters.graduatedYear &&
+        formData.customFilters.graduatedYear !== 'all'
+      ) {
+        recipientFilters.graduatedYear = parseInt(
+          formData.customFilters.graduatedYear
+        );
+      }
+      if (formData.customRecipients) {
+        recipientFilters.customRecipients = formData.customRecipients
+          .split(',')
+          .map((email) => email.trim())
+          .filter((email) => email);
+      }
+
+      const result = await previewCountMutation.mutateAsync({
+        recipientType: formData.recipientType,
+        recipientFilters:
+          Object.keys(recipientFilters).length > 0
+            ? recipientFilters
+            : undefined,
+      });
+
+      setRecipientCount(result.count);
+    } catch (err) {
+      const error = err as {
+        response?: {
+          data?: {
+            message?: string;
+          };
+        };
+      };
+      toast.error(
+        error.response?.data?.message || 'Gagal mendapatkan jumlah penerima'
+      );
+    }
   };
 
   const handleSaveBlastEmail = async () => {
-    setLoading(true);
-    try {
-      const selectedTemplate = emailTemplates.find(
-        (t) => t.id === formData.emailTemplateId
-      );
-      if (!selectedTemplate) return;
+    if (!formData.surveyId) {
+      toast.error('Survey wajib dipilih');
+      return;
+    }
+    if (!formData.emailTemplateId) {
+      toast.error('Template email wajib dipilih');
+      return;
+    }
 
-      const newBlastEmail: BlastEmail = {
-        id: Date.now().toString(),
-        surveyId: 'survey-1', // Mock survey ID
+    try {
+      const recipientFilters: {
+        facultyId?: string;
+        majorId?: string;
+        graduatedYear?: number;
+        customRecipients?: string[];
+      } = {};
+      if (
+        formData.customFilters.facultyId &&
+        formData.customFilters.facultyId !== 'all'
+      ) {
+        recipientFilters.facultyId = formData.customFilters.facultyId;
+      }
+      if (
+        formData.customFilters.majorId &&
+        formData.customFilters.majorId !== 'all'
+      ) {
+        recipientFilters.majorId = formData.customFilters.majorId;
+      }
+      if (
+        formData.customFilters.graduatedYear &&
+        formData.customFilters.graduatedYear !== 'all'
+      ) {
+        recipientFilters.graduatedYear = parseInt(
+          formData.customFilters.graduatedYear
+        );
+      }
+      if (formData.customRecipients) {
+        recipientFilters.customRecipients = formData.customRecipients
+          .split(',')
+          .map((email) => email.trim())
+          .filter((email) => email);
+      }
+
+      const blastEmailData: BlastEmailFormData = {
+        surveyId: formData.surveyId,
         emailTemplateId: formData.emailTemplateId,
-        emailTemplate: selectedTemplate,
         emailType: formData.emailType,
         title: formData.title,
         dateToSend: formData.dateToSend,
-        status: 'SCHEDULED',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        recipientCount:
-          formData.recipientType === 'ALL'
-            ? 500
-            : formData.recipientType === 'ALUMNI'
-            ? 300
-            : 50,
-        sentCount: 0,
-        failedCount: 0,
+        recipientType: formData.recipientType,
+        recipientFilters:
+          Object.keys(recipientFilters).length > 0
+            ? recipientFilters
+            : undefined,
+        message: formData.message || undefined,
       };
 
-      setBlastEmails((prev) => [newBlastEmail, ...prev]);
+      await createBlastEmailMutation.mutateAsync(blastEmailData);
+      toast.success('Blast email berhasil dibuat');
       setIsSheetOpen(false);
       resetForm();
-    } catch (error) {
-      console.error('Error saving blast email:', error);
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      const error = err as {
+        response?: {
+          data?: {
+            message?: Array<{field: string; message: string}> | string;
+          };
+        };
+      };
+
+      if (error.response?.data?.message) {
+        const errorMessage = error.response.data.message;
+
+        if (Array.isArray(errorMessage)) {
+          const firstError = errorMessage[0];
+          toast.error(firstError.message || 'Gagal membuat blast email');
+        } else if (typeof errorMessage === 'string') {
+          toast.error(errorMessage);
+        }
+      } else {
+        toast.error('Gagal membuat blast email');
+      }
     }
   };
 
   const handleDeleteBlastEmail = async () => {
     if (!deleteBlastEmail) return;
 
-    setLoading(true);
     try {
-      setBlastEmails((prev) =>
-        prev.filter((b) => b.id !== deleteBlastEmail.id)
-      );
+      await deleteBlastEmailMutation.mutateAsync(deleteBlastEmail.id);
+      toast.success('Blast email berhasil dihapus');
       setDeleteBlastEmail(null);
-    } catch (error) {
-      console.error('Error deleting blast email:', error);
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      const error = err as {
+        response?: {
+          data?: {
+            message?: string;
+          };
+        };
+      };
+      toast.error(
+        error.response?.data?.message || 'Gagal menghapus blast email'
+      );
     }
   };
 
   const handlePreviewEmail = () => {
+    if (!formData.surveyId) {
+      toast.error('Survey wajib dipilih untuk preview');
+      return;
+    }
     setPreviewData(formData);
     setIsPreviewOpen(true);
   };
@@ -309,12 +438,10 @@ const KirimEmail: React.FC = () => {
 
   const getEmailTypeColor = (type: string) => {
     switch (type) {
-      case 'WELCOME':
+      case 'INVITATION':
         return 'bg-green-100 text-green-800';
       case 'REMINDER':
         return 'bg-yellow-100 text-yellow-800';
-      case 'NOTIFICATION':
-        return 'bg-blue-100 text-blue-800';
       case 'CUSTOM':
         return 'bg-purple-100 text-purple-800';
       default:
@@ -364,126 +491,146 @@ const KirimEmail: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Judul Email</TableHead>
-                  <TableHead>Template</TableHead>
-                  <TableHead>Tipe</TableHead>
-                  <TableHead>Jadwal Kirim</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Penerima</TableHead>
-                  <TableHead className='text-right'>Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {blastEmails.map((blastEmail) => (
-                  <TableRow key={blastEmail.id}>
-                    <TableCell className='font-medium'>
-                      {blastEmail.title}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant='outline'>
-                        {blastEmail.emailTemplate.templateName}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        className={getEmailTypeColor(blastEmail.emailType)}
-                      >
-                        {blastEmail.emailType}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className='flex items-center space-x-2'>
-                        <Calendar className='h-4 w-4 text-muted-foreground' />
-                        <span>
-                          {new Date(blastEmail.dateToSend).toLocaleDateString(
-                            'id-ID'
-                          )}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className='flex items-center space-x-2'>
-                        {getStatusIcon(blastEmail.status)}
-                        <Badge className={getStatusColor(blastEmail.status)}>
-                          {blastEmail.status}
+            {isLoadingBlastEmails ? (
+              <div className='text-center py-8'>
+                <p className='text-muted-foreground'>Memuat data...</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Judul Email</TableHead>
+                    <TableHead>Template</TableHead>
+                    <TableHead>Tipe</TableHead>
+                    <TableHead>Jadwal Kirim</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Penerima</TableHead>
+                    <TableHead className='text-right'>Aksi</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {blastEmails.map((blastEmail) => (
+                    <TableRow key={blastEmail.id}>
+                      <TableCell className='font-medium'>
+                        {blastEmail.title}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant='outline'>
+                          {blastEmail.emailTemplate.templateName}
                         </Badge>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className='text-sm'>
-                        <div className='flex items-center space-x-1'>
-                          <Users className='h-4 w-4 text-muted-foreground' />
-                          <span>{blastEmail.recipientCount} penerima</span>
-                        </div>
-                        {blastEmail.status === 'COMPLETED' && (
-                          <div className='text-xs text-muted-foreground mt-1'>
-                            {blastEmail.sentCount} terkirim,{' '}
-                            {blastEmail.failedCount} gagal
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className='text-right'>
-                      <div className='flex items-center justify-end space-x-2'>
-                        <Button
-                          variant='outline'
-                          size='sm'
-                          onClick={() => {
-                            // Preview functionality
-                            const previewData: BlastEmailFormData = {
-                              emailTemplateId: blastEmail.emailTemplateId,
-                              emailType: blastEmail.emailType,
-                              title: blastEmail.title,
-                              dateToSend: blastEmail.dateToSend,
-                              recipientType: 'ALUMNI',
-                              customRecipients: '',
-                              message: '',
-                            };
-                            setPreviewData(previewData);
-                            setIsPreviewOpen(true);
-                          }}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          className={getEmailTypeColor(blastEmail.emailType)}
                         >
-                          <Eye className='h-4 w-4' />
-                        </Button>
-                        {blastEmail.status === 'SCHEDULED' && (
+                          {blastEmail.emailType}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className='flex items-center space-x-2'>
+                          <Calendar className='h-4 w-4 text-muted-foreground' />
+                          <span>
+                            {new Date(blastEmail.dateToSend).toLocaleDateString(
+                              'id-ID'
+                            )}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className='flex items-center space-x-2'>
+                          {getStatusIcon(blastEmail.status)}
+                          <Badge className={getStatusColor(blastEmail.status)}>
+                            {blastEmail.status}
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className='text-sm'>
+                          <div className='flex items-center space-x-1'>
+                            <Users className='h-4 w-4 text-muted-foreground' />
+                            <span>{blastEmail.recipientCount} penerima</span>
+                          </div>
+                          {blastEmail.status === 'COMPLETED' && (
+                            <div className='text-xs text-muted-foreground mt-1'>
+                              {blastEmail.sentCount} terkirim,{' '}
+                              {blastEmail.failedCount} gagal
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className='text-right'>
+                        <div className='flex items-center justify-end space-x-2'>
                           <Button
                             variant='outline'
                             size='sm'
                             onClick={() => {
-                              // Edit functionality
-                              setFormData({
+                              // Preview functionality
+                              const previewData: BlastEmailFormDataLocal = {
+                                surveyId: blastEmail.surveyId,
                                 emailTemplateId: blastEmail.emailTemplateId,
                                 emailType: blastEmail.emailType,
                                 title: blastEmail.title,
                                 dateToSend: blastEmail.dateToSend,
-                                recipientType: 'ALUMNI',
+                                recipientType:
+                                  blastEmail.recipientType || 'ALUMNI',
                                 customRecipients: '',
+                                customFilters: {
+                                  facultyId: '',
+                                  majorId: '',
+                                  graduatedYear: '',
+                                },
                                 message: '',
-                              });
-                              setIsSheetOpen(true);
+                              };
+                              setPreviewData(previewData);
+                              setIsPreviewOpen(true);
                             }}
                           >
-                            <Edit className='h-4 w-4' />
+                            <Eye className='h-4 w-4' />
                           </Button>
-                        )}
-                        {blastEmail.status === 'SCHEDULED' && (
-                          <Button
-                            variant='outline'
-                            size='sm'
-                            onClick={() => setDeleteBlastEmail(blastEmail)}
-                          >
-                            <Trash2 className='h-4 w-4' />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                          {blastEmail.status === 'SCHEDULED' && (
+                            <Button
+                              variant='outline'
+                              size='sm'
+                              onClick={() => {
+                                // Edit functionality
+                                setFormData({
+                                  surveyId: blastEmail.surveyId,
+                                  emailTemplateId: blastEmail.emailTemplateId,
+                                  emailType: blastEmail.emailType,
+                                  title: blastEmail.title,
+                                  dateToSend: blastEmail.dateToSend,
+                                  recipientType:
+                                    blastEmail.recipientType || 'ALUMNI',
+                                  customRecipients: '',
+                                  customFilters: {
+                                    facultyId: '',
+                                    majorId: '',
+                                    graduatedYear: '',
+                                  },
+                                  message: '',
+                                });
+                                setIsSheetOpen(true);
+                              }}
+                            >
+                              <Edit className='h-4 w-4' />
+                            </Button>
+                          )}
+                          {blastEmail.status === 'SCHEDULED' && (
+                            <Button
+                              variant='outline'
+                              size='sm'
+                              onClick={() => setDeleteBlastEmail(blastEmail)}
+                            >
+                              <Trash2 className='h-4 w-4' />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
 
@@ -541,9 +688,8 @@ const KirimEmail: React.FC = () => {
                         <SelectValue placeholder='Pilih tipe email' />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value='WELCOME'>Selamat Datang</SelectItem>
+                        <SelectItem value='INVITATION'>Undangan</SelectItem>
                         <SelectItem value='REMINDER'>Pengingat</SelectItem>
-                        <SelectItem value='NOTIFICATION'>Notifikasi</SelectItem>
                         <SelectItem value='CUSTOM'>Custom</SelectItem>
                       </SelectContent>
                     </Select>
@@ -567,6 +713,64 @@ const KirimEmail: React.FC = () => {
                     />
                   </div>
                 </div>
+              </div>
+
+              {/* Survey Selection */}
+              <div className='space-y-2'>
+                <Label
+                  htmlFor='surveyId'
+                  className='text-sm font-medium'
+                >
+                  Pilih Survey *
+                </Label>
+                <Select
+                  value={formData.surveyId}
+                  onValueChange={(value) =>
+                    handleInputChange('surveyId', value)
+                  }
+                >
+                  <SelectTrigger id='surveyId'>
+                    <SelectValue placeholder='Pilih survey' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {isLoadingSurveys ? (
+                      <SelectItem
+                        value='loading'
+                        disabled
+                      >
+                        Memuat daftar survey...
+                      </SelectItem>
+                    ) : surveys.length > 0 ? (
+                      surveys.map((survey) => (
+                        <SelectItem
+                          key={survey.id}
+                          value={survey.id}
+                        >
+                          <div className='flex flex-col'>
+                            <span className='font-medium'>{survey.name}</span>
+                            {survey.type && (
+                              <span className='text-xs text-muted-foreground'>
+                                {survey.type === 'TRACER_STUDY'
+                                  ? 'Tracer Study'
+                                  : 'User Survey'}
+                              </span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem
+                        value='empty'
+                        disabled
+                      >
+                        Tidak ada survey tersedia
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+                <p className='text-xs text-gray-500'>
+                  Survey yang menjadi target pengiriman email blast
+                </p>
               </div>
 
               {/* Template Selection Section */}
@@ -641,53 +845,209 @@ const KirimEmail: React.FC = () => {
                 </div>
 
                 {formData.recipientType === 'CUSTOM' && (
+                  <div className='space-y-4'>
+                    <div className='space-y-2'>
+                      <Label className='text-sm font-medium'>
+                        Filter Penerima Berdasarkan
+                      </Label>
+                      <p className='text-xs text-gray-500'>
+                        Pilih filter untuk menentukan penerima email berdasarkan
+                        fakultas, jurusan, atau tahun lulus
+                      </p>
+                    </div>
+
+                    <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+                      {/* Fakultas Filter */}
+                      <div className='space-y-2'>
+                        <Label
+                          htmlFor='facultyFilter'
+                          className='text-sm font-medium'
+                        >
+                          Fakultas
+                        </Label>
+                        <Select
+                          value={formData.customFilters.facultyId || 'all'}
+                          onValueChange={(value) =>
+                            handleFilterChange('facultyId', value)
+                          }
+                        >
+                          <SelectTrigger id='facultyFilter'>
+                            <SelectValue placeholder='Pilih Fakultas' />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value='all'>Semua Fakultas</SelectItem>
+                            {isLoadingFaculties ? (
+                              <SelectItem
+                                value='loading'
+                                disabled
+                              >
+                                Memuat fakultas...
+                              </SelectItem>
+                            ) : (
+                              faculties.map((faculty) => (
+                                <SelectItem
+                                  key={faculty.id}
+                                  value={faculty.id}
+                                >
+                                  {faculty.name}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Jurusan Filter */}
+                      <div className='space-y-2'>
+                        <Label
+                          htmlFor='majorFilter'
+                          className='text-sm font-medium'
+                        >
+                          Jurusan
+                        </Label>
+                        <Select
+                          value={formData.customFilters.majorId || 'all'}
+                          onValueChange={(value) =>
+                            handleFilterChange('majorId', value)
+                          }
+                          disabled={
+                            !formData.customFilters.facultyId ||
+                            formData.customFilters.facultyId === 'all'
+                          }
+                        >
+                          <SelectTrigger id='majorFilter'>
+                            <SelectValue placeholder='Pilih Jurusan' />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value='all'>Semua Jurusan</SelectItem>
+                            {isLoadingMajors ? (
+                              <SelectItem
+                                value='loading'
+                                disabled
+                              >
+                                Memuat jurusan...
+                              </SelectItem>
+                            ) : (
+                              filteredMajors.map((major) => (
+                                <SelectItem
+                                  key={major.id}
+                                  value={major.id}
+                                >
+                                  {major.name}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                        {(!formData.customFilters.facultyId ||
+                          formData.customFilters.facultyId === 'all') && (
+                          <p className='text-xs text-gray-500'>
+                            Pilih fakultas terlebih dahulu
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Tahun Lulus Filter */}
+                      <div className='space-y-2'>
+                        <Label
+                          htmlFor='graduatedYearFilter'
+                          className='text-sm font-medium'
+                        >
+                          Tahun Lulus
+                        </Label>
+                        <Select
+                          value={formData.customFilters.graduatedYear || 'all'}
+                          onValueChange={(value) =>
+                            handleFilterChange('graduatedYear', value)
+                          }
+                        >
+                          <SelectTrigger id='graduatedYearFilter'>
+                            <SelectValue placeholder='Pilih Tahun Lulus' />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value='all'>Semua Tahun</SelectItem>
+                            {graduationYears.map((year) => (
+                              <SelectItem
+                                key={year}
+                                value={year}
+                              >
+                                {year}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {/* Email Custom Manual (opsional) */}
+                    <div className='space-y-2'>
+                      <Label
+                        htmlFor='customRecipients'
+                        className='text-sm font-medium'
+                      >
+                        Email Custom Manual (opsional)
+                      </Label>
+                      <Textarea
+                        id='customRecipients'
+                        value={formData.customRecipients}
+                        onChange={(e) =>
+                          handleInputChange('customRecipients', e.target.value)
+                        }
+                        placeholder='Masukkan email tambahan yang dipisahkan dengan koma: email1@example.com, email2@example.com'
+                        rows={2}
+                        className='text-sm'
+                      />
+                      <p className='text-xs text-gray-500'>
+                        Email tambahan yang akan ditambahkan ke daftar penerima
+                        hasil filter
+                      </p>
+                    </div>
+
+                    {/* Preview Count Button */}
+                    <div className='space-y-2'>
+                      <Button
+                        type='button'
+                        variant='outline'
+                        onClick={handlePreviewCount}
+                        disabled={previewCountMutation.isPending}
+                      >
+                        {previewCountMutation.isPending
+                          ? 'Menghitung...'
+                          : 'Preview Jumlah Penerima'}
+                      </Button>
+                      {recipientCount !== null && (
+                        <p className='text-sm font-medium text-green-600'>
+                          Jumlah penerima: {recipientCount} orang
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Additional Message Section */}
+
+                <div className='space-y-4'>
                   <div className='space-y-2'>
                     <Label
-                      htmlFor='customRecipients'
+                      htmlFor='message'
                       className='text-sm font-medium'
                     >
-                      Email Custom (opsional)
+                      Pesan
                     </Label>
                     <Textarea
-                      id='customRecipients'
-                      value={formData.customRecipients}
+                      id='message'
+                      value={formData.message}
                       onChange={(e) =>
-                        handleInputChange('customRecipients', e.target.value)
+                        handleInputChange('message', e.target.value)
                       }
-                      placeholder='Masukkan email yang dipisahkan dengan koma: email1@example.com, email2@example.com'
-                      rows={3}
+                      placeholder='Pesan tambahan yang akan ditambahkan ke template...'
+                      rows={4}
                       className='text-sm'
                     />
                     <p className='text-xs text-gray-500'>
-                      Masukkan email custom yang dipisahkan dengan koma
+                      Pesan tambahan yang akan ditambahkan ke template email
                     </p>
                   </div>
-                )}
-              </div>
-
-              {/* Additional Message Section */}
-
-              <div className='space-y-4'>
-                <div className='space-y-2'>
-                  <Label
-                    htmlFor='message'
-                    className='text-sm font-medium'
-                  >
-                    Pesan
-                  </Label>
-                  <Textarea
-                    id='message'
-                    value={formData.message}
-                    onChange={(e) =>
-                      handleInputChange('message', e.target.value)
-                    }
-                    placeholder='Pesan tambahan yang akan ditambahkan ke template...'
-                    rows={4}
-                    className='text-sm'
-                  />
-                  <p className='text-xs text-gray-500'>
-                    Pesan tambahan yang akan ditambahkan ke template email
-                  </p>
                 </div>
               </div>
 
@@ -708,9 +1068,11 @@ const KirimEmail: React.FC = () => {
                 </Button>
                 <Button
                   onClick={handleSaveBlastEmail}
-                  disabled={loading}
+                  disabled={createBlastEmailMutation.isPending}
                 >
-                  {loading ? 'Menyimpan...' : 'Jadwalkan Email'}
+                  {createBlastEmailMutation.isPending
+                    ? 'Menyimpan...'
+                    : 'Jadwalkan Email'}
                 </Button>
               </div>
             </div>
@@ -875,9 +1237,9 @@ const KirimEmail: React.FC = () => {
               <AlertDialogCancel>Batal</AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleDeleteBlastEmail}
-                disabled={loading}
+                disabled={deleteBlastEmailMutation.isPending}
               >
-                {loading ? 'Menghapus...' : 'Hapus'}
+                {deleteBlastEmailMutation.isPending ? 'Menghapus...' : 'Hapus'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

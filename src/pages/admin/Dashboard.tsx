@@ -1,418 +1,327 @@
-import { AdminLayout } from "@/components/layout/admin"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { 
+/** @format */
+
+import {useMemo} from 'react';
+
+import {useDashboardOverview} from '@/api/dashboard.api';
+import {AdminLayout} from '@/components/layout/admin';
+import {Badge} from '@/components/ui/badge';
+import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
+import {
   Breadcrumb,
   BreadcrumbItem,
   BreadcrumbList,
   BreadcrumbPage,
-} from "@/components/ui/breadcrumb"
-import { toast } from "sonner"
-import { useNavigate } from "react-router-dom"
+} from '@/components/ui/breadcrumb';
+import {Skeleton} from '@/components/ui/skeleton';
+
 import {
-    AlertCircle,
-    BarChart3,
-    CheckCircle,
-    Clock,
-    FileText,
-    TrendingUp,
-    Users,
-    Database,
-    Home
-} from "lucide-react"
+  AlertCircle,
+  BarChart3,
+  CheckCircle,
+  Clock,
+  FileText,
+  TrendingUp,
+  Users,
+  Home,
+} from 'lucide-react';
 
 interface StatCardProps {
-  title: string
-  value: string | number
-  change?: string
-  changeType?: "positive" | "negative" | "neutral"
-  icon: React.ComponentType<{ className?: string }>
-  description?: string
+  title: string;
+  value: string | number;
+  change?: string;
+  changeType?: 'positive' | 'negative' | 'neutral';
+  icon: React.ComponentType<{className?: string}>;
+  description?: string;
 }
 
-function StatCard({ title, value, change, changeType = "neutral", icon: Icon, description }: StatCardProps) {
+function StatCard({
+  title,
+  value,
+  change,
+  changeType = 'neutral',
+  icon: Icon,
+  description,
+}: StatCardProps) {
   const changeColor = {
-    positive: "text-green-600",
-    negative: "text-red-600", 
-    neutral: "text-muted-foreground"
-  }
+    positive: 'text-green-600',
+    negative: 'text-red-600',
+    neutral: 'text-muted-foreground',
+  };
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
+      <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+        <CardTitle className='text-sm font-medium text-muted-foreground'>
           {title}
         </CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
+        <Icon className='h-4 w-4 text-muted-foreground' />
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
+        <div className='text-2xl font-bold'>{value}</div>
         {change && (
-          <p className={`text-xs ${changeColor[changeType]} flex items-center mt-1`}>
-            <TrendingUp className="h-3 w-3 mr-1" />
+          <p
+            className={`text-xs ${changeColor[changeType]} flex items-center mt-1`}
+          >
+            <TrendingUp className='h-3 w-3 mr-1' />
             {change}
           </p>
         )}
         {description && (
-          <p className="text-xs text-muted-foreground mt-1">{description}</p>
+          <p className='text-xs text-muted-foreground mt-1'>{description}</p>
         )}
       </CardContent>
     </Card>
-  )
+  );
 }
 
 interface RecentActivityProps {
-  type: "tracer" | "user"
-  name: string
-  status: "completed" | "pending" | "in_progress"
-  time: string
+  type: 'tracer' | 'user';
+  name: string;
+  status: 'completed' | 'pending' | 'in_progress';
+  time: string;
 }
 
-function RecentActivityItem({ type, name, status, time }: RecentActivityProps) {
+function RecentActivityItem({type, name, status, time}: RecentActivityProps) {
   const statusConfig = {
-    completed: { 
-      icon: CheckCircle, 
-      color: "text-green-600", 
-      bgColor: "bg-green-50",
-      label: "Selesai"
+    completed: {
+      icon: CheckCircle,
+      color: 'text-green-600',
+      bgColor: 'bg-green-50',
+      label: 'Selesai',
     },
-    pending: { 
-      icon: Clock, 
-      color: "text-yellow-600", 
-      bgColor: "bg-yellow-50",
-      label: "Menunggu"
+    pending: {
+      icon: Clock,
+      color: 'text-yellow-600',
+      bgColor: 'bg-yellow-50',
+      label: 'Menunggu',
     },
-    in_progress: { 
-      icon: AlertCircle, 
-      color: "text-blue-600", 
-      bgColor: "bg-blue-50",
-      label: "Berlangsung"
-    }
-  }
+    in_progress: {
+      icon: AlertCircle,
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50',
+      label: 'Berlangsung',
+    },
+  };
 
-  const config = statusConfig[status]
-  const Icon = config.icon
+  const config = statusConfig[status];
+  const Icon = config.icon;
 
   return (
-    <div className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+    <div className='flex items-center space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors'>
       <div className={`p-2 rounded-full ${config.bgColor}`}>
         <Icon className={`h-4 w-4 ${config.color}`} />
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-foreground truncate">
-          {name}
-        </p>
-        <div className="flex items-center space-x-2 mt-1">
-          <Badge variant="outline" className="text-xs">
-            {type === "tracer" ? "Tracer Study" : "User Survey"}
+      <div className='flex-1 min-w-0'>
+        <p className='text-sm font-medium text-foreground truncate'>{name}</p>
+        <div className='flex items-center space-x-2 mt-1'>
+          <Badge
+            variant='outline'
+            className='text-xs'
+          >
+            {type === 'tracer' ? 'Tracer Study' : 'User Survey'}
           </Badge>
-          <span className={`text-xs ${config.color}`}>
-            {config.label}
-          </span>
+          <span className={`text-xs ${config.color}`}>{config.label}</span>
         </div>
       </div>
-      <span className="text-xs text-muted-foreground">{time}</span>
+      <span className='text-xs text-muted-foreground'>{time}</span>
     </div>
-  )
+  );
 }
 
+const formatRelativeTime = (dateString?: string) => {
+  if (!dateString) return '-';
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return '-';
+
+  const now = Date.now();
+  const diffMs = now - date.getTime();
+  if (diffMs < 0) return 'Baru saja';
+
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  const week = 7 * day;
+  const month = 30 * day;
+  const year = 365 * day;
+
+  if (diffMs < minute) return 'Baru saja';
+  if (diffMs < hour) {
+    const minutes = Math.floor(diffMs / minute);
+    return `${minutes} menit yang lalu`;
+  }
+  if (diffMs < day) {
+    const hours = Math.floor(diffMs / hour);
+    return `${hours} jam yang lalu`;
+  }
+  if (diffMs < week) {
+    const days = Math.floor(diffMs / day);
+    return `${days} hari yang lalu`;
+  }
+  if (diffMs < month) {
+    const weeks = Math.floor(diffMs / week);
+    return `${weeks} minggu yang lalu`;
+  }
+  if (diffMs < year) {
+    const months = Math.floor(diffMs / month);
+    return `${months} bulan yang lalu`;
+  }
+  const years = Math.floor(diffMs / year);
+  return `${years} tahun yang lalu`;
+};
+
 function Dashboard() {
-  const navigate = useNavigate()
-  
-  // Test toast functions
-  const testSuccessToast = () => {
-    toast.success("Test Success Toast", {
-      description: "Ini adalah contoh toast sukses untuk testing"
-    })
-  }
+  const {data, isLoading, isError, refetch} = useDashboardOverview();
 
-  const testErrorToast = () => {
-    toast.error("Test Error Toast", {
-      description: "Ini adalah contoh toast error untuk testing"
-    })
-  }
+  const numberFormatter = useMemo(() => new Intl.NumberFormat('id-ID'), []);
 
-  const testInfoToast = () => {
-    toast.info("Test Info Toast", {
-      description: "Ini adalah contoh toast info untuk testing"
-    })
-  }
-
-  const testWarningToast = () => {
-    toast.warning("Test Warning Toast", {
-      description: "Ini adalah contoh toast warning untuk testing"
-    })
-  }
-
-  // Mock data - dalam implementasi nyata, data ini akan diambil dari API
   const stats = [
     {
-      title: "Total Tracer Study",
-      value: "1,234",
-      change: "+12% dari bulan lalu",
-      changeType: "positive" as const,
+      title: 'Total Tracer Study',
+      value: data?.stats
+        ? numberFormatter.format(data.stats.totalTracerStudy)
+        : '-',
       icon: FileText,
-      description: "Survei yang telah dikumpulkan"
+      description: 'Survei yang telah dikumpulkan',
     },
     {
-      title: "Total User Survey", 
-      value: "856",
-      change: "+8% dari bulan lalu",
-      changeType: "positive" as const,
+      title: 'Total User Survey',
+      value: data?.stats
+        ? numberFormatter.format(data.stats.totalUserSurvey)
+        : '-',
       icon: Users,
-      description: "Survei pengguna yang selesai"
+      description: 'Survei pengguna yang selesai',
     },
     {
-      title: "Response Rate",
-      value: "78.5%",
-      change: "+5.2% dari bulan lalu",
-      changeType: "positive" as const,
+      title: 'Response Rate',
+      value:
+        typeof data?.stats?.responseRate === 'number'
+          ? `${data.stats.responseRate.toFixed(1)}%`
+          : '-',
       icon: BarChart3,
-      description: "Tingkat respons keseluruhan"
+      description: 'Tingkat respons keseluruhan',
     },
     {
-      title: "Pending Reviews",
-      value: "23",
-      change: "-3 dari kemarin",
-      changeType: "positive" as const,
+      title: 'Pending Reviews',
+      value: data?.stats
+        ? numberFormatter.format(data.stats.pendingReviews)
+        : '-',
       icon: Clock,
-      description: "Survei yang perlu ditinjau"
-    }
-  ]
+      description: 'Survei yang perlu ditinjau',
+    },
+  ];
 
-  const recentActivities: RecentActivityProps[] = [
-    {
-      type: "tracer",
-      name: "Ahmad Rizki - Teknik Informatika",
-      status: "completed",
-      time: "2 jam yang lalu"
-    },
-    {
-      type: "user", 
-      name: "PT. Maju Jaya - Perusahaan",
-      status: "completed",
-      time: "3 jam yang lalu"
-    },
-    {
-      type: "tracer",
-      name: "Siti Nurhaliza - Manajemen",
-      status: "in_progress",
-      time: "5 jam yang lalu"
-    },
-    {
-      type: "user",
-      name: "CV. Sukses Mandiri - Perusahaan", 
-      status: "pending",
-      time: "1 hari yang lalu"
-    },
-    {
-      type: "tracer",
-      name: "Budi Santoso - Akuntansi",
-      status: "completed",
-      time: "1 hari yang lalu"
-    }
-  ]
+  const recentActivities: RecentActivityProps[] =
+    data?.recentActivities.map((activity) => ({
+      type: activity.type === 'TRACER_STUDY' ? 'tracer' : 'user',
+      name: activity.name,
+      status:
+        activity.status === 'PENDING'
+          ? 'pending'
+          : activity.status === 'IN_PROGRESS'
+            ? 'in_progress'
+            : 'completed',
+      time: formatRelativeTime(activity.submittedAt),
+    })) || [];
 
   return (
     <AdminLayout>
-      <div className="p-6 space-y-6">
+      <div className='p-6 space-y-6'>
         {/* Header */}
-        <div className="mb-6 relative">
+        <div className='mb-6 relative'>
           {/* Breadcrumb */}
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem>
-                <BreadcrumbPage className="flex items-center space-x-1">
-                  <Home className="h-4 w-4" />
+                <BreadcrumbPage className='flex items-center space-x-1'>
+                  <Home className='h-4 w-4' />
                   <span>Dashboard</span>
                 </BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
-
-          
-
-         
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {stats.map((stat, index) => (
-            <StatCard key={index} {...stat} />
-          ))}
+        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
+          {isLoading
+            ? Array.from({length: 4}).map((_, index) => (
+                <Card key={`skeleton-${index}`}>
+                  <CardHeader>
+                    <Skeleton className='h-4 w-24' />
+                  </CardHeader>
+                  <CardContent className='space-y-3'>
+                    <Skeleton className='h-6 w-32' />
+                    <Skeleton className='h-3 w-20' />
+                  </CardContent>
+                </Card>
+              ))
+            : stats.map((stat, index) => (
+                <StatCard
+                  key={index}
+                  {...stat}
+                />
+              ))}
         </div>
 
         {/* Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className=''>
           {/* Recent Activities */}
-          <div className="lg:col-span-2">
+          <div className=''>
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Clock className="h-5 w-5" />
+                <CardTitle className='flex items-center space-x-2'>
+                  <Clock className='h-5 w-5' />
                   <span>Aktivitas Terbaru</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  {recentActivities.map((activity, index) => (
-                    <RecentActivityItem key={index} {...activity} />
-                  ))}
+                <div className='space-y-2'>
+                  {isLoading ? (
+                    Array.from({length: 5}).map((_, index) => (
+                      <div
+                        key={`activity-skeleton-${index}`}
+                        className='flex items-center space-x-3 p-3'
+                      >
+                        <Skeleton className='h-8 w-8 rounded-full' />
+                        <div className='flex-1 space-y-2'>
+                          <Skeleton className='h-4 w-48' />
+                          <Skeleton className='h-3 w-32' />
+                        </div>
+                        <Skeleton className='h-3 w-16' />
+                      </div>
+                    ))
+                  ) : recentActivities.length > 0 ? (
+                    recentActivities.map((activity, index) => (
+                      <RecentActivityItem
+                        key={index}
+                        {...activity}
+                      />
+                    ))
+                  ) : (
+                    <p className='text-sm text-muted-foreground'>
+                      Belum ada aktivitas terbaru.
+                    </p>
+                  )}
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <BarChart3 className="h-5 w-5" />
-                  <span>Aksi Cepat</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <button className="w-full text-left p-3 rounded-lg border hover:bg-muted transition-colors">
-                  <div className="flex items-center space-x-3">
-                    <FileText className="h-4 w-4 text-primary" />
-                    <div>
-                      <p className="font-medium">Lihat Tracer Study</p>
-                      <p className="text-xs text-muted-foreground">Kelola data tracer study</p>
-                    </div>
-                  </div>
-                </button>
-                
-                <button 
-                  onClick={() => navigate('/admin/manajemen-user/alumni-database')}
-                  className="w-full text-left p-3 rounded-lg border hover:bg-muted transition-colors"
-                >
-                  <div className="flex items-center space-x-3">
-                    <Database className="h-4 w-4 text-primary" />
-                    <div>
-                      <p className="font-medium">Database Alumni</p>
-                      <p className="text-xs text-muted-foreground">Kelola data alumni</p>
-                    </div>
-                  </div>
-                </button>
-
-                <button 
-                  onClick={() => navigate('/admin/users/manager')}
-                  className="w-full text-left p-3 rounded-lg border hover:bg-muted transition-colors"
-                >
-                  <div className="flex items-center space-x-3">
-                    <Users className="h-4 w-4 text-primary" />
-                    <div>
-                      <p className="font-medium">Database Manager</p>
-                      <p className="text-xs text-muted-foreground">Kelola data pengguna alumni</p>
-                    </div>
-                  </div>
-                </button>
-
-                <button 
-                  onClick={() => navigate('/admin/users/admins')}
-                  className="w-full text-left p-3 rounded-lg border hover:bg-muted transition-colors"
-                >
-                  <div className="flex items-center space-x-3">
-                    <Users className="h-4 w-4 text-primary" />
-                    <div>
-                      <p className="font-medium">Kelola Admin</p>
-                      <p className="text-xs text-muted-foreground">Kelola data admin dan role</p>
-                    </div>
-                  </div>
-                </button>
-
-                <button 
-                  onClick={() => navigate('/admin/users/admin-groups')}
-                  className="w-full text-left p-3 rounded-lg border hover:bg-muted transition-colors"
-                >
-                  <div className="flex items-center space-x-3">
-                    <Users className="h-4 w-4 text-primary" />
-                    <div>
-                      <p className="font-medium">Kelola Grup Admin</p>
-                      <p className="text-xs text-muted-foreground">Kelola role dan permission admin</p>
-                    </div>
-                  </div>
-                </button>
-                
-                <button className="w-full text-left p-3 rounded-lg border hover:bg-muted transition-colors">
-                  <div className="flex items-center space-x-3">
-                    <BarChart3 className="h-4 w-4 text-primary" />
-                    <div>
-                      <p className="font-medium">Analisis Data</p>
-                      <p className="text-xs text-muted-foreground">Lihat laporan dan grafik</p>
-                    </div>
-                  </div>
-                </button>
-              </CardContent>
-            </Card>
-
-            {/* Test Toast Buttons */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <AlertCircle className="h-5 w-5" />
-                  <span>Test Toast</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <Button onClick={testSuccessToast} variant="outline" size="sm">
-                    Success Toast
-                  </Button>
-                  <Button onClick={testErrorToast} variant="outline" size="sm">
-                    Error Toast
-                  </Button>
-                  <Button onClick={testInfoToast} variant="outline" size="sm">
-                    Info Toast
-                  </Button>
-                  <Button onClick={testWarningToast} variant="outline" size="sm">
-                    Warning Toast
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Klik tombol di atas untuk test berbagai jenis toast notification
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* System Status */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
-                  <span>Status Sistem</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Server Status</span>
-                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                      Online
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Database</span>
-                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                      Connected
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">API Status</span>
-                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                      Active
-                    </Badge>
-                  </div>
-                </div>
+                {isError && (
+                  <p className='text-sm text-red-600 mt-4'>
+                    Gagal memuat data dashboard.{' '}
+                    <button
+                      type='button'
+                      className='underline'
+                      onClick={() => refetch()}
+                    >
+                      Coba lagi
+                    </button>
+                  </p>
+                )}
               </CardContent>
             </Card>
           </div>
         </div>
       </div>
     </AdminLayout>
-  )
+  );
 }
 
-export default Dashboard
+export default Dashboard;
