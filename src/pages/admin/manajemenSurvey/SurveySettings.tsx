@@ -73,6 +73,7 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
 import {useNavigate, useSearchParams} from 'react-router-dom';
+import {showSequentialErrorToasts} from '@/lib/error-toast';
 
 interface ErrorDetail {
   field: string;
@@ -263,31 +264,60 @@ const SurveySettings: React.FC = () => {
   useEffect(() => {
     if (!surveyData) return;
 
+    // Normalize greetingOpening structure
+    const rawGreetingOpening: Partial<GreetingOpening> =
+      (surveyData.greetingOpening ||
+        surveyData.greatingOpening ||
+        {}) as Partial<GreetingOpening>;
+    const defaultGreetingOpening: GreetingOpening = {
+      title: '',
+      greeting: {islamic: '', general: ''},
+      addressee: '',
+      introduction: '',
+      ikuList: {title: '', items: []},
+      purpose: '',
+      expectation: '',
+      signOff: {department: '', university: ''},
+    };
+
+    // Ensure greeting property exists
+    const normalizedGreetingOpening: GreetingOpening = {
+      ...defaultGreetingOpening,
+      ...rawGreetingOpening,
+      greeting: rawGreetingOpening.greeting || defaultGreetingOpening.greeting,
+      ikuList: rawGreetingOpening.ikuList || defaultGreetingOpening.ikuList,
+      signOff: rawGreetingOpening.signOff || defaultGreetingOpening.signOff,
+    };
+
+    // Normalize greetingClosing structure
+    const rawGreetingClosing: Partial<GreetingClosing> =
+      (surveyData.greetingClosing || {}) as Partial<GreetingClosing>;
+    const defaultGreetingClosing: GreetingClosing = {
+      title: '',
+      greeting: {islamic: '', general: ''},
+      addressee: '',
+      introduction: '',
+      expectation: '',
+      signOff: {department: '', university: ''},
+      contact: {phone: '', email: '', website: ''},
+    };
+
+    // Ensure greeting property exists
+    const normalizedGreetingClosing: GreetingClosing = {
+      ...defaultGreetingClosing,
+      ...rawGreetingClosing,
+      greeting: rawGreetingClosing.greeting || defaultGreetingClosing.greeting,
+      signOff: rawGreetingClosing.signOff || defaultGreetingClosing.signOff,
+      contact: rawGreetingClosing.contact || defaultGreetingClosing.contact,
+    };
+
     const settingsData: SurveySettings = {
       id: surveyData.id,
       surveyId: surveyData.id,
       surveyName: surveyData.name,
       surveyType: surveyData.type || 'TRACER_STUDY',
-      greetingOpening: surveyData.greetingOpening ||
-        surveyData.greatingOpening || {
-          title: '',
-          greeting: {islamic: '', general: ''},
-          addressee: '',
-          introduction: '',
-          ikuList: {title: '', items: []},
-          purpose: '',
-          expectation: '',
-          signOff: {department: '', university: ''},
-        },
-      greetingClosing: surveyData.greetingClosing || {
-        title: '',
-        greeting: {islamic: '', general: ''},
-        addressee: '',
-        introduction: '',
-        expectation: '',
-        signOff: {department: '', university: ''},
-        contact: {phone: '', email: '', website: ''},
-      },
+      greetingOpening: normalizedGreetingOpening,
+      greetingClosing: normalizedGreetingClosing,
       surveyRules: rulesData || surveyData.surveyRules || [],
       createdAt: surveyData.createdAt || new Date().toISOString(),
       updatedAt: surveyData.updatedAt || new Date().toISOString(),
@@ -295,35 +325,36 @@ const SurveySettings: React.FC = () => {
 
     setSurveySettings(settingsData);
 
-    // Populate form data
+    // Populate form data with safe access
     setFormData({
       description: surveyData.description || '',
       documentUrl: surveyData.documentUrl || '',
-      title: settingsData.greetingOpening.title,
-      greetingIslamic: settingsData.greetingOpening.greeting.islamic,
-      greetingGeneral: settingsData.greetingOpening.greeting.general,
-      addressee: settingsData.greetingOpening.addressee,
-      introduction: settingsData.greetingOpening.introduction,
-      ikuTitle: settingsData.greetingOpening.ikuList.title,
+      title: normalizedGreetingOpening.title || '',
+      greetingIslamic: normalizedGreetingOpening.greeting?.islamic || '',
+      greetingGeneral: normalizedGreetingOpening.greeting?.general || '',
+      addressee: normalizedGreetingOpening.addressee || '',
+      introduction: normalizedGreetingOpening.introduction || '',
+      ikuTitle: normalizedGreetingOpening.ikuList?.title || '',
       ikuItems:
-        settingsData.greetingOpening.ikuList.items.length > 0
-          ? settingsData.greetingOpening.ikuList.items
+        normalizedGreetingOpening.ikuList?.items &&
+        normalizedGreetingOpening.ikuList.items.length > 0
+          ? normalizedGreetingOpening.ikuList.items
           : [''],
-      purpose: settingsData.greetingOpening.purpose,
-      expectation: settingsData.greetingOpening.expectation,
-      department: settingsData.greetingOpening.signOff.department,
-      university: settingsData.greetingOpening.signOff.university,
-      closingTitle: settingsData.greetingClosing.title,
-      closingGreetingIslamic: settingsData.greetingClosing.greeting.islamic,
-      closingGreetingGeneral: settingsData.greetingClosing.greeting.general,
-      closingAddressee: settingsData.greetingClosing.addressee,
-      closingIntroduction: settingsData.greetingClosing.introduction,
-      closingExpectation: settingsData.greetingClosing.expectation,
-      closingDepartment: settingsData.greetingClosing.signOff.department,
-      closingUniversity: settingsData.greetingClosing.signOff.university,
-      contactPhone: settingsData.greetingClosing.contact?.phone || '',
-      contactEmail: settingsData.greetingClosing.contact?.email || '',
-      contactWebsite: settingsData.greetingClosing.contact?.website || '',
+      purpose: normalizedGreetingOpening.purpose || '',
+      expectation: normalizedGreetingOpening.expectation || '',
+      department: normalizedGreetingOpening.signOff?.department || '',
+      university: normalizedGreetingOpening.signOff?.university || '',
+      closingTitle: normalizedGreetingClosing.title || '',
+      closingGreetingIslamic: normalizedGreetingClosing.greeting?.islamic || '',
+      closingGreetingGeneral: normalizedGreetingClosing.greeting?.general || '',
+      closingAddressee: normalizedGreetingClosing.addressee || '',
+      closingIntroduction: normalizedGreetingClosing.introduction || '',
+      closingExpectation: normalizedGreetingClosing.expectation || '',
+      closingDepartment: normalizedGreetingClosing.signOff?.department || '',
+      closingUniversity: normalizedGreetingClosing.signOff?.university || '',
+      contactPhone: normalizedGreetingClosing.contact?.phone || '',
+      contactEmail: normalizedGreetingClosing.contact?.email || '',
+      contactWebsite: normalizedGreetingClosing.contact?.website || '',
     });
   }, [surveyData, rulesData]);
 
@@ -439,9 +470,7 @@ const SurveySettings: React.FC = () => {
 
         // Display errors
         if (errorMessages.length > 0) {
-          errorMessages.forEach((msg) => {
-            toast.error(msg);
-          });
+          showSequentialErrorToasts({messages: errorMessages});
         } else {
           toast.error('Gagal menyimpan settings');
         }
@@ -508,9 +537,7 @@ const SurveySettings: React.FC = () => {
         }
 
         if (errorMessages.length > 0) {
-          errorMessages.forEach((msg) => {
-            toast.error(msg);
-          });
+          showSequentialErrorToasts({messages: errorMessages});
         } else {
           toast.error('Gagal menambahkan rule');
         }
@@ -566,9 +593,7 @@ const SurveySettings: React.FC = () => {
         }
 
         if (errorMessages.length > 0) {
-          errorMessages.forEach((msg) => {
-            toast.error(msg);
-          });
+          showSequentialErrorToasts({messages: errorMessages});
         } else {
           toast.error('Gagal menghapus rule');
         }

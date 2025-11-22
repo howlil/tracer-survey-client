@@ -98,6 +98,7 @@ function LoginAdmin() {
       };
 
       const errorMessage =
+        error.response?.data?.error ||
         error.response?.data?.message ||
         error.message ||
         'Email atau password salah';
@@ -106,8 +107,7 @@ function LoginAdmin() {
 
       // Only show toast if axios interceptor didn't handle it
       if (!error.response) {
-        toast.error('Login gagal!', {
-          description: errorMessage,
+        toast.error(errorMessage || 'Login gagal!', {
           duration: 3000,
         });
       }

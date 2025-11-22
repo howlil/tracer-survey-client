@@ -58,9 +58,12 @@ import {
   useSurveys,
   useCreateSurvey,
   useDeleteSurvey,
+  useUpdateSurvey,
   type Survey,
 } from '@/api/survey.api';
 import {toast} from 'sonner';
+import {showSequentialErrorToasts} from '@/lib/error-toast';
+import {getAllErrorMessages, logError} from '@/utils/error-handler';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -78,6 +81,7 @@ const SurveyManagement: React.FC = () => {
 
   // State management
   const [isCreateSheetOpen, setIsCreateSheetOpen] = useState(false);
+  const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
   const [createFormData, setCreateFormData] = useState({
     name: '',
     type: 'TRACER_STUDY' as 'TRACER_STUDY' | 'USER_SURVEY',
@@ -91,6 +95,7 @@ const SurveyManagement: React.FC = () => {
   });
   const createSurveyMutation = useCreateSurvey();
   const deleteSurveyMutation = useDeleteSurvey();
+  const updateSurveyMutation = useUpdateSurvey();
 
   const surveys = surveysData?.surveys || [];
 
@@ -140,9 +145,12 @@ const SurveyManagement: React.FC = () => {
       const errorMessage = err?.response?.data?.message;
 
       if (Array.isArray(errorMessage)) {
-        errorMessage.forEach((errDetail) => {
-          toast.error(`${errDetail.field}: ${errDetail.message}`);
+        const messages = errorMessage.map((errDetail) => {
+          const fieldLabel = errDetail.field || 'Error';
+          const messageDetail = errDetail.message || 'Terjadi kesalahan';
+          return `${fieldLabel}: ${messageDetail}`;
         });
+        showSequentialErrorToasts({messages});
       } else if (typeof errorMessage === 'string') {
         toast.error(errorMessage);
       } else {
@@ -161,22 +169,54 @@ const SurveyManagement: React.FC = () => {
     );
   };
 
-  const handleDeleteSurvey = async (id: string) => {
+  const handleDeleteSurvey = async (survey: Survey) => {
     try {
-      await deleteSurveyMutation.mutateAsync(id);
+      // Check if survey has responses
+      if (survey.responseCount && survey.responseCount > 0) {
+        toast.error(
+          'Survey tidak dapat dihapus karena sudah memiliki response. Hanya survey tanpa response yang dapat dihapus.'
+        );
+        return;
+      }
+
+      await deleteSurveyMutation.mutateAsync(survey.id);
       toast.success('Survey berhasil dihapus');
     } catch (error) {
-      const err = error as ErrorResponse;
-      const errorMessage = err?.response?.data?.message;
+      logError(error, 'handleDeleteSurvey');
+      const errorMessages = getAllErrorMessages(
+        error,
+        'Gagal menghapus survey'
+      );
 
-      if (Array.isArray(errorMessage)) {
-        errorMessage.forEach((errDetail) => {
-          toast.error(`${errDetail.field}: ${errDetail.message}`);
-        });
-      } else if (typeof errorMessage === 'string') {
-        toast.error(errorMessage);
+      if (errorMessages.length === 1) {
+        toast.error(errorMessages[0]);
       } else {
-        toast.error('Gagal menghapus survey');
+        showSequentialErrorToasts({messages: errorMessages});
+      }
+    }
+  };
+
+  const handleUpdateStatus = async (
+    surveyId: string,
+    newStatus: Survey['status']
+  ) => {
+    try {
+      await updateSurveyMutation.mutateAsync({
+        id: surveyId,
+        data: {status: newStatus},
+      });
+      toast.success(`Status survey berhasil diubah menjadi ${newStatus}`);
+    } catch (error) {
+      logError(error, 'handleUpdateStatus');
+      const errorMessages = getAllErrorMessages(
+        error,
+        'Gagal mengubah status survey'
+      );
+
+      if (errorMessages.length === 1) {
+        toast.error(errorMessages[0]);
+      } else {
+        showSequentialErrorToasts({messages: errorMessages});
       }
     }
   };
@@ -290,9 +330,51 @@ const SurveyManagement: React.FC = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge className={getStatusColor(survey.status)}>
-                          {survey.status}
-                        </Badge>
+                        <div className='flex items-center gap-2'>
+                          {editingStatusId === survey.id ? (
+                            <Select
+                              value={survey.status}
+                              onValueChange={(value: Survey['status']) => {
+                                handleUpdateStatus(survey.id, value);
+                                setEditingStatusId(null);
+                              }}
+                              onOpenChange={(open) => {
+                                if (!open) {
+                                  setEditingStatusId(null);
+                                }
+                              }}
+                              defaultOpen
+                            >
+                              <SelectTrigger className='w-[140px] h-7'>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value='DRAFT'>DRAFT</SelectItem>
+                                <SelectItem value='PUBLISHED'>PUBLISHED</SelectItem>
+                                <SelectItem value='ARCHIVED'>ARCHIVED</SelectItem>
+                                <SelectItem value='CLOSED'>CLOSED</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <>
+                              <Badge className={getStatusColor(survey.status)}>
+                                {survey.status}
+                              </Badge>
+                              <Button
+                                variant='ghost'
+                                size='sm'
+                                className='h-6 px-2'
+                                onClick={() => {
+                                  setEditingStatusId(survey.id);
+                                }}
+                                title='Edit status'
+                                disabled={updateSurveyMutation.isPending}
+                              >
+                                <Edit className='h-3 w-3' />
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className='flex items-center space-x-2'>
@@ -350,19 +432,52 @@ const SurveyManagement: React.FC = () => {
                                   Hapus Survey?
                                 </AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Apakah Anda yakin ingin menghapus survey ini?
-                                  Tindakan ini tidak dapat dibatalkan dan semua
-                                  data terkait akan dihapus.
+                                  {survey.responseCount && survey.responseCount > 0 ? (
+                                    <div className='space-y-2'>
+                                      <p className='text-red-600 font-medium'>
+                                        Survey ini tidak dapat dihapus karena sudah memiliki {survey.responseCount} response.
+                                      </p>
+                                      <p className='text-sm'>
+                                        Hanya survey tanpa response yang dapat dihapus. Survey dengan response harus di-archive atau di-close terlebih dahulu.
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    <div className='space-y-2'>
+                                      <p>
+                                        Apakah Anda yakin ingin menghapus survey ini?
+                                        Tindakan ini tidak dapat dibatalkan.
+                                      </p>
+                                      <div className='bg-muted p-3 rounded-md text-sm space-y-1'>
+                                        <div>
+                                          <span className='font-medium'>Data yang akan dihapus:</span>
+                                        </div>
+                                        <ul className='list-disc list-inside space-y-1 ml-2'>
+                                          <li>Semua soal dan pertanyaan ({survey.questionCount || 0} soal)</li>
+                                          <li>Semua rules ({survey.surveyRulesCount || 0} rules)</li>
+                                          <li>Semua email blast terkait</li>
+                                          <li>Survey itu sendiri</li>
+                                        </ul>
+                                        <p className='text-xs text-muted-foreground mt-2'>
+                                          Catatan: Survey tanpa response dapat dihapus. Survey dengan response tidak dapat dihapus.
+                                        </p>
+                                      </div>
+                                    </div>
+                                  )}
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Batal</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDeleteSurvey(survey.id)}
-                                  className='bg-red-600 hover:bg-red-700'
-                                >
-                                  Hapus
-                                </AlertDialogAction>
+                                {(!survey.responseCount || survey.responseCount === 0) && (
+                                  <AlertDialogAction
+                                    onClick={() => handleDeleteSurvey(survey)}
+                                    className='bg-red-600 hover:bg-red-700'
+                                    disabled={deleteSurveyMutation.isPending}
+                                  >
+                                    {deleteSurveyMutation.isPending
+                                      ? 'Menghapus...'
+                                      : 'Hapus'}
+                                  </AlertDialogAction>
+                                )}
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>

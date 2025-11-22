@@ -14,7 +14,7 @@ export interface Alumni {
     | 'WISUDA_IV'
     | 'WISUDA_V'
     | 'WISUDA_VI';
-  degree: 'S1' | 'S2' | 'S3' | 'VOKASI' | 'PROFESI';
+  degree: 'S1' | 'S2' | 'S3' | 'D3' | 'VOKASI' | 'PROFESI' | 'PASCA';
   respondent: {
     id: string;
     fullName: string;
@@ -24,10 +24,10 @@ export interface Alumni {
   };
   major: {
     id: string;
-    majorName: string;
+    name: string;
     faculty: {
       id: string;
-      facultyName: string;
+      name: string;
     };
   };
   createdAt: string;
@@ -47,12 +47,21 @@ interface ApiResponse<T> {
   data: T;
 }
 
+interface AlumniStats {
+  totalAlumni: number;
+  alumniThisYear: number;
+  totalMajors: number;
+  totalFaculties: number;
+  filteredCount: number;
+}
+
 interface PaginatedResponse<T> {
   success: boolean;
   message: string;
   data: {
     alumni?: T[];
     meta?: PaginationMeta;
+    stats?: AlumniStats;
   };
 }
 
@@ -65,7 +74,7 @@ const getAlumniApi = async (params?: {
   degree?: string;
   graduatedYear?: number;
   graduatePeriode?: string;
-}): Promise<{alumni: Alumni[]; meta: PaginationMeta}> => {
+}): Promise<{alumni: Alumni[]; meta: PaginationMeta; stats?: AlumniStats}> => {
   const queryParams = new URLSearchParams();
   if (params?.page) queryParams.append('page', params.page.toString());
   if (params?.limit) queryParams.append('limit', params.limit.toString());
@@ -92,6 +101,7 @@ const getAlumniApi = async (params?: {
         page: params?.page || 1,
         totalPages: 0,
       },
+      stats: response.data.data.stats,
     };
   }
 
@@ -116,3 +126,62 @@ export const useAlumni = (params?: {
   });
 };
 
+export type CreateAlumniPayload = {
+  nim: string;
+  fullName: string;
+  email: string;
+  facultyId: string;
+  majorId: string;
+  degree: string;
+  graduatedYear: number;
+  graduatePeriode:
+    | 'WISUDA_I'
+    | 'WISUDA_II'
+    | 'WISUDA_III'
+    | 'WISUDA_IV'
+    | 'WISUDA_V'
+    | 'WISUDA_VI';
+};
+
+export type ImportSummary = {
+  total: number;
+  success: number;
+  failed: number;
+  errors: Array<{row: number; message: string}>;
+};
+
+export type {AlumniStats};
+
+export const createAlumniApi = async (payload: CreateAlumniPayload) => {
+  const response = await axiosInstance.post<ApiResponse<Alumni>>(
+    '/v1/alumni',
+    payload
+  );
+  if (!response.data.success) {
+    throw new Error(response.data.message || 'Gagal menambahkan alumni');
+  }
+  return response.data.data;
+};
+
+export const downloadAlumniTemplateApi = async () => {
+  const response = await axiosInstance.get<Blob>('/v1/alumni/template', {
+    responseType: 'blob',
+  });
+  return response.data;
+};
+
+export const importAlumniApi = async (file: File) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await axiosInstance.post<ApiResponse<ImportSummary>>(
+    '/v1/alumni/import',
+    formData,
+    {
+      headers: {'Content-Type': 'multipart/form-data'},
+    }
+  );
+  if (!response.data.success) {
+    throw new Error(response.data.message || 'Gagal mengimpor alumni');
+  }
+  return response.data.data;
+};

@@ -7,6 +7,7 @@ export interface Manager {
   id: string;
   company: string;
   position: string;
+  phoneNumber?: string | null;
   respondentId: string;
   respondent: {
     id: string;
@@ -137,4 +138,54 @@ export const usePositions = () => {
     queryKey: [...MANAGER_QUERY_KEY, 'positions'],
     queryFn: getPositionsApi,
   });
+};
+
+export type CreateManagerPayload = {
+  fullName: string;
+  email: string;
+  company: string;
+  position: string;
+  phoneNumber?: string;
+  alumniPins: string[];
+};
+
+export type ImportSummary = {
+  total: number;
+  success: number;
+  failed: number;
+  errors: Array<{row: number; message: string}>;
+};
+
+export const createManagerApi = async (payload: CreateManagerPayload) => {
+  const response = await axiosInstance.post<ApiResponse<Manager>>(
+    '/v1/managers',
+    payload
+  );
+  if (!response.data.success) {
+    throw new Error(response.data.message || 'Gagal menambahkan manager');
+  }
+  return response.data.data;
+};
+
+export const downloadManagerTemplateApi = async () => {
+  const response = await axiosInstance.get<Blob>('/v1/managers/template', {
+    responseType: 'blob',
+  });
+  return response.data;
+};
+
+export const importManagersApi = async (file: File) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await axiosInstance.post<ApiResponse<ImportSummary>>(
+    '/v1/managers/import',
+    formData,
+    {
+      headers: {'Content-Type': 'multipart/form-data'},
+    }
+  );
+  if (!response.data.success) {
+    throw new Error(response.data.message || 'Gagal mengimpor manager');
+  }
+  return response.data.data;
 };

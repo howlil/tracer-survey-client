@@ -270,7 +270,37 @@ const getSurveyQuestionsApi = async (
   const response = await axiosInstance.get(
     `/v1/surveys/${surveyId}/questions${params}`
   );
-  return response.data.data;
+
+  if (response.data.data?.codeQuestions) {
+    const allQuestions: Question[] = [];
+
+    for (const codeQ of response.data.data.codeQuestions) {
+      // All questions (parent + children) are already in codeQ.questions array
+      // The children field in each question is just metadata (summary)
+      // All actual child questions are already included in the main questions array
+      if (codeQ.questions && Array.isArray(codeQ.questions)) {
+        for (const q of codeQ.questions) {
+          // Remove children field if exists (it's just metadata, actual children are in the main array)
+          const {children, ...questionWithoutChildren} = q;
+          void children; // Explicitly ignore children field
+          allQuestions.push({
+            ...questionWithoutChildren,
+            questionCode: codeQ.code, // Set questionCode from codeQ.code
+          });
+        }
+      }
+    }
+
+    // Sort by sortOrder to maintain order
+    const sorted = allQuestions.sort(
+      (a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)
+    );
+
+    return sorted;
+  }
+
+  // Fallback: return as is if already array
+  return response.data.data?.questions || response.data.data || [];
 };
 
 const createCodeQuestionApi = async (
@@ -301,6 +331,17 @@ const deleteQuestionApi = async (
   questionId: string
 ): Promise<void> => {
   await axiosInstance.delete(`/v1/surveys/${surveyId}/questions/${questionId}`);
+};
+
+const deleteCodeQuestionApi = async (
+  surveyId: string,
+  codeId: string
+): Promise<void> => {
+  // Encode codeId to handle special characters
+  const encodedCodeId = encodeURIComponent(codeId);
+  await axiosInstance.delete(
+    `/v1/surveys/${surveyId}/code-questions/${encodedCodeId}`
+  );
 };
 
 const reorderQuestionsApi = async (
@@ -490,6 +531,21 @@ export const useDeleteQuestion = () => {
         queryKey: ['surveyQuestions', variables.surveyId],
       });
       queryClient.invalidateQueries({queryKey: ['survey', variables.surveyId]});
+      queryClient.invalidateQueries({queryKey: ['surveys']});
+    },
+  });
+};
+
+export const useDeleteCodeQuestion = () => {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, {surveyId: string; codeId: string}>({
+    mutationFn: ({surveyId, codeId}) => deleteCodeQuestionApi(surveyId, codeId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ['surveyQuestions', variables.surveyId],
+      });
+      queryClient.invalidateQueries({queryKey: ['survey', variables.surveyId]});
+      queryClient.invalidateQueries({queryKey: ['surveys']});
     },
   });
 };

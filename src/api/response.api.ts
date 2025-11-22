@@ -321,3 +321,45 @@ export const useExportUserSurveyResponses = () => {
     mutationFn: exportUserSurveyResponsesApi,
   });
 };
+
+// Submit Response Types
+export interface SubmitAnswer {
+  questionId: string;
+  answerText?: string;
+  answerOptionIds?: string[];
+}
+
+export interface SubmitResponseRequest {
+  surveyId: string;
+  answers: SubmitAnswer[];
+}
+
+export interface SubmitResponseResponse {
+  id: string;
+  surveyId: string;
+  respondentId: string;
+  submittedAt: string;
+}
+
+// API Function - Submit Response
+const submitResponseApi = async (
+  data: SubmitResponseRequest
+): Promise<SubmitResponseResponse> => {
+  const response = await axiosInstance.post<ApiResponse<SubmitResponseResponse>>(
+    '/v1/responses/submit',
+    data
+  );
+
+  if (response.data.success && response.data.data) {
+    return response.data.data;
+  }
+
+  throw new Error(response.data.message || 'Failed to submit response');
+};
+
+// React Query Hook - Submit Response
+export const useSubmitResponse = () => {
+  return useMutation({
+    mutationFn: submitResponseApi,
+  });
+};

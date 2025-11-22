@@ -14,4 +14,20 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  server: {
+    fs: {
+      strict: false,
+    },
+  },
+  optimizeDeps: {
+    include: [
+      '@radix-ui/react-popover',
+      'zustand/middleware',
+      '@/components/ui/radio-group',
+      'uuid',
+    ],
+    esbuildOptions: {
+      target: 'esnext',
+    },
+  },
 })

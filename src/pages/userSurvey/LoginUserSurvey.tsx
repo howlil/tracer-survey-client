@@ -4,9 +4,10 @@ import {Layout} from '@/components/layout/Layout';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
-import {validatePINAndGetUser} from '@/data/pinDatabase';
+import {managerLogin} from '@/api/auth.api';
 import {cn} from '@/lib/utils';
 import {useAuthStore} from '@/stores/auth-store';
+import {toast} from 'sonner';
 import {ArrowLeft, Lock, Shield, User} from 'lucide-react';
 import * as React from 'react';
 import ReCAPTCHA from 'react-google-recaptcha';
@@ -73,26 +74,51 @@ function LoginUserSurvey() {
       setError('');
 
       try {
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-
-        // Validate PIN using encrypted database
-        const userRecord = validatePINAndGetUser(formData.pin, 'user-survey');
-
-        if (userRecord) {
-          setUser({
-            id: userRecord.userID,
-            name: userRecord.name,
-            email: userRecord.email,
-            role: 'user',
-          });
-
-          navigate('/user-survey/survey/1');
-        } else {
-          setError('PIN tidak valid');
+        // Get reCAPTCHA token
+        if (!recaptchaRef.current) {
+          setError('reCAPTCHA belum dimuat');
+          setIsLoading(false);
+          return;
         }
-      } catch {
-        setError('Terjadi kesalahan saat login');
+
+        const recaptchaToken = await recaptchaRef.current.executeAsync();
+        if (!recaptchaToken) {
+          setError('reCAPTCHA tidak valid');
+          setIsLoading(false);
+          return;
+        }
+
+        // Call API
+        const response = await managerLogin({
+          pin: formData.pin,
+          recaptchaToken,
+        });
+
+        // Save token to localStorage
+        localStorage.setItem('auth-token', response.token);
+
+        // Save user info
+        setUser({
+          id: response.id,
+          name: response.name,
+          email: response.email,
+          role: 'user',
+        });
+
+        toast.success('Login berhasil!', {
+          description: `Selamat datang, ${response.name}`,
+          duration: 3000,
+        });
+
+        // Navigate to survey
+        navigate('/user-survey/survey/1');
+      } catch (error: unknown) {
+        const errorMessage =
+          (error as {response?: {data?: {message?: string}}})?.response?.data
+            ?.message ||
+          (error as {message?: string})?.message ||
+          'PIN tidak valid atau terjadi kesalahan saat login';
+        setError(errorMessage);
       } finally {
         setIsLoading(false);
         // Reset captcha
@@ -179,6 +205,9 @@ function LoginUserSurvey() {
                       onChange={handleCaptchaChange}
                       theme='light'
                       size='normal'
+                      asyncScriptOnLoad={() => {
+                        // reCAPTCHA loaded
+                      }}
                     />
                   </div>
                   {errors.captcha && (

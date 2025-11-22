@@ -55,6 +55,7 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
 import {useNavigate} from 'react-router-dom';
+import {showSequentialErrorToasts} from '@/lib/error-toast';
 import {
   useAdmins,
   useCreateAdmin,
@@ -179,9 +180,12 @@ const AdminManagement: React.FC = () => {
         const errorMessage = error.response.data.message;
 
         if (Array.isArray(errorMessage)) {
-          errorMessage.forEach((err) => {
-            toast.error(`${err.field}: ${err.message}`);
+          const messages = errorMessage.map((err) => {
+            const fieldLabel = err.field || 'Error';
+            const messageDetail = err.message || 'Terjadi kesalahan';
+            return `${fieldLabel}: ${messageDetail}`;
           });
+          showSequentialErrorToasts({messages});
         } else if (typeof errorMessage === 'string') {
           toast.error(errorMessage);
         }

@@ -13,6 +13,9 @@ import {
 import {useAuthStore} from '@/stores/auth-store';
 import {useSurveyStore} from '@/stores/survey-store';
 import {cleanupOldUserData} from '@/store/userStorage';
+import {useSubmitResponse, type SubmitAnswer} from '@/api/response.api';
+import {toast} from 'sonner';
+import {getDetailedErrorMessage, logError} from '@/utils/error-handler';
 import {ArrowLeft} from 'lucide-react';
 import * as React from 'react';
 import {useNavigate, useParams} from 'react-router-dom';
@@ -26,6 +29,11 @@ function TracerStudySurvey() {
   const loadUserData = useSurveyStore((state) => state.loadUserData);
   const setSubmitting = useSurveyStore((state) => state.setSubmitting);
   const setCompleted = useSurveyStore((state) => state.setCompleted);
+  const answers = useSurveyStore((state) => state.answers);
+  const otherValues = useSurveyStore((state) => state.otherValues);
+  const surveyId = useSurveyStore((state) => state.surveyId);
+  const questions = useSurveyStore((state) => state.questions);
+  const submitResponseMutation = useSubmitResponse();
 
   const currentPageNumber = parseInt(page || '1', 10);
   const currentPage = tracerStudyPages.find(
@@ -86,17 +94,129 @@ function TracerStudySurvey() {
   }, []);
 
   const handleSubmit = React.useCallback(
-    (answers: Record<string, unknown>) => {
+    async (_answers: Record<string, unknown>) => {
+      if (!surveyId) {
+        toast.error('Survey ID tidak ditemukan');
+        return;
+      }
+
       setSubmitting(true);
 
-      setTimeout(() => {
-        console.log('Tracer Study submitted:', answers);
+      try {
+        // Convert answers to SubmitAnswer format
+        const submitAnswers: SubmitAnswer[] = questions.map((question) => {
+          const answer = answers[question.id];
+          const otherValue = otherValues[question.id];
+
+          // Handle different question types
+          if (question.type === 'text' || question.type === 'textarea') {
+            return {
+              questionId: question.id,
+              answerText: (answer as string) || otherValue || '',
+            };
+          } else if (question.type === 'single' || question.type === 'multiple') {
+            const answerOptionIds: string[] = [];
+            let answerText: string | undefined;
+
+            if (question.type === 'single') {
+              // Single choice: answer is a single value (option ID)
+              if (answer) {
+                answerOptionIds.push(answer as string);
+              }
+            } else if (question.type === 'multiple') {
+              // Multiple choice: answer is an array of option IDs
+              if (Array.isArray(answer)) {
+                answerOptionIds.push(...(answer as string[]));
+              }
+            }
+
+            // Handle "other" option
+            if (otherValue) {
+              answerText = otherValue;
+              // Find the "other" option ID
+              const otherOption = question.options?.find((opt) => opt.isOther);
+              if (otherOption) {
+                answerOptionIds.push(otherOption.value);
+              }
+            }
+
+            return {
+              questionId: question.id,
+              answerOptionIds: answerOptionIds.length > 0 ? answerOptionIds : undefined,
+              answerText,
+            };
+          } else if (question.type === 'combobox') {
+            // ComboBox: answer is an object with combobox item IDs as keys
+            const answerOptionIds: string[] = [];
+            if (answer && typeof answer === 'object') {
+              Object.values(answer).forEach((value) => {
+                if (typeof value === 'string') {
+                  answerOptionIds.push(value);
+                }
+              });
+            }
+            return {
+              questionId: question.id,
+              answerOptionIds: answerOptionIds.length > 0 ? answerOptionIds : undefined,
+            };
+          } else if (question.type === 'rating') {
+            // Rating: answer is an object with rating item IDs as keys
+            const answerOptionIds: string[] = [];
+            if (answer && typeof answer === 'object') {
+              Object.values(answer).forEach((value) => {
+                if (typeof value === 'string') {
+                  answerOptionIds.push(value);
+                }
+              });
+            }
+            return {
+              questionId: question.id,
+              answerOptionIds: answerOptionIds.length > 0 ? answerOptionIds : undefined,
+            };
+          }
+
+          // Default: return empty answer
+          return {
+            questionId: question.id,
+          };
+        }).filter((answer) => {
+          // Filter out empty answers
+          return (
+            answer.answerText !== undefined ||
+            (answer.answerOptionIds && answer.answerOptionIds.length > 0)
+          );
+        });
+
+        // Submit response
+        await submitResponseMutation.mutateAsync({
+          surveyId,
+          answers: submitAnswers,
+        });
+
         setCompleted(true);
         setSubmitting(false);
+        toast.success('Survey berhasil dikirim!');
         navigate('/tracer-study/success');
-      }, 2000);
+      } catch (error) {
+        logError(error, 'handleSubmit');
+        const errorMessage = getDetailedErrorMessage(
+          error,
+          'Gagal mengirim survey'
+        );
+        toast.error(errorMessage);
+        setSubmitting(false);
+      }
     },
-    [setSubmitting, setCompleted, navigate]
+    [
+      surveyId,
+      answers,
+      otherValues,
+      questions,
+      submitResponseMutation,
+      setSubmitting,
+      setCompleted,
+      navigate,
+    ]
   );
 
   if (!currentPage) {

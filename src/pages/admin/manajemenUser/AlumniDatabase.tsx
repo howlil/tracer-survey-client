@@ -39,15 +39,74 @@ import {
   Award,
   Building,
   UserCheck,
+  Download,
+  Upload,
+  FileSpreadsheet,
+  Plus,
 } from 'lucide-react';
 import * as React from 'react';
 import {useNavigate} from 'react-router-dom';
-import {useAlumni} from '@/api/alumni.api';
+import {
+  ALUMNI_QUERY_KEY,
+  createAlumniApi,
+  downloadAlumniTemplateApi,
+  importAlumniApi,
+  useAlumni,
+} from '@/api/alumni.api';
+import type {CreateAlumniPayload} from '@/api/alumni.api';
 import {useFaculties, useMajors} from '@/api/major-faculty.api';
+import {useMutation, useQueryClient} from '@tanstack/react-query';
+import {toast} from 'sonner';
+import {showSequentialErrorToasts} from '@/lib/error-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {getDetailedErrorMessage, logError} from '@/utils/error-handler';
+
+// Legacy function - using utility now
+const getErrorMessage = (error: unknown, fallback: string) => {
+  logError(error, 'AlumniDatabase');
+  return getDetailedErrorMessage(error, fallback);
+};
 
 function AlumniDatabase() {
   const navigate = useNavigate();
   const [showFilters, setShowFilters] = React.useState(false);
+  const [isManualDialogOpen, setIsManualDialogOpen] = React.useState(false);
+  const [isImportDialogOpen, setIsImportDialogOpen] = React.useState(false);
+  const [excelFile, setExcelFile] = React.useState<File | null>(null);
+  const excelFileInputRef = React.useRef<HTMLInputElement | null>(null);
+  type ManualFormState = {
+    nim: string;
+    fullName: string;
+    email: string;
+    facultyId: string;
+    majorId: string;
+    degree: string;
+    graduatedYear: string;
+    graduatePeriode: string;
+  };
+  const manualFormInitialState: ManualFormState = {
+    nim: '',
+    fullName: '',
+    email: '',
+    facultyId: '',
+    majorId: '',
+    degree: '',
+    graduatedYear: '',
+    graduatePeriode: '',
+  };
+  const [manualForm, setManualForm] = React.useState<ManualFormState>(
+    manualFormInitialState
+  );
+  const queryClient = useQueryClient();
+  const [isDownloadingTemplate, setIsDownloadingTemplate] =
+    React.useState(false);
 
   // Filter states
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -88,13 +147,18 @@ function AlumniDatabase() {
   const {data: faculties = []} = useFaculties();
   const {data: allMajors = []} = useMajors();
 
-  const alumni = alumniData?.alumni || [];
-  const meta = alumniData?.meta || {
-    total: 0,
-    limit: itemsPerPage,
-    page: currentPage,
-    totalPages: 0,
-  };
+  const alumni = React.useMemo(() => alumniData?.alumni || [], [alumniData]);
+  const meta = React.useMemo(
+    () =>
+      alumniData?.meta || {
+        total: 0,
+        limit: itemsPerPage,
+        page: currentPage,
+        totalPages: 0,
+      },
+    [alumniData, itemsPerPage, currentPage]
+  );
+  const stats = React.useMemo(() => alumniData?.stats, [alumniData]);
 
   // Get unique years for filter (from current data)
   const graduatedYears = React.useMemo(() => {
@@ -110,6 +174,14 @@ function AlumniDatabase() {
     return allMajors.filter((major) => major.faculty.id === selectedFaculty);
   }, [selectedFaculty, allMajors]);
 
+  const manualMajors = React.useMemo(() => {
+    if (!manualForm.facultyId || manualForm.facultyId === 'all')
+      return allMajors;
+    return allMajors.filter(
+      (major) => major.faculty.id === manualForm.facultyId
+    );
+  }, [manualForm.facultyId, allMajors]);
+
   // Clear all filters
   const clearFilters = () => {
     setSearchQuery('');
@@ -123,6 +195,108 @@ function AlumniDatabase() {
   // Toggle filters visibility
   const toggleFilters = () => {
     setShowFilters(!showFilters);
+  };
+
+  const updateManualForm = (field: keyof ManualFormState, value: string) => {
+    setManualForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const createAlumniMutation = useMutation({
+    mutationFn: createAlumniApi,
+    onSuccess: () => {
+      toast.success('Alumni berhasil ditambahkan');
+      setIsManualDialogOpen(false);
+      setManualForm(manualFormInitialState);
+      queryClient.invalidateQueries({queryKey: ALUMNI_QUERY_KEY});
+    },
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, 'Gagal menambah alumni'));
+    },
+  });
+
+  const importAlumniMutation = useMutation({
+    mutationFn: importAlumniApi,
+    onSuccess: (summary) => {
+      toast.success(
+        `Import selesai: ${summary.success}/${summary.total} berhasil`
+      );
+      if (summary.errors?.length) {
+        showSequentialErrorToasts({
+          messages: summary.errors.map(
+            (err) => `Baris ${err.row}: ${err.message}`
+          ),
+        });
+      }
+      setExcelFile(null);
+      if (excelFileInputRef.current) {
+        excelFileInputRef.current.value = '';
+      }
+      setIsImportDialogOpen(false);
+      queryClient.invalidateQueries({queryKey: ALUMNI_QUERY_KEY});
+    },
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, 'Gagal mengimpor alumni'));
+    },
+  });
+
+  const handleManualSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (
+      !manualForm.graduatedYear ||
+      !manualForm.facultyId ||
+      !manualForm.majorId ||
+      !manualForm.degree ||
+      !manualForm.graduatePeriode
+    ) {
+      toast.error('Lengkapi seluruh field wajib terlebih dahulu');
+      return;
+    }
+    const payload: CreateAlumniPayload = {
+      nim: manualForm.nim,
+      fullName: manualForm.fullName,
+      email: manualForm.email,
+      facultyId: manualForm.facultyId,
+      majorId: manualForm.majorId,
+      degree: manualForm.degree,
+      graduatedYear: parseInt(manualForm.graduatedYear, 10),
+      graduatePeriode:
+        manualForm.graduatePeriode as CreateAlumniPayload['graduatePeriode'],
+    };
+    createAlumniMutation.mutate(payload);
+  };
+
+  const handleTemplateDownload = async () => {
+    try {
+      setIsDownloadingTemplate(true);
+      const blob = await downloadAlumniTemplateApi();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'template-import-alumni.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error('Gagal mengunduh template alumni');
+    } finally {
+      setIsDownloadingTemplate(false);
+    }
+  };
+
+  const handleExcelFileChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0] || null;
+    setExcelFile(file);
+  };
+
+  const handleExcelUpload = () => {
+    if (!excelFile) return;
+    importAlumniMutation.mutate(excelFile);
   };
 
   return (
@@ -160,7 +334,7 @@ function AlumniDatabase() {
                     Total Alumni
                   </p>
                   <p className='text-2xl font-bold text-foreground'>
-                    {alumni.length}
+                    {stats?.totalAlumni ?? alumni.length}
                   </p>
                 </div>
                 <Users className='h-8 w-8 text-primary' />
@@ -176,11 +350,7 @@ function AlumniDatabase() {
                     Tahun Ini
                   </p>
                   <p className='text-2xl font-bold text-foreground'>
-                    {
-                      alumni.filter(
-                        (a) => a.graduatedYear === new Date().getFullYear()
-                      ).length
-                    }
+                    {stats?.alumniThisYear ?? 0}
                   </p>
                 </div>
                 <Calendar className='h-8 w-8 text-primary' />
@@ -196,7 +366,7 @@ function AlumniDatabase() {
                     Program Studi
                   </p>
                   <p className='text-2xl font-bold text-foreground'>
-                    {allMajors.length}
+                    {stats?.totalMajors ?? allMajors.length}
                   </p>
                 </div>
                 <BookOpen className='h-8 w-8 text-primary' />
@@ -212,10 +382,85 @@ function AlumniDatabase() {
                     Fakultas
                   </p>
                   <p className='text-2xl font-bold text-foreground'>
-                    {faculties.length}
+                    {stats?.totalFaculties ?? faculties.length}
                   </p>
                 </div>
                 <Building className='h-8 w-8 text-primary' />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Data Input Actions */}
+        <div className='grid grid-cols-1 xl:grid-cols-2 gap-6'>
+          <Card className='border-dashed border-primary/40 bg-primary/5'>
+            <CardContent className='p-6 flex flex-col gap-4'>
+              <div className='flex items-start justify-between gap-4'>
+                <div>
+                  <p className='text-sm font-medium text-primary'>
+                    Input Manual
+                  </p>
+                  <h3 className='text-xl font-semibold'>
+                    Tambah Alumni Per Akun
+                  </h3>
+                  <p className='text-sm text-muted-foreground'>
+                    Gunakan formulir ini untuk menambahkan alumni secara
+                    individual sebelum data besar diunggah.
+                  </p>
+                </div>
+                <Badge
+                  variant='outline'
+                  className='bg-background'
+                >
+                  Real-time
+                </Badge>
+              </div>
+              <div className='flex flex-wrap gap-3'>
+                <Button
+                  onClick={() => setIsManualDialogOpen(true)}
+                  className='flex items-center gap-2'
+                >
+                  <Plus className='h-4 w-4' />
+                  Tambah Alumni
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className='border-dashed border-border/60'>
+            <CardContent className='p-6 flex flex-col gap-4'>
+              <div className='flex items-start justify-between gap-4'>
+                <div>
+                  <p className='text-sm font-medium text-foreground'>
+                    Import Excel
+                  </p>
+                  <h3 className='text-xl font-semibold'>
+                    Unggah Banyak Alumni
+                  </h3>
+                  <p className='text-sm text-muted-foreground'>
+                    Unduh template resmi dan unggah kembali setelah diisi untuk
+                    mempercepat proses input massal.
+                  </p>
+                </div>
+                <FileSpreadsheet className='h-10 w-10 text-primary' />
+              </div>
+              <div className='flex flex-wrap gap-3'>
+                <Button
+                  variant='outline'
+                  onClick={handleTemplateDownload}
+                  disabled={isDownloadingTemplate}
+                  className='flex items-center gap-2'
+                >
+                  <Download className='h-4 w-4' />
+                  {isDownloadingTemplate ? 'Mengunduh...' : 'Download Template'}
+                </Button>
+                <Button
+                  onClick={() => setIsImportDialogOpen(true)}
+                  className='flex items-center gap-2'
+                >
+                  <Upload className='h-4 w-4' />
+                  Upload Excel
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -329,6 +574,8 @@ function AlumniDatabase() {
                       <SelectItem value='S1'>S1</SelectItem>
                       <SelectItem value='S2'>S2</SelectItem>
                       <SelectItem value='S3'>S3</SelectItem>
+                      <SelectItem value='VOKASI'>Vokasi</SelectItem>
+                      <SelectItem value='PASCA'>Pascasarjana</SelectItem>
                       <SelectItem value='PROFESI'>Profesi</SelectItem>
                     </SelectContent>
                   </Select>
@@ -400,7 +647,7 @@ function AlumniDatabase() {
                   </span>{' '}
                   dari{' '}
                   <span className='font-semibold text-foreground'>
-                    {meta.total}
+                    {stats?.filteredCount ?? meta.total}
                   </span>{' '}
                   alumni
                 </div>
@@ -468,8 +715,8 @@ function AlumniDatabase() {
                       <TableCell className='text-sm text-muted-foreground'>
                         {alumni.respondent.email}
                       </TableCell>
-                      <TableCell>{alumni.major.faculty.facultyName}</TableCell>
-                      <TableCell>{alumni.major.majorName}</TableCell>
+                      <TableCell>{alumni.major.faculty.name}</TableCell>
+                      <TableCell>{alumni.major.name}</TableCell>
                       <TableCell>
                         <Badge
                           variant={
@@ -513,6 +760,239 @@ function AlumniDatabase() {
             />
           </div>
         )}
+
+        {/* Manual Input Dialog */}
+        <Dialog
+          open={isManualDialogOpen}
+          onOpenChange={setIsManualDialogOpen}
+        >
+          <DialogContent className='sm:max-w-2xl'>
+            <form
+              onSubmit={handleManualSubmit}
+              className='space-y-6'
+            >
+              <DialogHeader>
+                <DialogTitle>Tambah Alumni Manual</DialogTitle>
+                <DialogDescription>
+                  Lengkapi data berikut untuk menambahkan satu alumni secara
+                  langsung ke database.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                <div className='space-y-2'>
+                  <Label htmlFor='manual-nim'>NIM</Label>
+                  <Input
+                    id='manual-nim'
+                    value={manualForm.nim}
+                    onChange={(e) => updateManualForm('nim', e.target.value)}
+                    placeholder='Contoh: 2018123456'
+                    required
+                  />
+                </div>
+                <div className='space-y-2'>
+                  <Label htmlFor='manual-fullname'>Nama Lengkap</Label>
+                  <Input
+                    id='manual-fullname'
+                    value={manualForm.fullName}
+                    onChange={(e) =>
+                      updateManualForm('fullName', e.target.value)
+                    }
+                    placeholder='Nama sesuai ijazah'
+                    required
+                  />
+                </div>
+                <div className='space-y-2'>
+                  <Label htmlFor='manual-email'>Email</Label>
+                  <Input
+                    id='manual-email'
+                    type='email'
+                    value={manualForm.email}
+                    onChange={(e) => updateManualForm('email', e.target.value)}
+                    placeholder='alumni@kampus.ac.id'
+                    required
+                  />
+                </div>
+                <div className='space-y-2'>
+                  <Label>Jenjang</Label>
+                  <Select
+                    value={manualForm.degree}
+                    onValueChange={(value) => updateManualForm('degree', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder='Pilih jenjang' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='S1'>S1</SelectItem>
+                      <SelectItem value='S2'>S2</SelectItem>
+                      <SelectItem value='S3'>S3</SelectItem>
+                      <SelectItem value='D3'>D3</SelectItem>
+                      <SelectItem value='PROFESI'>Profesi</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className='space-y-2'>
+                  <Label>Fakultas</Label>
+                  <Select
+                    value={manualForm.facultyId}
+                    onValueChange={(value) => {
+                      updateManualForm('facultyId', value);
+                      updateManualForm('majorId', '');
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder='Pilih fakultas' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {faculties.map((faculty) => (
+                        <SelectItem
+                          key={faculty.id}
+                          value={faculty.id}
+                        >
+                          {faculty.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className='space-y-2'>
+                  <Label>Program Studi</Label>
+                  <Select
+                    value={manualForm.majorId}
+                    onValueChange={(value) =>
+                      updateManualForm('majorId', value)
+                    }
+                    disabled={!manualForm.facultyId}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder='Pilih prodi' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {manualMajors.map((major) => (
+                        <SelectItem
+                          key={major.id}
+                          value={major.id}
+                        >
+                          {major.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className='space-y-2'>
+                  <Label>Tahun Lulus</Label>
+                  <Input
+                    type='number'
+                    min='2000'
+                    max={new Date().getFullYear()}
+                    value={manualForm.graduatedYear}
+                    onChange={(e) =>
+                      updateManualForm('graduatedYear', e.target.value)
+                    }
+                    placeholder='2024'
+                  />
+                </div>
+                <div className='space-y-2'>
+                  <Label>Periode Wisuda</Label>
+                  <Select
+                    value={manualForm.graduatePeriode}
+                    onValueChange={(value) =>
+                      updateManualForm('graduatePeriode', value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder='Pilih periode' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='WISUDA_I'>Wisuda I</SelectItem>
+                      <SelectItem value='WISUDA_II'>Wisuda II</SelectItem>
+                      <SelectItem value='WISUDA_III'>Wisuda III</SelectItem>
+                      <SelectItem value='WISUDA_IV'>Wisuda IV</SelectItem>
+                      <SelectItem value='WISUDA_V'>Wisuda V</SelectItem>
+                      <SelectItem value='WISUDA_VI'>Wisuda VI</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button
+                  type='button'
+                  variant='outline'
+                  onClick={() => setIsManualDialogOpen(false)}
+                >
+                  Batal
+                </Button>
+                <Button
+                  type='submit'
+                  disabled={createAlumniMutation.isPending}
+                >
+                  {createAlumniMutation.isPending
+                    ? 'Menyimpan...'
+                    : 'Simpan Alumni'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Import Dialog */}
+        <Dialog
+          open={isImportDialogOpen}
+          onOpenChange={setIsImportDialogOpen}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Unggah Excel Alumni</DialogTitle>
+              <DialogDescription>
+                Pastikan file mengikuti format template resmi sebelum unggah.
+              </DialogDescription>
+            </DialogHeader>
+            <div className='space-y-4'>
+              <div className='space-y-2'>
+                <Label htmlFor='alumni-excel'>Pilih File</Label>
+                <Input
+                  id='alumni-excel'
+                  type='file'
+                  accept='.xlsx,.xls,.csv'
+                  ref={excelFileInputRef}
+                  onChange={handleExcelFileChange}
+                />
+                <p className='text-xs text-muted-foreground'>
+                  Maksimal 5MB. Format yang didukung: .xlsx, .xls, .csv
+                </p>
+              </div>
+              {excelFile && (
+                <p className='text-sm font-medium'>
+                  File terpilih: {excelFile.name}
+                </p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={() => {
+                  setExcelFile(null);
+                  if (excelFileInputRef.current) {
+                    excelFileInputRef.current.value = '';
+                  }
+                  setIsImportDialogOpen(false);
+                }}
+              >
+                Batal
+              </Button>
+              <Button
+                onClick={handleExcelUpload}
+                disabled={!excelFile || importAlumniMutation.isPending}
+              >
+                {importAlumniMutation.isPending
+                  ? 'Memproses...'
+                  : 'Proses Upload'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AdminLayout>
   );

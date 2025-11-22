@@ -77,11 +77,12 @@ import {
   useCreateBlastEmail,
   useDeleteBlastEmail,
   usePreviewRecipientCount,
+  useEmailTemplates,
   type BlastEmail,
   type BlastEmailFormData,
 } from '@/api/email.api';
-import {useEmailTemplates} from '@/api/email.api';
 import {useFaculties, useMajors} from '@/api/major-faculty.api';
+import {useSurveys} from '@/api/survey.api';
 
 interface BlastEmailFormDataLocal {
   surveyId: string;
@@ -117,6 +118,10 @@ const KirimEmail: React.FC = () => {
       emailType: emailTypeFilter || undefined,
     });
   const {data: templatesData} = useEmailTemplates({limit: 100});
+  const {data: surveysData, isLoading: isLoadingSurveys} = useSurveys({
+    page: 1,
+    limit: 100,
+  });
   const createBlastEmailMutation = useCreateBlastEmail();
   const deleteBlastEmailMutation = useDeleteBlastEmail();
   const previewCountMutation = usePreviewRecipientCount();
@@ -124,6 +129,7 @@ const KirimEmail: React.FC = () => {
   // State management
   const blastEmails = blastEmailsData?.blastEmails || [];
   const emailTemplates = templatesData?.templates || [];
+  const surveys = surveysData?.surveys || [];
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewData, setPreviewData] =
@@ -707,6 +713,64 @@ const KirimEmail: React.FC = () => {
                     />
                   </div>
                 </div>
+              </div>
+
+              {/* Survey Selection */}
+              <div className='space-y-2'>
+                <Label
+                  htmlFor='surveyId'
+                  className='text-sm font-medium'
+                >
+                  Pilih Survey *
+                </Label>
+                <Select
+                  value={formData.surveyId}
+                  onValueChange={(value) =>
+                    handleInputChange('surveyId', value)
+                  }
+                >
+                  <SelectTrigger id='surveyId'>
+                    <SelectValue placeholder='Pilih survey' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {isLoadingSurveys ? (
+                      <SelectItem
+                        value='loading'
+                        disabled
+                      >
+                        Memuat daftar survey...
+                      </SelectItem>
+                    ) : surveys.length > 0 ? (
+                      surveys.map((survey) => (
+                        <SelectItem
+                          key={survey.id}
+                          value={survey.id}
+                        >
+                          <div className='flex flex-col'>
+                            <span className='font-medium'>{survey.name}</span>
+                            {survey.type && (
+                              <span className='text-xs text-muted-foreground'>
+                                {survey.type === 'TRACER_STUDY'
+                                  ? 'Tracer Study'
+                                  : 'User Survey'}
+                              </span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem
+                        value='empty'
+                        disabled
+                      >
+                        Tidak ada survey tersedia
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+                <p className='text-xs text-gray-500'>
+                  Survey yang menjadi target pengiriman email blast
+                </p>
               </div>
 
               {/* Template Selection Section */}

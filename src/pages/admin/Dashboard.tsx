@@ -1,5 +1,8 @@
 /** @format */
 
+import {useMemo} from 'react';
+
+import {useDashboardOverview} from '@/api/dashboard.api';
 import {AdminLayout} from '@/components/layout/admin';
 import {Badge} from '@/components/ui/badge';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
@@ -9,6 +12,7 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
 } from '@/components/ui/breadcrumb';
+import {Skeleton} from '@/components/ui/skeleton';
 
 import {
   AlertCircle,
@@ -124,77 +128,100 @@ function RecentActivityItem({type, name, status, time}: RecentActivityProps) {
   );
 }
 
-function Dashboard() {
-  
+const formatRelativeTime = (dateString?: string) => {
+  if (!dateString) return '-';
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return '-';
 
-  // Mock data - dalam implementasi nyata, data ini akan diambil dari API
+  const now = Date.now();
+  const diffMs = now - date.getTime();
+  if (diffMs < 0) return 'Baru saja';
+
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  const week = 7 * day;
+  const month = 30 * day;
+  const year = 365 * day;
+
+  if (diffMs < minute) return 'Baru saja';
+  if (diffMs < hour) {
+    const minutes = Math.floor(diffMs / minute);
+    return `${minutes} menit yang lalu`;
+  }
+  if (diffMs < day) {
+    const hours = Math.floor(diffMs / hour);
+    return `${hours} jam yang lalu`;
+  }
+  if (diffMs < week) {
+    const days = Math.floor(diffMs / day);
+    return `${days} hari yang lalu`;
+  }
+  if (diffMs < month) {
+    const weeks = Math.floor(diffMs / week);
+    return `${weeks} minggu yang lalu`;
+  }
+  if (diffMs < year) {
+    const months = Math.floor(diffMs / month);
+    return `${months} bulan yang lalu`;
+  }
+  const years = Math.floor(diffMs / year);
+  return `${years} tahun yang lalu`;
+};
+
+function Dashboard() {
+  const {data, isLoading, isError, refetch} = useDashboardOverview();
+
+  const numberFormatter = useMemo(() => new Intl.NumberFormat('id-ID'), []);
+
   const stats = [
     {
       title: 'Total Tracer Study',
-      value: '1,234',
-      change: '+12% dari bulan lalu',
-      changeType: 'positive' as const,
+      value: data?.stats
+        ? numberFormatter.format(data.stats.totalTracerStudy)
+        : '-',
       icon: FileText,
       description: 'Survei yang telah dikumpulkan',
     },
     {
       title: 'Total User Survey',
-      value: '856',
-      change: '+8% dari bulan lalu',
-      changeType: 'positive' as const,
+      value: data?.stats
+        ? numberFormatter.format(data.stats.totalUserSurvey)
+        : '-',
       icon: Users,
       description: 'Survei pengguna yang selesai',
     },
     {
       title: 'Response Rate',
-      value: '78.5%',
-      change: '+5.2% dari bulan lalu',
-      changeType: 'positive' as const,
+      value:
+        typeof data?.stats?.responseRate === 'number'
+          ? `${data.stats.responseRate.toFixed(1)}%`
+          : '-',
       icon: BarChart3,
       description: 'Tingkat respons keseluruhan',
     },
     {
       title: 'Pending Reviews',
-      value: '23',
-      change: '-3 dari kemarin',
-      changeType: 'positive' as const,
+      value: data?.stats
+        ? numberFormatter.format(data.stats.pendingReviews)
+        : '-',
       icon: Clock,
       description: 'Survei yang perlu ditinjau',
     },
   ];
 
-  const recentActivities: RecentActivityProps[] = [
-    {
-      type: 'tracer',
-      name: 'Ahmad Rizki - Teknik Informatika',
-      status: 'completed',
-      time: '2 jam yang lalu',
-    },
-    {
-      type: 'user',
-      name: 'PT. Maju Jaya - Perusahaan',
-      status: 'completed',
-      time: '3 jam yang lalu',
-    },
-    {
-      type: 'tracer',
-      name: 'Siti Nurhaliza - Manajemen',
-      status: 'in_progress',
-      time: '5 jam yang lalu',
-    },
-    {
-      type: 'user',
-      name: 'CV. Sukses Mandiri - Perusahaan',
-      status: 'pending',
-      time: '1 hari yang lalu',
-    },
-    {
-      type: 'tracer',
-      name: 'Budi Santoso - Akuntansi',
-      status: 'completed',
-      time: '1 hari yang lalu',
-    },
-  ];
+  const recentActivities: RecentActivityProps[] =
+    data?.recentActivities.map((activity) => ({
+      type: activity.type === 'TRACER_STUDY' ? 'tracer' : 'user',
+      name: activity.name,
+      status:
+        activity.status === 'PENDING'
+          ? 'pending'
+          : activity.status === 'IN_PROGRESS'
+            ? 'in_progress'
+            : 'completed',
+      time: formatRelativeTime(activity.submittedAt),
+    })) || [];
 
   return (
     <AdminLayout>
@@ -216,12 +243,24 @@ function Dashboard() {
 
         {/* Stats Grid */}
         <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
-          {stats.map((stat, index) => (
-            <StatCard
-              key={index}
-              {...stat}
-            />
-          ))}
+          {isLoading
+            ? Array.from({length: 4}).map((_, index) => (
+                <Card key={`skeleton-${index}`}>
+                  <CardHeader>
+                    <Skeleton className='h-4 w-24' />
+                  </CardHeader>
+                  <CardContent className='space-y-3'>
+                    <Skeleton className='h-6 w-32' />
+                    <Skeleton className='h-3 w-20' />
+                  </CardContent>
+                </Card>
+              ))
+            : stats.map((stat, index) => (
+                <StatCard
+                  key={index}
+                  {...stat}
+                />
+              ))}
         </div>
 
         {/* Content Grid */}
@@ -237,13 +276,45 @@ function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className='space-y-2'>
-                  {recentActivities.map((activity, index) => (
-                    <RecentActivityItem
-                      key={index}
-                      {...activity}
-                    />
-                  ))}
+                  {isLoading ? (
+                    Array.from({length: 5}).map((_, index) => (
+                      <div
+                        key={`activity-skeleton-${index}`}
+                        className='flex items-center space-x-3 p-3'
+                      >
+                        <Skeleton className='h-8 w-8 rounded-full' />
+                        <div className='flex-1 space-y-2'>
+                          <Skeleton className='h-4 w-48' />
+                          <Skeleton className='h-3 w-32' />
+                        </div>
+                        <Skeleton className='h-3 w-16' />
+                      </div>
+                    ))
+                  ) : recentActivities.length > 0 ? (
+                    recentActivities.map((activity, index) => (
+                      <RecentActivityItem
+                        key={index}
+                        {...activity}
+                      />
+                    ))
+                  ) : (
+                    <p className='text-sm text-muted-foreground'>
+                      Belum ada aktivitas terbaru.
+                    </p>
+                  )}
                 </div>
+                {isError && (
+                  <p className='text-sm text-red-600 mt-4'>
+                    Gagal memuat data dashboard.{' '}
+                    <button
+                      type='button'
+                      className='underline'
+                      onClick={() => refetch()}
+                    >
+                      Coba lagi
+                    </button>
+                  </p>
+                )}
               </CardContent>
             </Card>
           </div>

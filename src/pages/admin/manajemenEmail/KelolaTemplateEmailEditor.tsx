@@ -351,14 +351,9 @@ const KelolaTemplateEmailEditor: React.FC = () => {
   const insertVariable = (variable: string) => {
     if (!activeBlockId) return;
 
-    console.log('Inserting variable:', variable);
-    console.log('Active block ID:', activeBlockId);
-    console.log('Cursor position:', cursorPosition);
-
     // Handle subject field
     if (activeBlockId === 'subject') {
       const currentValue = formData.subject;
-      console.log('Current subject value:', currentValue);
 
       // Find the last "{{" before cursor
       const beforeCursor = currentValue.substring(0, cursorPosition);
@@ -369,10 +364,6 @@ const KelolaTemplateEmailEditor: React.FC = () => {
         const beforeBrace = currentValue.substring(0, lastOpenBrace);
         const afterCursor = currentValue.substring(cursorPosition);
         const newValue = beforeBrace + '{{' + variable + '}}' + afterCursor;
-
-        console.log('Before brace:', beforeBrace);
-        console.log('After cursor:', afterCursor);
-        console.log('New value:', newValue);
 
         handleInputChange('subject', newValue);
 
@@ -394,7 +385,6 @@ const KelolaTemplateEmailEditor: React.FC = () => {
 
       const field = 'content'; // Default to content field
       const currentValue = block[field] || '';
-      console.log('Current block value:', currentValue);
 
       // Find the last "{{" before cursor
       const beforeCursor = currentValue.substring(0, cursorPosition);
@@ -405,10 +395,6 @@ const KelolaTemplateEmailEditor: React.FC = () => {
         const beforeBrace = currentValue.substring(0, lastOpenBrace);
         const afterCursor = currentValue.substring(cursorPosition);
         const newValue = beforeBrace + '{{' + variable + '}}' + afterCursor;
-
-        console.log('Block before brace:', beforeBrace);
-        console.log('Block after cursor:', afterCursor);
-        console.log('Block new value:', newValue);
 
         updateEmailBlock(activeBlockId, {[field]: newValue});
 
