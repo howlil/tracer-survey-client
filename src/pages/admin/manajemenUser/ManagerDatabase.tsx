@@ -37,27 +37,25 @@ import {
   Briefcase,
   Mail,
   UserCheck,
-  Download,
-  Upload,
-  FileSpreadsheet,
   Plus,
+  AlertTriangle,
+  Eye,
+  EyeOff,
+  Copy,
+  ExternalLink,
 } from 'lucide-react';
 import * as React from 'react';
 import {useNavigate} from 'react-router-dom';
 import {
   MANAGER_QUERY_KEY,
-  createManagerApi,
-  downloadManagerTemplateApi,
-  importManagersApi,
+  generateManagersFromTracerStudyApi,
   useManagers,
   useCompanies,
   usePositions,
 } from '@/api/manager.api';
-import {Badge} from '@/components/ui/badge';
-import {Textarea} from '@/components/ui/textarea';
 import {useMutation, useQueryClient} from '@tanstack/react-query';
 import {toast} from 'sonner';
-import {showSequentialErrorToasts} from '@/lib/error-toast';
+import {getDetailedErrorMessage, logError} from '@/utils/error-handler';
 import {
   Dialog,
   DialogContent,
@@ -66,7 +64,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {getDetailedErrorMessage, logError} from '@/utils/error-handler';
 
 // Legacy function - using utility now
 const getErrorMessage = (error: unknown, fallback: string) => {
@@ -77,68 +74,32 @@ const getErrorMessage = (error: unknown, fallback: string) => {
 function ManagerDatabase() {
   const navigate = useNavigate();
   const [showFilters, setShowFilters] = React.useState(false);
-  const [isManualDialogOpen, setIsManualDialogOpen] = React.useState(false);
-  const [isImportDialogOpen, setIsImportDialogOpen] = React.useState(false);
-  const [excelFile, setExcelFile] = React.useState<File | null>(null);
-  const excelFileInputRef = React.useRef<HTMLInputElement | null>(null);
-  type ManualManagerFormState = {
-    fullName: string;
-    email: string;
-    company: string;
-    position: string;
-    phoneNumber: string;
-  };
-  const manualFormInitialState: ManualManagerFormState = {
-    fullName: '',
-    email: '',
-    company: '',
-    position: '',
-    phoneNumber: '',
-  };
-  const [manualForm, setManualForm] = React.useState<ManualManagerFormState>(
-    manualFormInitialState
-  );
-  const [alumniPinsInput, setAlumniPinsInput] = React.useState('');
+  const [showGenerateConfirm, setShowGenerateConfirm] = React.useState(false);
+  const [visiblePins, setVisiblePins] = React.useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
-  const [isDownloadingTemplate, setIsDownloadingTemplate] =
-    React.useState(false);
 
-  const createManagerMutation = useMutation({
-    mutationFn: createManagerApi,
-    onSuccess: () => {
-      toast.success('Manager berhasil ditambahkan');
-      setIsManualDialogOpen(false);
-      setManualForm(manualFormInitialState);
-      setAlumniPinsInput('');
-      queryClient.invalidateQueries({queryKey: MANAGER_QUERY_KEY});
-    },
-    onError: (error: unknown) => {
-      toast.error(getErrorMessage(error, 'Gagal menambahkan manager'));
-    },
-  });
-
-  const importManagersMutation = useMutation({
-    mutationFn: importManagersApi,
+  const generateManagersMutation = useMutation({
+    mutationFn: generateManagersFromTracerStudyApi,
     onSuccess: (summary) => {
-      toast.success(
-        `Import selesai: ${summary.success}/${summary.total} berhasil`
-      );
-      if (summary.errors?.length) {
-        showSequentialErrorToasts({
-          messages: summary.errors.map(
-            (err) => `Baris ${err.row}: ${err.message}`
-          ),
+      if (summary.success > 0) {
+        toast.success(
+          `Generate selesai: ${summary.success} manager berhasil dibuat dari ${summary.total} response`
+        );
+      } else {
+        toast.info('Tidak ada manager baru yang dapat dibuat. Semua response sudah memiliki manager atau data tidak lengkap.');
+      }
+      if (summary.errors?.length > 0) {
+        summary.errors.slice(0, 5).forEach((err) => {
+          toast.error(`${err.respondentName}: ${err.message}`);
         });
+        if (summary.errors.length > 5) {
+          toast.warning(`Dan ${summary.errors.length - 5} error lainnya...`);
+        }
       }
-      setExcelFile(null);
-      if (excelFileInputRef.current) {
-        excelFileInputRef.current.value = '';
-      }
-      setIsImportDialogOpen(false);
       queryClient.invalidateQueries({queryKey: MANAGER_QUERY_KEY});
     },
     onError: (error: unknown) => {
-      toast.error(getErrorMessage(error, 'Gagal mengimpor manager'));
+      toast.error(getErrorMessage(error, 'Gagal generate manager dari tracer study'));
     },
   });
 
@@ -193,63 +154,13 @@ function ManagerDatabase() {
     setShowFilters(!showFilters);
   };
 
-  const updateManualForm = (
-    field: keyof ManualManagerFormState,
-    value: string
-  ) => {
-    setManualForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+  const handleGenerateManagers = () => {
+    setShowGenerateConfirm(true);
   };
 
-  const handleManualSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const pins = alumniPinsInput
-      .split(/[\n,|;]/)
-      .map((pin) => pin.trim())
-      .filter(Boolean);
-
-    if (pins.length === 0) {
-      toast.error('Minimal satu PIN alumni diperlukan');
-      return;
-    }
-
-    createManagerMutation.mutate({
-      ...manualForm,
-      alumniPins: pins,
-    });
-  };
-
-  const handleTemplateDownload = async () => {
-    try {
-      setIsDownloadingTemplate(true);
-      const blob = await downloadManagerTemplateApi();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'template-import-manager.csv';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch {
-      toast.error('Gagal mengunduh template manager');
-    } finally {
-      setIsDownloadingTemplate(false);
-    }
-  };
-
-  const handleExcelFileChange = (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = event.target.files?.[0] || null;
-    setExcelFile(file);
-  };
-
-  const handleExcelUpload = () => {
-    if (!excelFile) return;
-    importManagersMutation.mutate(excelFile);
+  const confirmGenerateManagers = () => {
+    setShowGenerateConfirm(false);
+    generateManagersMutation.mutate();
   };
 
   return (
@@ -344,80 +255,43 @@ function ManagerDatabase() {
           </Card>
         </div>
 
-        {/* Data Input Actions */}
-        <div className='grid grid-cols-1 xl:grid-cols-2 gap-6'>
-          <Card className='border-dashed border-primary/40 bg-primary/5'>
-            <CardContent className='p-6 flex flex-col gap-4'>
-              <div className='flex items-start justify-between gap-4'>
-                <div>
-                  <p className='text-sm font-medium text-primary'>
-                    Input Manual
-                  </p>
-                  <h3 className='text-xl font-semibold'>
-                    Tambah Manager Per Akun
-                  </h3>
-                  <p className='text-sm text-muted-foreground'>
-                    Segera buat akun manager baru ketika bertemu pihak
-                    perusahaan tanpa menunggu file excel.
-                  </p>
-                </div>
-                <Badge
-                  variant='outline'
-                  className='bg-background'
-                >
-                  Real-time
-                </Badge>
+        {/* Generate Managers Action */}
+        <Card className='border-dashed border-primary/40 bg-primary/5'>
+          <CardContent className='p-6 flex flex-col gap-4'>
+            <div className='flex items-start justify-between gap-4'>
+              <div>
+                <p className='text-sm font-medium text-primary'>
+                  Generate Otomatis
+                </p>
+                <h3 className='text-xl font-semibold'>
+                  Generate Manager dari Tracer Study
+                </h3>
+                <p className='text-sm text-muted-foreground'>
+                  Manager akan dibuat otomatis dari response tracer study yang status bekerjanya "sudah bekerja" dan kelengkapannya 100%. Data perusahaan, posisi, dan nomor telepon akan diambil dari jawaban survey.
+                </p>
               </div>
-              <div className='flex flex-wrap gap-3'>
-                <Button
-                  onClick={() => setIsManualDialogOpen(true)}
-                  className='flex items-center gap-2'
-                >
-                  <Plus className='h-4 w-4' />
-                  Tambah Manager
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className='border-dashed border-border/60'>
-            <CardContent className='p-6 flex flex-col gap-4'>
-              <div className='flex items-start justify-between gap-4'>
-                <div>
-                  <p className='text-sm font-medium text-foreground'>
-                    Import Excel
-                  </p>
-                  <h3 className='text-xl font-semibold'>
-                    Unggah Banyak Manager
-                  </h3>
-                  <p className='text-sm text-muted-foreground'>
-                    Pakai template resmi untuk mempercepat onboarding manager di
-                    banyak perusahaan sekaligus.
-                  </p>
-                </div>
-                <FileSpreadsheet className='h-10 w-10 text-primary' />
-              </div>
-              <div className='flex flex-wrap gap-3'>
-                <Button
-                  variant='outline'
-                  onClick={handleTemplateDownload}
-                  disabled={isDownloadingTemplate}
-                  className='flex items-center gap-2'
-                >
-                  <Download className='h-4 w-4' />
-                  {isDownloadingTemplate ? 'Mengunduh...' : 'Download Template'}
-                </Button>
-                <Button
-                  onClick={() => setIsImportDialogOpen(true)}
-                  className='flex items-center gap-2'
-                >
-                  <Upload className='h-4 w-4' />
-                  Upload Excel
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+            <div className='flex flex-wrap gap-3'>
+              <Button
+                onClick={handleGenerateManagers}
+                disabled={generateManagersMutation.isPending}
+                className='flex items-center gap-2'
+              >
+                {generateManagersMutation.isPending ? (
+                  <>
+                    <div className='w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin' />
+                    <span>Memproses...</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus className='h-4 w-4' />
+                    Generate Manager
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Search and Filter Controls */}
         <div className='space-y-4'>
@@ -444,7 +318,7 @@ function ManagerDatabase() {
           </div>
 
           {showFilters && (
-            <div className='bg-gradient-to-r from-background via-muted/20 to-background rounded-xl p-6 border border-border/30 shadow-sm'>
+            <div className='bg-linear-to-r from-background via-muted/20 to-background rounded-xl p-6 border border-border/30 shadow-sm'>
               <div className='space-y-6'>
                 {/* Filter Grid */}
                 <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
@@ -543,6 +417,7 @@ function ManagerDatabase() {
                 <TableRow className='border-border/50 bg-muted/30'>
                   <TableHead className='font-semibold'>Nama Lengkap</TableHead>
                   <TableHead className='font-semibold'>Email</TableHead>
+                  <TableHead className='font-semibold'>PIN</TableHead>
                   <TableHead className='font-semibold'>Perusahaan</TableHead>
                   <TableHead className='font-semibold'>Posisi</TableHead>
                 </TableRow>
@@ -551,7 +426,7 @@ function ManagerDatabase() {
                 {isLoadingManagers ? (
                   <TableRow>
                     <TableCell
-                      colSpan={4}
+                      colSpan={6}
                       className='text-center py-8'
                     >
                       <p className='text-muted-foreground'>Memuat data...</p>
@@ -560,7 +435,7 @@ function ManagerDatabase() {
                 ) : managers.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={4}
+                      colSpan={6}
                       className='text-center py-8'
                     >
                       <p className='text-muted-foreground'>
@@ -585,6 +460,62 @@ function ManagerDatabase() {
                       </TableCell>
                       <TableCell>
                         <div className='flex items-center gap-2'>
+                          {manager.pin ? (
+                            <>
+                              <span className='font-mono text-sm'>
+                                {visiblePins.has(manager.id)
+                                  ? manager.pin
+                                  : '••••••'}
+                              </span>
+                              <Button
+                                variant='ghost'
+                                size='icon'
+                                className='h-6 w-6'
+                                onClick={() => {
+                                  const newVisiblePins = new Set(visiblePins);
+                                  if (newVisiblePins.has(manager.id)) {
+                                    newVisiblePins.delete(manager.id);
+                                  } else {
+                                    newVisiblePins.add(manager.id);
+                                  }
+                                  setVisiblePins(newVisiblePins);
+                                }}
+                                title={
+                                  visiblePins.has(manager.id)
+                                    ? 'Sembunyikan PIN'
+                                    : 'Tampilkan PIN'
+                                }
+                              >
+                                {visiblePins.has(manager.id) ? (
+                                  <EyeOff className='h-4 w-4' />
+                                ) : (
+                                  <Eye className='h-4 w-4' />
+                                )}
+                              </Button>
+                              <Button
+                                variant='ghost'
+                                size='icon'
+                                className='h-6 w-6'
+                                onClick={() => {
+                                  if (manager.pin) {
+                                    navigator.clipboard.writeText(manager.pin);
+                                    toast.success('PIN berhasil disalin');
+                                  }
+                                }}
+                                title='Salin PIN'
+                              >
+                                <Copy className='h-4 w-4' />
+                              </Button>
+                            </>
+                          ) : (
+                            <span className='text-sm text-muted-foreground'>
+                              -
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className='flex items-center gap-2'>
                           <Building2 className='h-4 w-4 text-muted-foreground' />
                           {manager.company}
                         </div>
@@ -594,6 +525,17 @@ function ManagerDatabase() {
                           <Briefcase className='h-4 w-4 text-muted-foreground' />
                           {manager.position}
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant='outline'
+                          size='sm'
+                          onClick={() => navigate(`/admin/users/manager/detail/${manager.id}`)}
+                          className='flex items-center gap-2'
+                        >
+                          <ExternalLink className='h-4 w-4' />
+                          Detail
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))
@@ -614,194 +556,63 @@ function ManagerDatabase() {
           </div>
         )}
 
-        {/* Manual Input Dialog */}
-        <Dialog
-          open={isManualDialogOpen}
-          onOpenChange={setIsManualDialogOpen}
-        >
-          <DialogContent>
-            <form
-              onSubmit={handleManualSubmit}
-              className='space-y-6'
-            >
-              <DialogHeader>
-                <DialogTitle>Tambah Manager Manual</DialogTitle>
-                <DialogDescription>
-                  Pastikan alamat email aktif karena kredensial akan dikirimkan
-                  secara otomatis setelah integrasi backend.
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                <div className='space-y-2'>
-                  <Label htmlFor='manager-fullname'>Nama Lengkap</Label>
-                  <Input
-                    id='manager-fullname'
-                    value={manualForm.fullName}
-                    onChange={(e) =>
-                      updateManualForm('fullName', e.target.value)
-                    }
-                    placeholder='Nama manager'
-                    required
-                  />
-                </div>
-                <div className='space-y-2'>
-                  <Label htmlFor='manager-email'>Email</Label>
-                  <Input
-                    id='manager-email'
-                    type='email'
-                    value={manualForm.email}
-                    onChange={(e) => updateManualForm('email', e.target.value)}
-                    placeholder='manager@perusahaan.com'
-                    required
-                  />
-                </div>
-                <div className='space-y-2'>
-                  <Label htmlFor='manager-company'>Perusahaan</Label>
-                  <Input
-                    id='manager-company'
-                    list='company-list'
-                    value={manualForm.company}
-                    onChange={(e) =>
-                      updateManualForm('company', e.target.value)
-                    }
-                    placeholder='Nama perusahaan'
-                    required
-                  />
-                  <datalist id='company-list'>
-                    {companies.map((company) => (
-                      <option
-                        key={company}
-                        value={company}
-                      />
-                    ))}
-                  </datalist>
-                </div>
-                <div className='space-y-2'>
-                  <Label htmlFor='manager-position'>Posisi</Label>
-                  <Input
-                    id='manager-position'
-                    list='position-list'
-                    value={manualForm.position}
-                    onChange={(e) =>
-                      updateManualForm('position', e.target.value)
-                    }
-                    placeholder='Contoh: HR Manager'
-                    required
-                  />
-                  <datalist id='position-list'>
-                    {positions.map((position) => (
-                      <option
-                        key={position}
-                        value={position}
-                      />
-                    ))}
-                  </datalist>
-                </div>
-                <div className='space-y-2 md:col-span-2'>
-                  <Label htmlFor='manager-phone'>Nomor Telepon</Label>
-                  <Input
-                    id='manager-phone'
-                    type='tel'
-                    value={manualForm.phoneNumber}
-                    onChange={(e) =>
-                      updateManualForm('phoneNumber', e.target.value)
-                    }
-                    placeholder='+62xxxxxxxxxxx'
-                  />
-                </div>
-                <div className='space-y-2 md:col-span-2'>
-                  <Label htmlFor='manager-pins'>PIN Alumni</Label>
-                  <Textarea
-                    id='manager-pins'
-                    value={alumniPinsInput}
-                    onChange={(e) => setAlumniPinsInput(e.target.value)}
-                    placeholder='Contoh: PIN123, PIN456 atau pisahkan per baris'
-                    rows={3}
-                    required
-                  />
-                  <p className='text-xs text-muted-foreground'>
-                    Minimal satu PIN alumni. Gunakan koma, garis miring, atau
-                    baris baru untuk memisahkan lebih dari satu PIN.
-                  </p>
-                </div>
-              </div>
-
-              <DialogFooter>
-                <Button
-                  type='button'
-                  variant='outline'
-                  onClick={() => setIsManualDialogOpen(false)}
-                >
-                  Batal
-                </Button>
-                <Button
-                  type='submit'
-                  disabled={createManagerMutation.isPending}
-                >
-                  {createManagerMutation.isPending
-                    ? 'Menyimpan...'
-                    : 'Simpan Manager'}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-
-        {/* Import Dialog */}
-        <Dialog
-          open={isImportDialogOpen}
-          onOpenChange={setIsImportDialogOpen}
-        >
-          <DialogContent>
+        {/* Generate Confirmation Modal */}
+        <Dialog open={showGenerateConfirm} onOpenChange={setShowGenerateConfirm}>
+          <DialogContent className='sm:max-w-[500px]'>
             <DialogHeader>
-              <DialogTitle>Unggah Excel Manager</DialogTitle>
-              <DialogDescription>
-                Gunakan file hasil unduhan template agar struktur kolom sesuai
-                dengan sistem.
+              <div className='flex items-center gap-3 mb-2'>
+                <div className='p-2 bg-orange-100 dark:bg-orange-900/20 rounded-lg'>
+                  <AlertTriangle className='h-6 w-6 text-orange-600 dark:text-orange-400' />
+                </div>
+                <DialogTitle className='text-xl font-semibold'>
+                  Konfirmasi Generate Manager
+                </DialogTitle>
+              </div>
+              <DialogDescription className='text-base pt-2'>
+                Apakah Anda yakin ingin generate manager dari tracer study?
               </DialogDescription>
             </DialogHeader>
-            <div className='space-y-4'>
-              <div className='space-y-2'>
-                <Label htmlFor='manager-excel'>Pilih File</Label>
-                <Input
-                  id='manager-excel'
-                  type='file'
-                  accept='.xlsx,.xls,.csv'
-                  ref={excelFileInputRef}
-                  onChange={handleExcelFileChange}
-                />
-                <p className='text-xs text-muted-foreground'>
-                  Maksimal 5MB. Format: .xlsx, .xls, .csv
+            <div className='py-4 space-y-3'>
+              <div className='bg-muted/50 rounded-lg p-4 space-y-2'>
+                <p className='text-sm font-medium text-foreground'>
+                  Manager akan dibuat otomatis dengan ketentuan:
+                </p>
+                <ul className='text-sm text-muted-foreground space-y-1 list-disc list-inside'>
+                  <li>Status kerja adalah "Bekerja (Full Time)", "Bekerja (Part Time)", atau "Wiraswasta"</li>
+                  <li>Kelengkapan survey mencapai 100%</li>
+                  <li>Data perusahaan, posisi, nama atasan, dan email atasan tersedia</li>
+                </ul>
+              </div>
+              <div className='bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3'>
+                <p className='text-sm text-blue-900 dark:text-blue-200'>
+                  <strong>Catatan:</strong> Setiap manager akan mendapatkan PIN baru yang unik untuk user survey.
                 </p>
               </div>
-              {excelFile && (
-                <p className='text-sm font-medium'>
-                  File terpilih: {excelFile.name}
-                </p>
-              )}
             </div>
-            <DialogFooter>
+            <DialogFooter className='gap-2 sm:gap-0'>
               <Button
-                type='button'
                 variant='outline'
-                onClick={() => {
-                  setExcelFile(null);
-                  if (excelFileInputRef.current) {
-                    excelFileInputRef.current.value = '';
-                  }
-                  setIsImportDialogOpen(false);
-                }}
+                onClick={() => setShowGenerateConfirm(false)}
+                disabled={generateManagersMutation.isPending}
               >
                 Batal
               </Button>
               <Button
-                onClick={handleExcelUpload}
-                disabled={!excelFile || importManagersMutation.isPending}
+                onClick={confirmGenerateManagers}
+                disabled={generateManagersMutation.isPending}
+                className='bg-primary hover:bg-primary/90'
               >
-                {importManagersMutation.isPending
-                  ? 'Memproses...'
-                  : 'Proses Upload'}
+                {generateManagersMutation.isPending ? (
+                  <>
+                    <div className='w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2' />
+                    Memproses...
+                  </>
+                ) : (
+                  <>
+                    <Plus className='h-4 w-4 mr-2' />
+                    Generate Manager
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>

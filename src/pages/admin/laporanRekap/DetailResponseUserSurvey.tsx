@@ -32,7 +32,22 @@ import {
 } from '@/components/ui/breadcrumb';
 import {useNavigate, useParams} from 'react-router-dom';
 import {toast} from 'sonner';
-import {useUserSurveyResponseDetail} from '@/api/response.api';
+import {useUserSurveyResponseDetail, type QuestionResponse} from '@/api/response.api';
+
+// Extended type for rating questions with children
+type RatingQuestionResponse = QuestionResponse & {
+  children?: Array<{
+    id: string;
+    questionText: string;
+    isAnswered: boolean;
+    answer: string | null;
+  }>;
+  answerOptions?: Array<{
+    id: string;
+    optionText: string;
+    isSelected?: boolean;
+  }>;
+};
 
 const DetailResponseUserSurvey: React.FC = () => {
   const navigate = useNavigate();
@@ -56,6 +71,14 @@ const DetailResponseUserSurvey: React.FC = () => {
         return 'Pilihan Tunggal';
       case 'MULTIPLE_CHOICE':
         return 'Pilihan Ganda';
+      case 'MATRIX_SINGLE_CHOICE':
+        return 'Rating/Matrix';
+      case 'ESSAY':
+        return 'Esai';
+      case 'LONG_TEST':
+        return 'Teks Panjang';
+      case 'COMBO_BOX':
+        return 'Combo Box';
       case 'TEXT':
         return 'Teks';
       case 'SCALE':
@@ -63,13 +86,13 @@ const DetailResponseUserSurvey: React.FC = () => {
       case 'DATE':
         return 'Tanggal';
       default:
-        return type.replace('_', ' ');
+        return type.replace(/_/g, ' ');
     }
   };
 
   const handleExport = () => {
-    // Implement export functionality
-    toast.success('Data berhasil diekspor');
+    // TODO: Implement export functionality
+    toast.info('Fitur export sedang dalam pengembangan');
   };
 
   const getFilteredResponses = () => {
@@ -147,7 +170,7 @@ const DetailResponseUserSurvey: React.FC = () => {
 
   return (
     <AdminLayout>
-      <div className='p-4'>
+      <div className='p-6'>
         {/* Breadcrumb */}
         <Breadcrumb>
           <BreadcrumbList>
@@ -198,7 +221,13 @@ const DetailResponseUserSurvey: React.FC = () => {
                 className='px-2 py-1 text-xs'
               >
                 <Calendar className='h-3 w-3 mr-1' />
-                {new Date(response.submittedAt).toLocaleDateString('id-ID')}
+                {(() => {
+                  const date = new Date(response.submittedAt);
+                  const day = String(date.getDate()).padStart(2, '0');
+                  const month = String(date.getMonth() + 1).padStart(2, '0');
+                  const year = date.getFullYear();
+                  return `${day}/${month}/${year}`;
+                })()}
               </Badge>
             )}
             <Button
@@ -251,7 +280,13 @@ const DetailResponseUserSurvey: React.FC = () => {
                 <div className='text-sm text-gray-600 mb-1'>Tanggal Submit</div>
                 <p className='font-medium text-gray-900'>
                   {response.submittedAt
-                    ? new Date(response.submittedAt).toLocaleDateString('id-ID')
+                    ? (() => {
+                        const date = new Date(response.submittedAt);
+                        const day = String(date.getDate()).padStart(2, '0');
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const year = date.getFullYear();
+                        return `${day}/${month}/${year}`;
+                      })()
                     : '-'}
                 </p>
               </div>
@@ -343,6 +378,12 @@ const DetailResponseUserSurvey: React.FC = () => {
                         <SelectItem value='MULTIPLE_CHOICE'>
                           Pilihan Ganda
                         </SelectItem>
+                        <SelectItem value='MATRIX_SINGLE_CHOICE'>
+                          Rating/Matrix
+                        </SelectItem>
+                        <SelectItem value='ESSAY'>Esai</SelectItem>
+                        <SelectItem value='LONG_TEST'>Teks Panjang</SelectItem>
+                        <SelectItem value='COMBO_BOX'>Combo Box</SelectItem>
                         <SelectItem value='TEXT'>Teks</SelectItem>
                         <SelectItem value='SCALE'>Skala</SelectItem>
                         <SelectItem value='DATE'>Tanggal</SelectItem>
@@ -426,7 +467,130 @@ const DetailResponseUserSurvey: React.FC = () => {
                     {questionResponse.questionText}
                   </h4>
 
-                  {questionResponse.isAnswered ? (
+                  {/* For rating questions, show as rating table */}
+                  {questionResponse.questionType === 'MATRIX_SINGLE_CHOICE' && 
+                   (() => {
+                     const ratingQuestion = questionResponse as RatingQuestionResponse
+                     return ratingQuestion.children && 
+                       Array.isArray(ratingQuestion.children) && 
+                       ratingQuestion.children.length > 0
+                   })() ? (
+                    <div className='overflow-x-auto'>
+                      <table className='w-full border-collapse rounded-lg overflow-hidden border border-gray-200'>
+                        <thead>
+                          <tr className='border-b border-gray-200 bg-gray-100'>
+                            <th className='text-left py-3 px-4 font-normal text-gray-900 bg-gray-100 rounded-tl-lg min-w-[200px] w-1/3'>
+                              Uraian
+                            </th>
+                            {(() => {
+                              const ratingQuestion = questionResponse as RatingQuestionResponse
+                              const answerOptions = ratingQuestion.answerOptions
+                              
+                              if (answerOptions && Array.isArray(answerOptions) && answerOptions.length > 0) {
+                                return answerOptions.map((option, index) => (
+                                  <th
+                                    key={option.id}
+                                    className={`text-center py-3 px-2 font-normal text-gray-900 bg-gray-100 min-w-[80px] ${
+                                      index === answerOptions.length - 1 ? 'rounded-tr-lg' : ''
+                                    }`}
+                                  >
+                                    {option.optionText}
+                                  </th>
+                                ))
+                              }
+                              
+                              // Fallback default options
+                              return (
+                                <>
+                                  <th className='text-center py-3 px-2 font-normal text-gray-900 bg-gray-100 min-w-[80px]'>Sangat Tinggi</th>
+                                  <th className='text-center py-3 px-2 font-normal text-gray-900 bg-gray-100 min-w-[80px]'>Tinggi</th>
+                                  <th className='text-center py-3 px-2 font-normal text-gray-900 bg-gray-100 min-w-[80px]'>Cukup</th>
+                                  <th className='text-center py-3 px-2 font-normal text-gray-900 bg-gray-100 min-w-[80px]'>Rendah</th>
+                                  <th className='text-center py-3 px-2 font-normal text-gray-900 bg-gray-100 min-w-[80px] rounded-tr-lg'>Sangat Rendah</th>
+                                </>
+                              )
+                            })()}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(() => {
+                            const ratingQuestion = questionResponse as RatingQuestionResponse
+                            const children = ratingQuestion.children || []
+                            
+                            // Get rating options from answerOptions or use default
+                            const ratingOptions = ratingQuestion.answerOptions && 
+                              Array.isArray(ratingQuestion.answerOptions) &&
+                              ratingQuestion.answerOptions.length > 0
+                              ? ratingQuestion.answerOptions
+                              : [
+                                  { id: '1', optionText: 'Sangat Tinggi' },
+                                  { id: '2', optionText: 'Tinggi' },
+                                  { id: '3', optionText: 'Cukup' },
+                                  { id: '4', optionText: 'Rendah' },
+                                  { id: '5', optionText: 'Sangat Rendah' }
+                                ]
+                            
+                            return children.map((child, index) => {
+                              const isLastRow = index === children.length - 1
+                              
+                              // Find which option matches the child's answer
+                              // The answer is the optionText from answerOptionQuestion
+                              const selectedOption = child.isAnswered && child.answer
+                                ? ratingOptions.find(opt => 
+                                    opt.optionText === child.answer || 
+                                    opt.id === child.answer ||
+                                    (opt.optionText && child.answer && child.answer.includes(opt.optionText))
+                                  )
+                                : null
+                              
+                              return (
+                                <tr
+                                  key={child.id}
+                                  className={`border-b border-gray-200 ${
+                                    index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                                  }`}
+                                >
+                                  <td className={`py-3 px-4 text-sm text-gray-900 ${
+                                    isLastRow ? 'rounded-bl-lg' : ''
+                                  }`}>
+                                    {child.questionText}
+                                  </td>
+                                  {ratingOptions.map((option, optionIndex) => {
+                                    // Check if this option is the selected one
+                                    const isSelected = selectedOption && (
+                                      selectedOption.id === option.id ||
+                                      selectedOption.optionText === option.optionText
+                                    )
+                                    
+                                    return (
+                                      <td
+                                        key={option.id || optionIndex}
+                                        className={`py-3 px-2 text-center ${
+                                          isLastRow && optionIndex === ratingOptions.length - 1 ? 'rounded-br-lg' : ''
+                                        }`}
+                                      >
+                                        <div className='flex justify-center'>
+                                          <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${
+                                            isSelected
+                                              ? 'border-primary bg-primary'
+                                              : 'border-gray-300 bg-white'
+                                          }`}>
+                                            {isSelected && (
+                                              <div className='h-2 w-2 rounded-full bg-white' />
+                                            )}
+                                          </div>
+                                        </div>
+                                      </td>
+                                    )
+                                  })}
+                                </tr>
+                              )
+                            })
+                          })()}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : questionResponse.isAnswered ? (
                     <div className='bg-gray-50 p-3 rounded border'>
                       <div className='text-sm text-gray-600 mb-1'>Jawaban:</div>
                       <p className='text-gray-900 font-medium'>

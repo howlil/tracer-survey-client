@@ -385,7 +385,13 @@ const SurveyManagement: React.FC = () => {
                       <TableCell>
                         <div className='flex items-center space-x-2'>
                           <FileText className='h-4 w-4 text-muted-foreground' />
-                          <span>{survey.questionCount || 0} soal</span>
+                          <span>
+                            {(() => {
+                              const count = survey.questionCount || 0;
+                              console.log('[SurveyManagement] Survey ID:', survey.id, 'Question Count:', count, 'Full Survey:', survey);
+                              return count;
+                            })()} soal
+                          </span>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -431,38 +437,40 @@ const SurveyManagement: React.FC = () => {
                                 <AlertDialogTitle>
                                   Hapus Survey?
                                 </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  {survey.responseCount && survey.responseCount > 0 ? (
-                                    <div className='space-y-2'>
-                                      <p className='text-red-600 font-medium'>
-                                        Survey ini tidak dapat dihapus karena sudah memiliki {survey.responseCount} response.
-                                      </p>
-                                      <p className='text-sm'>
-                                        Hanya survey tanpa response yang dapat dihapus. Survey dengan response harus di-archive atau di-close terlebih dahulu.
-                                      </p>
-                                    </div>
-                                  ) : (
-                                    <div className='space-y-2'>
-                                      <p>
-                                        Apakah Anda yakin ingin menghapus survey ini?
-                                        Tindakan ini tidak dapat dibatalkan.
-                                      </p>
-                                      <div className='bg-muted p-3 rounded-md text-sm space-y-1'>
-                                        <div>
-                                          <span className='font-medium'>Data yang akan dihapus:</span>
+                                <AlertDialogDescription asChild>
+                                  <div>
+                                    {survey.responseCount && survey.responseCount > 0 ? (
+                                      <div className='space-y-2'>
+                                        <div className='text-red-600 font-medium'>
+                                          Survey ini tidak dapat dihapus karena sudah memiliki {survey.responseCount} response.
                                         </div>
-                                        <ul className='list-disc list-inside space-y-1 ml-2'>
-                                          <li>Semua soal dan pertanyaan ({survey.questionCount || 0} soal)</li>
-                                          <li>Semua rules ({survey.surveyRulesCount || 0} rules)</li>
-                                          <li>Semua email blast terkait</li>
-                                          <li>Survey itu sendiri</li>
-                                        </ul>
-                                        <p className='text-xs text-muted-foreground mt-2'>
-                                          Catatan: Survey tanpa response dapat dihapus. Survey dengan response tidak dapat dihapus.
-                                        </p>
+                                        <div className='text-sm'>
+                                          Hanya survey tanpa response yang dapat dihapus. Survey dengan response harus di-archive atau di-close terlebih dahulu.
+                                        </div>
                                       </div>
-                                    </div>
-                                  )}
+                                    ) : (
+                                      <div className='space-y-2'>
+                                        <div>
+                                          Apakah Anda yakin ingin menghapus survey ini?
+                                          Tindakan ini tidak dapat dibatalkan.
+                                        </div>
+                                        <div className='bg-muted p-3 rounded-md text-sm space-y-1'>
+                                          <div>
+                                            <span className='font-medium'>Data yang akan dihapus:</span>
+                                          </div>
+                                          <ul className='list-disc list-inside space-y-1 ml-2'>
+                                            <li>Semua soal dan pertanyaan ({survey.questionCount || 0} soal)</li>
+                                            <li>Semua rules ({survey.surveyRulesCount || 0} rules)</li>
+                                            <li>Semua email blast terkait</li>
+                                            <li>Survey itu sendiri</li>
+                                          </ul>
+                                          <div className='text-xs text-muted-foreground mt-2'>
+                                            Catatan: Survey tanpa response dapat dihapus. Survey dengan response tidak dapat dihapus.
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>

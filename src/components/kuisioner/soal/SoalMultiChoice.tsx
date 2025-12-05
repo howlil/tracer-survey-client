@@ -47,6 +47,14 @@ function SoalMultiChoice({
   errorMessage = "Harap isi jawaban lainnya",
   ...props
 }: SoalMultiChoiceProps) {
+  // Filter out non-DOM props
+  const {
+    parentId: _parentId,
+    groupQuestionId: _groupQuestionId,
+    pageNumber: _pageNumber,
+    questionTree: _questionTree,
+    ...domProps
+  } = props as Record<string, unknown>
   const handleValueChange = React.useCallback((opsiValue: string, checked: boolean) => {
     if (!onChange) return
     
@@ -114,7 +122,7 @@ function SoalMultiChoice({
           layout === "vertical" && "space-y-2",
           "transition-all duration-200"
         )}
-        {...props}
+        {...domProps}
       >
         {opsiJawaban.map((opsi, index) => {
           const isSelected = value.includes(opsi.value)

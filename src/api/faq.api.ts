@@ -5,20 +5,20 @@ import {useQuery, useMutation, useQueryClient} from '@tanstack/react-query';
 
 export interface FAQ {
   id: string;
-  title: string;
-  link: string;
+  question: string;
+  answer: string;
   createdAt?: string;
   updatedAt?: string;
 }
 
 export interface CreateFAQRequest {
-  title: string;
-  link: string;
+  question: string;
+  answer: string;
 }
 
 export interface UpdateFAQRequest {
-  title?: string;
-  link?: string;
+  question?: string;
+  answer?: string;
 }
 
 export interface ApiResponse<T> {
@@ -29,6 +29,16 @@ export interface ApiResponse<T> {
 
 const getFAQsApi = async (): Promise<FAQ[]> => {
   const response = await axiosInstance.get<ApiResponse<FAQ[]>>('/v1/faqs');
+
+  if (response.data.success && response.data.data) {
+    return response.data.data;
+  }
+
+  throw new Error(response.data.message || 'Failed to fetch FAQs');
+};
+
+const getFAQsPublicApi = async (): Promise<FAQ[]> => {
+  const response = await axiosInstance.get<ApiResponse<FAQ[]>>('/v1/faqs/public');
 
   if (response.data.success && response.data.data) {
     return response.data.data;
@@ -79,6 +89,13 @@ export const useFAQs = () => {
   return useQuery({
     queryKey: FAQ_QUERY_KEY,
     queryFn: getFAQsApi,
+  });
+};
+
+export const useFAQsPublic = () => {
+  return useQuery({
+    queryKey: [...FAQ_QUERY_KEY, 'public'],
+    queryFn: getFAQsPublicApi,
   });
 };
 

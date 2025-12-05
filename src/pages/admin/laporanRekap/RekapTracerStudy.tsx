@@ -45,6 +45,14 @@ import {
   Search,
   ChevronDown,
 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {useNavigate} from 'react-router-dom';
 import {
   useTracerStudyResponses,
@@ -62,6 +70,7 @@ interface FilterData {
   graduatePeriode: string;
   degree: string;
   searchTerm: string;
+  completionStatus?: string;
 }
 
 const RekapTracerStudy: React.FC = () => {
@@ -81,6 +90,16 @@ const RekapTracerStudy: React.FC = () => {
     searchTerm: '',
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportFilters, setExportFilters] = useState<FilterData>({
+    facultyId: 'all',
+    majorId: 'all',
+    graduatedYear: 'all',
+    graduatePeriode: 'all',
+    degree: 'all',
+    searchTerm: '',
+    completionStatus: 'all',
+  });
 
   // API hooks
   const {data: responsesData, isLoading: isLoadingResponses} =
@@ -145,30 +164,47 @@ const RekapTracerStudy: React.FC = () => {
     setCurrentPage(1);
   };
 
+  const handleOpenExportModal = () => {
+    // Initialize export filters with current filters
+    setExportFilters({
+      facultyId: filters.facultyId,
+      majorId: filters.majorId,
+      graduatedYear: filters.graduatedYear,
+      graduatePeriode: filters.graduatePeriode,
+      degree: filters.degree,
+      searchTerm: filters.searchTerm,
+    });
+    setShowExportModal(true);
+  };
+
   const handleExport = async (format: 'excel' | 'pdf' = 'excel') => {
     try {
       const blob = await exportMutation.mutateAsync({
         format,
-        search: filters.searchTerm || undefined,
+        search: exportFilters.searchTerm || undefined,
         facultyId:
-          filters.facultyId && filters.facultyId !== 'all'
-            ? filters.facultyId
+          exportFilters.facultyId && exportFilters.facultyId !== 'all'
+            ? exportFilters.facultyId
             : undefined,
         majorId:
-          filters.majorId && filters.majorId !== 'all'
-            ? filters.majorId
+          exportFilters.majorId && exportFilters.majorId !== 'all'
+            ? exportFilters.majorId
             : undefined,
         graduatedYear:
-          filters.graduatedYear && filters.graduatedYear !== 'all'
-            ? parseInt(filters.graduatedYear)
+          exportFilters.graduatedYear && exportFilters.graduatedYear !== 'all'
+            ? parseInt(exportFilters.graduatedYear)
             : undefined,
         graduatePeriode:
-          filters.graduatePeriode && filters.graduatePeriode !== 'all'
-            ? filters.graduatePeriode
+          exportFilters.graduatePeriode && exportFilters.graduatePeriode !== 'all'
+            ? exportFilters.graduatePeriode
             : undefined,
         degree:
-          filters.degree && filters.degree !== 'all'
-            ? filters.degree
+          exportFilters.degree && exportFilters.degree !== 'all'
+            ? exportFilters.degree
+            : undefined,
+        completionStatus:
+          exportFilters.completionStatus && exportFilters.completionStatus !== 'all'
+            ? exportFilters.completionStatus
             : undefined,
       });
 
@@ -184,6 +220,7 @@ const RekapTracerStudy: React.FC = () => {
       window.URL.revokeObjectURL(url);
 
       toast.success('Data berhasil diekspor');
+      setShowExportModal(false);
     } catch {
       toast.error('Gagal mengekspor data');
     }
@@ -252,7 +289,7 @@ const RekapTracerStudy: React.FC = () => {
 
             {/* Button Export */}
             <Button
-              onClick={() => handleExport('excel')}
+              onClick={handleOpenExportModal}
               disabled={exportMutation.isPending}
             >
               <Download className='mr-2 h-4 w-4' />
@@ -722,6 +759,221 @@ const RekapTracerStudy: React.FC = () => {
             </div>
           )}
         </Card>
+
+        {/* Export Filter Modal */}
+        <Dialog open={showExportModal} onOpenChange={setShowExportModal}>
+          <DialogContent className='sm:max-w-[600px] max-h-[90vh] overflow-y-auto'>
+            <DialogHeader>
+              <DialogTitle className='flex items-center gap-2'>
+                <Download className='h-5 w-5' />
+                Export Data Excel
+              </DialogTitle>
+              <DialogDescription>
+                Pilih filter yang akan digunakan untuk export data. Data akan diekspor sesuai dengan filter yang dipilih.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className='space-y-4 py-4'>
+              {/* Search */}
+              <div className='space-y-2'>
+                <Label htmlFor='export-search'>Cari Alumni</Label>
+                <Input
+                  id='export-search'
+                  placeholder='Cari berdasarkan nama, email, atau NIM...'
+                  value={exportFilters.searchTerm}
+                  onChange={(e) =>
+                    setExportFilters((prev) => ({
+                      ...prev,
+                      searchTerm: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                {/* Faculty */}
+                <div className='space-y-2'>
+                  <Label htmlFor='export-faculty'>Fakultas</Label>
+                  <Select
+                    value={exportFilters.facultyId}
+                    onValueChange={(value) =>
+                      setExportFilters((prev) => ({
+                        ...prev,
+                        facultyId: value,
+                        majorId: 'all', // Reset major when faculty changes
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder='Semua Fakultas' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='all'>Semua Fakultas</SelectItem>
+                      {faculties.map((faculty) => (
+                        <SelectItem key={faculty.id} value={faculty.id}>
+                          {faculty.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Major */}
+                <div className='space-y-2'>
+                  <Label htmlFor='export-major'>Jurusan</Label>
+                  <Select
+                    value={exportFilters.majorId}
+                    onValueChange={(value) =>
+                      setExportFilters((prev) => ({
+                        ...prev,
+                        majorId: value,
+                      }))
+                    }
+                    disabled={exportFilters.facultyId === 'all'}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder='Semua Jurusan' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='all'>Semua Jurusan</SelectItem>
+                      {getFilteredMajors().map((major) => (
+                        <SelectItem key={major.id} value={major.id}>
+                          {major.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Graduated Year */}
+                <div className='space-y-2'>
+                  <Label htmlFor='export-year'>Tahun Lulus</Label>
+                  <Select
+                    value={exportFilters.graduatedYear}
+                    onValueChange={(value) =>
+                      setExportFilters((prev) => ({
+                        ...prev,
+                        graduatedYear: value,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder='Semua Tahun' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='all'>Semua Tahun</SelectItem>
+                      {getGraduateYears().map((year) => (
+                        <SelectItem key={year} value={year.toString()}>
+                          {year}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Graduate Periode */}
+                <div className='space-y-2'>
+                  <Label htmlFor='export-periode'>Periode Wisuda</Label>
+                  <Select
+                    value={exportFilters.graduatePeriode}
+                    onValueChange={(value) =>
+                      setExportFilters((prev) => ({
+                        ...prev,
+                        graduatePeriode: value,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder='Semua Periode' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='all'>Semua Periode</SelectItem>
+                      <SelectItem value='WISUDA_I'>Wisuda I</SelectItem>
+                      <SelectItem value='WISUDA_II'>Wisuda II</SelectItem>
+                      <SelectItem value='WISUDA_III'>Wisuda III</SelectItem>
+                      <SelectItem value='WISUDA_IV'>Wisuda IV</SelectItem>
+                      <SelectItem value='WISUDA_V'>Wisuda V</SelectItem>
+                      <SelectItem value='WISUDA_VI'>Wisuda VI</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Degree */}
+                <div className='space-y-2'>
+                  <Label htmlFor='export-degree'>Tingkat</Label>
+                  <Select
+                    value={exportFilters.degree}
+                    onValueChange={(value) =>
+                      setExportFilters((prev) => ({
+                        ...prev,
+                        degree: value,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder='Semua Tingkat' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='all'>Semua Tingkat</SelectItem>
+                      <SelectItem value='S1'>S1</SelectItem>
+                      <SelectItem value='PASCA'>Pascasarjana</SelectItem>
+                      <SelectItem value='PROFESI'>Profesi</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Completion Status */}
+                <div className='space-y-2'>
+                  <Label htmlFor='export-completion'>Status Kelengkapan</Label>
+                  <Select
+                    value={exportFilters.completionStatus || 'all'}
+                    onValueChange={(value) =>
+                      setExportFilters((prev) => ({
+                        ...prev,
+                        completionStatus: value,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder='Semua Status' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='all'>Semua Status</SelectItem>
+                      <SelectItem value='complete'>Complete (100%)</SelectItem>
+                      <SelectItem value='pending'>Pending (&lt;100%)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant='outline'
+                onClick={() => setShowExportModal(false)}
+                disabled={exportMutation.isPending}
+              >
+                Batal
+              </Button>
+              <Button
+                onClick={() => handleExport('excel')}
+                disabled={exportMutation.isPending}
+              >
+                {exportMutation.isPending ? (
+                  <>
+                    <div className='w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2' />
+                    Mengekspor...
+                  </>
+                ) : (
+                  <>
+                    <Download className='mr-2 h-4 w-4' />
+                    Export Excel
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AdminLayout>
   );

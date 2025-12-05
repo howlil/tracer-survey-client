@@ -48,6 +48,16 @@ function SoalComboBox({
   layout = "vertical",
   ...props
 }: SoalComboBoxProps) {
+  // Filter out non-DOM props
+  const {
+    parentId: _parentId,
+    groupQuestionId: _groupQuestionId,
+    pageNumber: _pageNumber,
+    questionTree: _questionTree,
+    questionCode: _questionCode,
+    codeId: _codeId,
+    ...domProps
+  } = props as Record<string, unknown>
   const [openStates, setOpenStates] = useState<Record<string, boolean>>({})
 
   const handleValueChange = React.useCallback((id: string, value: string) => {
@@ -88,7 +98,7 @@ function SoalComboBox({
           layout === "vertical" && "space-y-3",
           "transition-all duration-200"
         )}
-        {...props}
+        {...domProps}
       >
         {comboboxItems.map((item) => {
           const isOpen = openStates[item.id] || false

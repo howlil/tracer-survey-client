@@ -74,21 +74,33 @@ function LoginTracerStudy() {
       setError('');
 
       try {
-        // Get reCAPTCHA token
+        // Untuk visible reCAPTCHA v2, dapatkan token terbaru saat submit
+        // karena token bisa kadaluarsa jika user mengisi form terlalu lama
         if (!recaptchaRef.current) {
           setError('reCAPTCHA belum dimuat');
           setIsLoading(false);
           return;
         }
 
-        const recaptchaToken = await recaptchaRef.current.executeAsync();
+        // Dapatkan token terbaru dari reCAPTCHA
+        // getValue() mengembalikan token terbaru jika masih valid, atau null jika kadaluarsa
+        const recaptchaToken = recaptchaRef.current.getValue();
+        
+        // Jika token null atau kosong, berarti reCAPTCHA belum diselesaikan atau kadaluarsa
         if (!recaptchaToken) {
-          setError('reCAPTCHA tidak valid');
+          if (!captchaValue) {
+            setError('reCAPTCHA harus diselesaikan');
+          } else {
+            setError('reCAPTCHA sudah kadaluarsa. Silakan selesaikan reCAPTCHA lagi.');
+            // Reset captcha agar user bisa mengisi ulang
+            recaptchaRef.current.reset();
+            setCaptchaValue(null);
+          }
           setIsLoading(false);
           return;
         }
 
-        // Call API
+        // Call API dengan token terbaru
         const response = await alumniLogin({
           pin: formData.pin,
           recaptchaToken,
@@ -136,7 +148,7 @@ function LoginTracerStudy() {
 
   return (
     <Layout>
-      <div className='min-h-screen bg-gradient-to-br from-background to-muted/20'>
+      <div className='min-h-screen bg-linear-to-br from-background to-muted/20'>
         <div className='container mx-auto px-4 py-8'>
           <div className='max-w-md mx-auto'>
             {/* Header */}
@@ -198,16 +210,12 @@ function LoginTracerStudy() {
                     <ReCAPTCHA
                       ref={recaptchaRef}
                       sitekey={
-                        import.meta.env.VITE_RECAPTCHA_SITE_KEY_DEMO ||
                         import.meta.env.VITE_RECAPTCHA_SITE_KEY ||
                         '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'
                       }
                       onChange={handleCaptchaChange}
                       theme='light'
                       size='normal'
-                      asyncScriptOnLoad={() => {
-                        // reCAPTCHA loaded
-                      }}
                     />
                   </div>
                   {errors.captcha && (

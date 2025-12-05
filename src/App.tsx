@@ -11,6 +11,7 @@ import Dashboard from './pages/admin/Dashboard';
 import LoginAdmin from './pages/admin/LoginAdmin';
 import AlumniDatabase from './pages/admin/manajemenUser/AlumniDatabase';
 import ManagerDatabase from './pages/admin/manajemenUser/ManagerDatabase';
+import DetailManager from './pages/admin/manajemenUser/DetailManager';
 import AdminManagement from './pages/admin/manajemenUser/AdminManagement';
 import RoleManagement from './pages/admin/manajemenUser/RoleManagement';
 import RekapTracerStudy from './pages/admin/laporanRekap/RekapTracerStudy';
@@ -60,6 +61,10 @@ function App() {
             element={<ManagerDatabase />}
           />
           <Route
+            path='/admin/users/manager/detail/:id'
+            element={<DetailManager />}
+          />
+          <Route
             path='/admin/users/admin'
             element={<AdminManagement />}
           />
@@ -72,7 +77,7 @@ function App() {
             element={<RekapTracerStudy />}
           />
           <Route
-            path='/admin/reports/tracer-study/detail'
+            path='/admin/reports/tracer-study/detail/:id'
             element={<DetailResponseTracerStudy />}
           />
           <Route
@@ -157,7 +162,7 @@ function App() {
           />
         </Routes>
         <Toaster
-          position='bottom-right'
+          position='top-right'
           richColors
           closeButton
         />

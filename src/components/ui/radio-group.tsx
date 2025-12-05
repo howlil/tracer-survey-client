@@ -10,10 +10,16 @@ function RadioGroup({
 }: React.ComponentProps<typeof RadioGroupPrimitive.Root>) {
   // Filter out custom props that shouldn't be passed to DOM
   const {
-    questionTree,
+    questionTree: _questionTree,
+    parentId: _parentId,
+    groupQuestionId: _groupQuestionId,
+    pageNumber: _pageNumber,
     ...domProps
   } = props as React.ComponentProps<typeof RadioGroupPrimitive.Root> & {
     questionTree?: unknown;
+    parentId?: unknown;
+    groupQuestionId?: unknown;
+    pageNumber?: unknown;
   }
 
   return (

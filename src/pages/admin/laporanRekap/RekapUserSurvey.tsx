@@ -43,6 +43,14 @@ import {
   Search,
   ChevronDown,
 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {AdminLayout} from '@/components/layout/admin';
 import {useNavigate} from 'react-router-dom';
 import {
@@ -74,6 +82,12 @@ const RekapUserSurvey: React.FC = () => {
     position: 'all',
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportFilters, setExportFilters] = useState<FilterData>({
+    searchTerm: '',
+    company: 'all',
+    position: 'all',
+  });
 
   // API hooks
   const {data: responsesData, isLoading: isLoadingResponses} =
@@ -121,18 +135,28 @@ const RekapUserSurvey: React.FC = () => {
     setCurrentPage(1);
   };
 
+  const handleOpenExportModal = () => {
+    // Initialize export filters with current filters
+    setExportFilters({
+      searchTerm: filters.searchTerm,
+      company: filters.company,
+      position: filters.position,
+    });
+    setShowExportModal(true);
+  };
+
   const handleExport = async (format: 'excel' | 'pdf' = 'excel') => {
     try {
       const blob = await exportMutation.mutateAsync({
         format,
-        search: filters.searchTerm || undefined,
+        search: exportFilters.searchTerm || undefined,
         company:
-          filters.company && filters.company !== 'all'
-            ? filters.company
+          exportFilters.company && exportFilters.company !== 'all'
+            ? exportFilters.company
             : undefined,
         position:
-          filters.position && filters.position !== 'all'
-            ? filters.position
+          exportFilters.position && exportFilters.position !== 'all'
+            ? exportFilters.position
             : undefined,
       });
 
@@ -148,6 +172,7 @@ const RekapUserSurvey: React.FC = () => {
       window.URL.revokeObjectURL(url);
 
       toast.success('Data berhasil diekspor');
+      setShowExportModal(false);
     } catch {
       toast.error('Gagal mengekspor data');
     }
@@ -191,7 +216,7 @@ const RekapUserSurvey: React.FC = () => {
           </div>
           <Button
             className='bg-primary hover:bg-primary/90'
-            onClick={() => handleExport('excel')}
+            onClick={handleOpenExportModal}
             disabled={exportMutation.isPending}
           >
             <Download className='mr-2 h-4 w-4' />
@@ -555,6 +580,125 @@ const RekapUserSurvey: React.FC = () => {
             </div>
           )}
         </Card>
+
+        {/* Export Filter Modal */}
+        <Dialog open={showExportModal} onOpenChange={setShowExportModal}>
+          <DialogContent className='sm:max-w-[500px]'>
+            <DialogHeader>
+              <DialogTitle className='flex items-center gap-2'>
+                <Download className='h-5 w-5' />
+                Export Data Excel
+              </DialogTitle>
+              <DialogDescription>
+                Pilih filter yang akan digunakan untuk export data. Data akan diekspor sesuai dengan filter yang dipilih.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className='space-y-4 py-4'>
+              {/* Search */}
+              <div className='space-y-2'>
+                <Label htmlFor='export-search'>Cari Manager</Label>
+                <Input
+                  id='export-search'
+                  placeholder='Cari berdasarkan nama, email, atau perusahaan...'
+                  value={exportFilters.searchTerm}
+                  onChange={(e) =>
+                    setExportFilters((prev) => ({
+                      ...prev,
+                      searchTerm: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                {/* Company */}
+                <div className='space-y-2'>
+                  <Label htmlFor='export-company'>Perusahaan</Label>
+                  <Select
+                    value={exportFilters.company}
+                    onValueChange={(value) =>
+                      setExportFilters((prev) => ({
+                        ...prev,
+                        company: value,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder='Semua Perusahaan' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='all'>Semua Perusahaan</SelectItem>
+                      {companies.map((companyData) => (
+                        <SelectItem
+                          key={companyData.company}
+                          value={companyData.company}
+                        >
+                          {companyData.company}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Position */}
+                <div className='space-y-2'>
+                  <Label htmlFor='export-position'>Posisi</Label>
+                  <Select
+                    value={exportFilters.position}
+                    onValueChange={(value) =>
+                      setExportFilters((prev) => ({
+                        ...prev,
+                        position: value,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder='Semua Posisi' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='all'>Semua Posisi</SelectItem>
+                      {positions.map((positionData) => (
+                        <SelectItem
+                          key={positionData.position}
+                          value={positionData.position}
+                        >
+                          {positionData.position}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant='outline'
+                onClick={() => setShowExportModal(false)}
+                disabled={exportMutation.isPending}
+              >
+                Batal
+              </Button>
+              <Button
+                onClick={() => handleExport('excel')}
+                disabled={exportMutation.isPending}
+              >
+                {exportMutation.isPending ? (
+                  <>
+                    <div className='w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2' />
+                    Mengekspor...
+                  </>
+                ) : (
+                  <>
+                    <Download className='mr-2 h-4 w-4' />
+                    Export Excel
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AdminLayout>
   );

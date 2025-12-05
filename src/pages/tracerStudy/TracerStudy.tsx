@@ -57,7 +57,7 @@ function TracerStudy() {
 
   return (
     <Layout>
-      <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
+      <div className="min-h-screen bg-linear-to-br from-background to-muted/20">
         <div className="container mx-auto px-4 py-8">
           <div className="w-full">
             <div className="grid lg:grid-cols-5 gap-12 items-stretch">
@@ -128,7 +128,7 @@ function TracerStudy() {
                     <div className="space-y-2">
                       {tracerStudyData.ikuList.items.map((item, index) => (
                         <div key={index} className="flex items-start space-x-3 p-3 bg-muted/50 rounded-lg">
-                          <div className="flex-shrink-0 w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center mt-0.5">
+                          <div className="shrink-0 w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center mt-0.5">
                             <span className="text-xs font-semibold text-primary">
                               {index + 1}
                             </span>

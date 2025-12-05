@@ -8,6 +8,7 @@ export interface Manager {
   company: string;
   position: string;
   phoneNumber?: string | null;
+  pin?: string; // PIN yang di-generate otomatis untuk user survey
   respondentId: string;
   respondent: {
     id: string;
@@ -188,4 +189,54 @@ export const importManagersApi = async (file: File) => {
     throw new Error(response.data.message || 'Gagal mengimpor manager');
   }
   return response.data.data;
+};
+
+export interface GenerateManagersSummary {
+  total: number;
+  success: number;
+  failed: number;
+  errors: Array<{responseId: string; respondentName: string; message: string}>;
+}
+
+export const generateManagersFromTracerStudyApi = async (): Promise<GenerateManagersSummary> => {
+  const response = await axiosInstance.post<ApiResponse<GenerateManagersSummary>>(
+    '/v1/managers/generate-from-tracer-study'
+  );
+  if (!response.data.success) {
+    throw new Error(response.data.message || 'Gagal generate manager dari tracer study');
+  }
+  return response.data.data;
+};
+
+export interface ManagerDetail extends Manager {
+  alumni: Array<{
+    id: string;
+    nim: string;
+    fullName: string;
+    email: string;
+    major: string;
+    faculty: string;
+    degree: string;
+    graduatedYear: number;
+    graduatePeriode: string;
+    pin: string; // PIN untuk user survey (kombinasi alumni + manager)
+  }>;
+}
+
+export const getManagerByIdApi = async (id: string): Promise<ManagerDetail> => {
+  const response = await axiosInstance.get<ApiResponse<ManagerDetail>>(
+    `/v1/managers/${id}`
+  );
+  if (!response.data.success) {
+    throw new Error(response.data.message || 'Gagal mendapatkan detail manager');
+  }
+  return response.data.data;
+};
+
+export const useManagerById = (id: string) => {
+  return useQuery({
+    queryKey: [...MANAGER_QUERY_KEY, 'detail', id],
+    queryFn: () => getManagerByIdApi(id),
+    enabled: !!id,
+  });
 };

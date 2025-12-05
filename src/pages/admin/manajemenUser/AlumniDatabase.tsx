@@ -41,8 +41,11 @@ import {
   UserCheck,
   Download,
   Upload,
-  FileSpreadsheet,
   Plus,
+  Copy,
+  Eye,
+  EyeOff,
+  Edit,
 } from 'lucide-react';
 import * as React from 'react';
 import {useNavigate} from 'react-router-dom';
@@ -51,9 +54,11 @@ import {
   createAlumniApi,
   downloadAlumniTemplateApi,
   importAlumniApi,
+  updateAlumniApi,
   useAlumni,
+  type Alumni,
 } from '@/api/alumni.api';
-import type {CreateAlumniPayload} from '@/api/alumni.api';
+import type {CreateAlumniPayload, UpdateAlumniPayload} from '@/api/alumni.api';
 import {useFaculties, useMajors} from '@/api/major-faculty.api';
 import {useMutation, useQueryClient} from '@tanstack/react-query';
 import {toast} from 'sonner';
@@ -78,7 +83,10 @@ function AlumniDatabase() {
   const navigate = useNavigate();
   const [showFilters, setShowFilters] = React.useState(false);
   const [isManualDialogOpen, setIsManualDialogOpen] = React.useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
+  const [editingAlumni, setEditingAlumni] = React.useState<Alumni | null>(null);
   const [isImportDialogOpen, setIsImportDialogOpen] = React.useState(false);
+  const [visiblePins, setVisiblePins] = React.useState<Set<string>>(new Set());
   const [excelFile, setExcelFile] = React.useState<File | null>(null);
   const excelFileInputRef = React.useRef<HTMLInputElement | null>(null);
   type ManualFormState = {
@@ -143,7 +151,7 @@ function AlumniDatabase() {
         ? selectedPeriode
         : undefined,
   });
-
+  console.log(alumniData);
   const {data: faculties = []} = useFaculties();
   const {data: allMajors = []} = useMajors();
 
@@ -217,6 +225,20 @@ function AlumniDatabase() {
     },
   });
 
+  const updateAlumniMutation = useMutation({
+    mutationFn: ({id, payload}: {id: string; payload: UpdateAlumniPayload}) =>
+      updateAlumniApi(id, payload),
+    onSuccess: () => {
+      toast.success('Alumni berhasil diupdate');
+      setIsEditDialogOpen(false);
+      setEditingAlumni(null);
+      queryClient.invalidateQueries({queryKey: ALUMNI_QUERY_KEY});
+    },
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, 'Gagal mengupdate alumni'));
+    },
+  });
+
   const importAlumniMutation = useMutation({
     mutationFn: importAlumniApi,
     onSuccess: (summary) => {
@@ -275,7 +297,7 @@ function AlumniDatabase() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'template-import-alumni.csv';
+      link.download = 'template-import-alumni.xlsx';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -297,6 +319,42 @@ function AlumniDatabase() {
   const handleExcelUpload = () => {
     if (!excelFile) return;
     importAlumniMutation.mutate(excelFile);
+  };
+
+  const handleEditClick = (alumni: Alumni) => {
+    setEditingAlumni(alumni);
+    // Pre-fill form with existing data
+    setManualForm({
+      nim: alumni.nim,
+      fullName: alumni.respondent.fullName,
+      email: alumni.respondent.email,
+      facultyId: alumni.major.faculty.id,
+      majorId: alumni.major.id,
+      degree: alumni.degree,
+      graduatedYear: alumni.graduatedYear.toString(),
+      graduatePeriode: alumni.graduatePeriode,
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleEditSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingAlumni) return;
+
+    const payload: UpdateAlumniPayload = {};
+    if (manualForm.nim) payload.nim = manualForm.nim;
+    if (manualForm.fullName) payload.fullName = manualForm.fullName;
+    if (manualForm.email) payload.email = manualForm.email;
+    if (manualForm.facultyId) payload.facultyId = manualForm.facultyId;
+    if (manualForm.majorId) payload.majorId = manualForm.majorId;
+    if (manualForm.degree) payload.degree = manualForm.degree;
+    if (manualForm.graduatedYear)
+      payload.graduatedYear = parseInt(manualForm.graduatedYear, 10);
+    if (manualForm.graduatePeriode)
+      payload.graduatePeriode =
+        manualForm.graduatePeriode as UpdateAlumniPayload['graduatePeriode'];
+
+    updateAlumniMutation.mutate({id: editingAlumni.id, payload});
   };
 
   return (
@@ -408,12 +466,6 @@ function AlumniDatabase() {
                     individual sebelum data besar diunggah.
                   </p>
                 </div>
-                <Badge
-                  variant='outline'
-                  className='bg-background'
-                >
-                  Real-time
-                </Badge>
               </div>
               <div className='flex flex-wrap gap-3'>
                 <Button
@@ -442,7 +494,6 @@ function AlumniDatabase() {
                     mempercepat proses input massal.
                   </p>
                 </div>
-                <FileSpreadsheet className='h-10 w-10 text-primary' />
               </div>
               <div className='flex flex-wrap gap-3'>
                 <Button
@@ -672,18 +723,20 @@ function AlumniDatabase() {
                   <TableHead className='font-semibold'>NIM</TableHead>
                   <TableHead className='font-semibold'>Nama Lengkap</TableHead>
                   <TableHead className='font-semibold'>Email</TableHead>
+                  <TableHead className='font-semibold'>PIN</TableHead>
                   <TableHead className='font-semibold'>Fakultas</TableHead>
                   <TableHead className='font-semibold'>Program Studi</TableHead>
                   <TableHead className='font-semibold'>Jenjang</TableHead>
                   <TableHead className='font-semibold'>Tahun Lulus</TableHead>
                   <TableHead className='font-semibold'>Periode</TableHead>
+                  <TableHead className='font-semibold'>Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoadingAlumni ? (
                   <TableRow>
                     <TableCell
-                      colSpan={7}
+                      colSpan={10}
                       className='text-center py-8'
                     >
                       <p className='text-muted-foreground'>Memuat data...</p>
@@ -692,7 +745,7 @@ function AlumniDatabase() {
                 ) : alumni.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={7}
+                      colSpan={10}
                       className='text-center py-8'
                     >
                       <p className='text-muted-foreground'>
@@ -714,6 +767,62 @@ function AlumniDatabase() {
                       </TableCell>
                       <TableCell className='text-sm text-muted-foreground'>
                         {alumni.respondent.email}
+                      </TableCell>
+                      <TableCell>
+                        <div className='flex items-center gap-2'>
+                          {alumni.pin ? (
+                            <>
+                              <span className='font-mono text-sm'>
+                                {visiblePins.has(alumni.id)
+                                  ? alumni.pin
+                                  : '••••••'}
+                              </span>
+                              <Button
+                                variant='ghost'
+                                size='icon'
+                                className='h-6 w-6'
+                                onClick={() => {
+                                  const newVisiblePins = new Set(visiblePins);
+                                  if (newVisiblePins.has(alumni.id)) {
+                                    newVisiblePins.delete(alumni.id);
+                                  } else {
+                                    newVisiblePins.add(alumni.id);
+                                  }
+                                  setVisiblePins(newVisiblePins);
+                                }}
+                                title={
+                                  visiblePins.has(alumni.id)
+                                    ? 'Sembunyikan PIN'
+                                    : 'Tampilkan PIN'
+                                }
+                              >
+                                {visiblePins.has(alumni.id) ? (
+                                  <EyeOff className='h-4 w-4' />
+                                ) : (
+                                  <Eye className='h-4 w-4' />
+                                )}
+                              </Button>
+                              <Button
+                                variant='ghost'
+                                size='icon'
+                                className='h-6 w-6'
+                                onClick={() => {
+                                  if (alumni.pin) {
+                                    navigator.clipboard.writeText(alumni.pin);
+                                    toast.success('PIN berhasil disalin');
+                                  }
+                                }}
+                                title='Salin PIN'
+                              >
+                                <Copy className='h-4 w-4' />
+                              </Button>
+                            </>
+                          ) : (
+                            <span className='text-sm text-muted-foreground'>
+                              -
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>{alumni.major.faculty.name}</TableCell>
                       <TableCell>{alumni.major.name}</TableCell>
@@ -741,6 +850,17 @@ function AlumniDatabase() {
                         >
                           {alumni.graduatePeriode.replace('_', ' ')}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant='ghost'
+                          size='icon'
+                          className='h-8 w-8'
+                          onClick={() => handleEditClick(alumni)}
+                          title='Edit Alumni'
+                        >
+                          <Edit className='h-4 w-4' />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))
@@ -936,6 +1056,218 @@ function AlumniDatabase() {
           </DialogContent>
         </Dialog>
 
+        {/* Edit Dialog */}
+        <Dialog
+          open={isEditDialogOpen}
+          onOpenChange={(open) => {
+            setIsEditDialogOpen(open);
+            if (!open) {
+              setEditingAlumni(null);
+              setManualForm(manualFormInitialState);
+            }
+          }}
+        >
+          <DialogContent className='sm:max-w-2xl'>
+            <form
+              onSubmit={handleEditSubmit}
+              className='space-y-6'
+            >
+              <DialogHeader>
+                <DialogTitle>Edit Alumni</DialogTitle>
+                <DialogDescription>
+                  Perbarui data alumni yang dipilih. Kosongkan field yang tidak
+                  ingin diubah.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                <div className='space-y-2'>
+                  <Label htmlFor='edit-nim'>NIM</Label>
+                  <Input
+                    id='edit-nim'
+                    value={manualForm.nim}
+                    onChange={(e) => updateManualForm('nim', e.target.value)}
+                    placeholder={
+                      editingAlumni?.nim || 'Contoh: 2018123456'
+                    }
+                  />
+                </div>
+                <div className='space-y-2'>
+                  <Label htmlFor='edit-fullname'>Nama Lengkap</Label>
+                  <Input
+                    id='edit-fullname'
+                    value={manualForm.fullName}
+                    onChange={(e) =>
+                      updateManualForm('fullName', e.target.value)
+                    }
+                    placeholder={
+                      editingAlumni?.respondent.fullName ||
+                      'Nama sesuai ijazah'
+                    }
+                  />
+                </div>
+                <div className='space-y-2'>
+                  <Label htmlFor='edit-email'>Email</Label>
+                  <Input
+                    id='edit-email'
+                    type='email'
+                    value={manualForm.email}
+                    onChange={(e) => updateManualForm('email', e.target.value)}
+                    placeholder={
+                      editingAlumni?.respondent.email ||
+                      'alumni@kampus.ac.id'
+                    }
+                  />
+                </div>
+                <div className='space-y-2'>
+                  <Label>Jenjang</Label>
+                  <Select
+                    value={manualForm.degree}
+                    onValueChange={(value) =>
+                      updateManualForm('degree', value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={
+                          editingAlumni?.degree || 'Pilih jenjang'
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='S1'>S1</SelectItem>
+                      <SelectItem value='S2'>S2</SelectItem>
+                      <SelectItem value='S3'>S3</SelectItem>
+                      <SelectItem value='D3'>D3</SelectItem>
+                      <SelectItem value='PROFESI'>Profesi</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className='space-y-2'>
+                  <Label>Fakultas</Label>
+                  <Select
+                    value={manualForm.facultyId}
+                    onValueChange={(value) => {
+                      updateManualForm('facultyId', value);
+                      updateManualForm('majorId', '');
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={
+                          editingAlumni?.major.faculty.name ||
+                          'Pilih fakultas'
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {faculties.map((faculty) => (
+                        <SelectItem
+                          key={faculty.id}
+                          value={faculty.id}
+                        >
+                          {faculty.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className='space-y-2'>
+                  <Label>Program Studi</Label>
+                  <Select
+                    value={manualForm.majorId}
+                    onValueChange={(value) =>
+                      updateManualForm('majorId', value)
+                    }
+                    disabled={!manualForm.facultyId}
+                  >
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={
+                          editingAlumni?.major.name || 'Pilih prodi'
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {manualMajors.map((major) => (
+                        <SelectItem
+                          key={major.id}
+                          value={major.id}
+                        >
+                          {major.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className='space-y-2'>
+                  <Label>Tahun Lulus</Label>
+                  <Input
+                    type='number'
+                    min='2000'
+                    max={new Date().getFullYear()}
+                    value={manualForm.graduatedYear}
+                    onChange={(e) =>
+                      updateManualForm('graduatedYear', e.target.value)
+                    }
+                    placeholder={
+                      editingAlumni?.graduatedYear?.toString() || '2024'
+                    }
+                  />
+                </div>
+                <div className='space-y-2'>
+                  <Label>Periode Wisuda</Label>
+                  <Select
+                    value={manualForm.graduatePeriode}
+                    onValueChange={(value) =>
+                      updateManualForm('graduatePeriode', value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={
+                          editingAlumni?.graduatePeriode?.replace('_', ' ') ||
+                          'Pilih periode'
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='WISUDA_I'>Wisuda I</SelectItem>
+                      <SelectItem value='WISUDA_II'>Wisuda II</SelectItem>
+                      <SelectItem value='WISUDA_III'>Wisuda III</SelectItem>
+                      <SelectItem value='WISUDA_IV'>Wisuda IV</SelectItem>
+                      <SelectItem value='WISUDA_V'>Wisuda V</SelectItem>
+                      <SelectItem value='WISUDA_VI'>Wisuda VI</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button
+                  type='button'
+                  variant='outline'
+                  onClick={() => {
+                    setIsEditDialogOpen(false);
+                    setEditingAlumni(null);
+                    setManualForm(manualFormInitialState);
+                  }}
+                >
+                  Batal
+                </Button>
+                <Button
+                  type='submit'
+                  disabled={updateAlumniMutation.isPending}
+                >
+                  {updateAlumniMutation.isPending
+                    ? 'Menyimpan...'
+                    : 'Simpan Perubahan'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
         {/* Import Dialog */}
         <Dialog
           open={isImportDialogOpen}
@@ -993,6 +1325,7 @@ function AlumniDatabase() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
       </div>
     </AdminLayout>
   );

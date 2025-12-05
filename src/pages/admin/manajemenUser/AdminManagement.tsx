@@ -69,10 +69,33 @@ import {useRoles as useRolesApi} from '@/api/role-permission.api';
 const AdminManagement: React.FC = () => {
   const navigate = useNavigate();
 
+  // Helper function untuk format tanggal
+  const formatDate = (dateString: string | null | undefined): string => {
+    if (!dateString) return '-';
+    
+    try {
+      const date = new Date(dateString);
+      // Cek apakah tanggal valid
+      if (isNaN(date.getTime())) {
+        return '-';
+      }
+      // Format: DD/MM/YYYY
+      const day = date.getDate();
+      const month = date.getMonth() + 1; // getMonth() returns 0-11
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return '-';
+    }
+  };
+
   // API hooks
   const {data: adminsData, isLoading: isLoadingAdmins} = useAdmins({
     limit: 100,
   });
+
+  console.log(adminsData);
   const {data: rolesData} = useRolesApi({limit: 100});
   const createAdminMutation = useCreateAdmin();
   const updateAdminMutation = useUpdateAdmin();
@@ -90,6 +113,7 @@ const AdminManagement: React.FC = () => {
     username: '',
     name: '',
     email: '',
+    password: '',
     isActive: true,
     selectedRoles: [] as string[],
   });
@@ -119,6 +143,7 @@ const AdminManagement: React.FC = () => {
       username: '',
       name: '',
       email: '',
+      password: '',
       isActive: true,
       selectedRoles: [],
     });
@@ -134,6 +159,16 @@ const AdminManagement: React.FC = () => {
         !formData.email.trim()
       ) {
         toast.error('Username, nama, dan email harus diisi');
+        return;
+      }
+
+      if (!editingAdmin && !formData.password.trim()) {
+        toast.error('Password harus diisi');
+        return;
+      }
+
+      if (!editingAdmin && formData.password.length < 8) {
+        toast.error('Password minimal 8 karakter');
         return;
       }
 
@@ -159,6 +194,7 @@ const AdminManagement: React.FC = () => {
           username: formData.username,
           name: formData.name,
           email: formData.email,
+          password: formData.password,
           isActive: formData.isActive,
           roleIds: formData.selectedRoles,
         });
@@ -219,6 +255,7 @@ const AdminManagement: React.FC = () => {
       username: admin.username,
       name: admin.name,
       email: admin.email,
+      password: '', // Password tidak ditampilkan saat edit
       isActive: admin.isActive,
       selectedRoles: admin.roles.map((role) => role.roleId),
     });
@@ -349,6 +386,30 @@ const AdminManagement: React.FC = () => {
                         className='h-10'
                       />
                     </div>
+
+                    {!editingAdmin && (
+                      <div className='space-y-2'>
+                        <Label
+                          htmlFor='password'
+                          className='text-sm font-medium'
+                        >
+                          Password
+                        </Label>
+                        <Input
+                          id='password'
+                          type='password'
+                          placeholder='Masukkan password (minimal 8 karakter)'
+                          value={formData.password}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              password: e.target.value,
+                            }))
+                          }
+                          className='h-10'
+                        />
+                      </div>
+                    )}
 
                     <div className='flex items-center space-x-2'>
                       <Checkbox
@@ -572,7 +633,7 @@ const AdminManagement: React.FC = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {new Date(admin.createdAt).toLocaleDateString('id-ID')}
+                        {formatDate(admin.createdAt)}
                       </TableCell>
                       <TableCell className='text-right'>
                         <div className='flex items-center justify-end gap-2'>

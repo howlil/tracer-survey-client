@@ -50,8 +50,19 @@ axiosInstance.interceptors.response.use(
       );
       toast.error(message);
       localStorage.removeItem('auth-token');
+      
+      // Redirect ke halaman login yang sesuai berdasarkan URL saat ini
+      const currentPath = window.location.pathname;
+      let redirectPath = '/admin/login';
+      
+      if (currentPath.includes('/tracer-study')) {
+        redirectPath = '/tracer-study/login';
+      } else if (currentPath.includes('/user-survey')) {
+        redirectPath = '/user-survey/login';
+      }
+      
       setTimeout(() => {
-        window.location.href = '/admin/login';
+        window.location.href = redirectPath;
       }, 1500);
     } else if (error.response?.status === 403) {
       const message = getDetailedErrorMessage(

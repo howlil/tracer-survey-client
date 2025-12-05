@@ -48,11 +48,17 @@ export interface QuestionResponse {
   isAnswered: boolean;
   sortOrder: number;
   answer?: string;
-  answerOptions?: {
+  answerOptions?: Array<{
     id: string;
-    answerText: string;
-    isSelected: boolean;
-  }[];
+    optionText: string;
+    isSelected?: boolean;
+  }>;
+  children?: Array<{
+    id: string;
+    questionText: string;
+    isAnswered: boolean;
+    answer: string | null;
+  }>;
 }
 
 export interface TracerStudyResponseDetail extends TracerStudyResponse {
@@ -158,6 +164,7 @@ const exportTracerStudyResponsesApi = async (params?: {
   graduatedYear?: number;
   graduatePeriode?: string;
   degree?: string;
+  completionStatus?: string;
 }): Promise<Blob> => {
   const queryParams = new URLSearchParams();
   if (params?.format) queryParams.append('format', params.format);
@@ -169,6 +176,7 @@ const exportTracerStudyResponsesApi = async (params?: {
   if (params?.graduatePeriode)
     queryParams.append('graduatePeriode', params.graduatePeriode);
   if (params?.degree) queryParams.append('degree', params.degree);
+  if (params?.completionStatus) queryParams.append('completionStatus', params.completionStatus);
 
   const queryString = queryParams.toString();
   const url = queryString
@@ -361,5 +369,28 @@ const submitResponseApi = async (
 export const useSubmitResponse = () => {
   return useMutation({
     mutationFn: submitResponseApi,
+  });
+};
+
+// API Function - Save Draft
+const saveDraftApi = async (
+  data: SubmitResponseRequest
+): Promise<SubmitResponseResponse> => {
+  const response = await axiosInstance.post<ApiResponse<SubmitResponseResponse>>(
+    '/v1/responses/draft',
+    data
+  );
+
+  if (response.data.success && response.data.data) {
+    return response.data.data;
+  }
+
+  throw new Error(response.data.message || 'Failed to save draft');
+};
+
+// React Query Hook - Save Draft
+export const useSaveDraft = () => {
+  return useMutation({
+    mutationFn: saveDraftApi,
   });
 };

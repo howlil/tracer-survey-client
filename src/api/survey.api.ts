@@ -6,7 +6,7 @@ import axiosInstance from '@/lib/axios';
 export interface Survey {
   id: string;
   name: string;
-  type?: 'TRACER_STUDY' | 'USER_SURVEY'; // Optional for list view
+  type?: 'TRACER_STUDY' | 'USER_SURVEY'; // Derived from targetRole (ALUMNI = TRACER_STUDY, MANAGER = USER_SURVEY)
   description?: string; // Optional for list view
   targetRole?: 'ALUMNI' | 'MANAGER';
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | 'CLOSED';
@@ -15,7 +15,7 @@ export interface Survey {
   updatedAt?: string; // Optional for list view
   questionCount?: number;
   responseCount?: number;
-  surveyRulesCount?: number;
+  surveyRulesCount?: number; // From backend as surveyRulesCount
   greetingOpening?: GreetingOpening;
   greatingOpening?: GreetingOpening; // Legacy typo support
   greetingClosing?: GreetingClosing;
@@ -65,26 +65,9 @@ export interface GreetingClosing {
 export interface SurveyRule {
   id: string;
   surveyId: string;
-  facultyId: string;
-  majorId?: string | null;
   degree: 'S1' | 'PASCA' | 'PROFESI' | 'VOKASI';
   createdAt: string;
   updatedAt: string;
-  faculty?: {
-    id: string;
-    name?: string;
-    facultyName?: string;
-  };
-  major?: {
-    id: string;
-    name?: string;
-    majorName?: string;
-    faculty?: {
-      id: string;
-      name?: string;
-      facultyName?: string;
-    };
-  };
 }
 
 export interface Question {
@@ -107,6 +90,7 @@ export interface Question {
   searchplaceholder?: string;
   version?: string;
   questionCode?: string;
+  pageNumber?: number; // Nomor halaman untuk struktur data yang lebih terstruktur
   createdAt: string;
   updatedAt: string;
   answerQuestion?: AnswerOption[];
@@ -160,8 +144,6 @@ export interface UpdateSurveyData {
 }
 
 export interface CreateSurveyRuleData {
-  facultyId: string;
-  majorId?: string | null;
   degree: 'S1' | 'PASCA' | 'PROFESI' | 'VOKASI';
 }
 
@@ -191,23 +173,43 @@ const getSurveysApi = async (params: {
   search?: string;
   status?: string;
   targetRole?: string;
+  public?: boolean; // If true, use public endpoint (no auth required)
 }): Promise<PaginatedResponse<Survey>> => {
   const queryParams = new URLSearchParams();
   if (params.page) queryParams.append('page', params.page.toString());
   if (params.limit) queryParams.append('limit', params.limit.toString());
   if (params.search) queryParams.append('search', params.search);
-  if (params.status) queryParams.append('status', params.status);
+  if (params.status && !params.public) queryParams.append('status', params.status); // Public endpoint always uses PUBLISHED
   if (params.targetRole) queryParams.append('targetRole', params.targetRole);
 
+  // Use public endpoint if public flag is true
+  const endpoint = params.public ? '/v1/public/surveys' : '/v1/surveys';
   const response = await axiosInstance.get(
-    `/v1/surveys?${queryParams.toString()}`
+    `${endpoint}?${queryParams.toString()}`
   );
-  return response.data.data;
+  const data = response.data.data;
+  
+  // Map targetRole to type for frontend compatibility
+  if (data.surveys) {
+    data.surveys = data.surveys.map((survey: Survey) => ({
+      ...survey,
+      type: survey.targetRole === 'ALUMNI' ? 'TRACER_STUDY' : 'USER_SURVEY',
+    }));
+  }
+  
+  return data;
 };
 
-const getSurveyByIdApi = async (id: string): Promise<Survey> => {
-  const response = await axiosInstance.get(`/v1/surveys/${id}`);
-  return response.data.data;
+const getSurveyByIdApi = async (id: string, isPublic = false): Promise<Survey> => {
+  const endpoint = isPublic ? `/v1/public/surveys/${id}` : `/v1/surveys/${id}`;
+  const response = await axiosInstance.get(endpoint);
+  const data = response.data.data;
+  
+  // Map targetRole to type for frontend compatibility
+  return {
+    ...data,
+    type: data.targetRole === 'ALUMNI' ? 'TRACER_STUDY' : 'USER_SURVEY',
+  };
 };
 
 const createSurveyApi = async (data: CreateSurveyData): Promise<Survey> => {
@@ -262,45 +264,118 @@ const deleteSurveyRuleApi = async (
   await axiosInstance.delete(`/v1/surveys/${surveyId}/rules/${ruleId}`);
 };
 
+export interface SurveyPage {
+  page: number;
+  title: string;
+  description?: string;
+  codeId?: string;
+  questionIds: string[];
+}
+
+export interface SurveyQuestionsResponse {
+  questions: Question[];
+  pages: SurveyPage[];
+}
+
 const getSurveyQuestionsApi = async (
   surveyId: string,
-  codeId?: string
-): Promise<Question[]> => {
+  codeId?: string,
+  isPublic = false
+): Promise<SurveyQuestionsResponse> => {
   const params = codeId ? `?codeId=${codeId}` : '';
-  const response = await axiosInstance.get(
-    `/v1/surveys/${surveyId}/questions${params}`
-  );
+  const endpoint = isPublic 
+    ? `/v1/public/surveys/${surveyId}/questions${params}`
+    : `/v1/surveys/${surveyId}/questions${params}`;
+  const response = await axiosInstance.get(endpoint);
 
-  if (response.data.data?.codeQuestions) {
+  const responseData = response.data.data;
+
+  // Backend returns { codeQuestions: [...], pages: [...], questions: [...] }
+  // Use questions array from backend (already flattened with parents + children, no duplicates)
+  if (responseData?.questions && Array.isArray(responseData.questions)) {
+    // Backend already provides flattened questions array with all data
+    // Just ensure required fields are present
+    const questions: Question[] = responseData.questions.map((q: Question & {children?: unknown}) => {
+      // Remove children field if exists (it's just metadata for parent questions)
+      const {children, ...questionWithoutChildren} = q;
+      void children; // Explicitly ignore children field
+      
+      return {
+        ...questionWithoutChildren,
+        // Ensure all required fields are present
+        surveyId: questionWithoutChildren.surveyId || surveyId,
+        createdAt: questionWithoutChildren.createdAt || new Date().toISOString(),
+        updatedAt: questionWithoutChildren.updatedAt || new Date().toISOString(),
+      };
+    });
+
+    // Sort by sortOrder to maintain order
+    const sorted = questions.sort(
+      (a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)
+    );
+
+    // Use pages from backend if available
+    const pages: SurveyPage[] = responseData.pages && Array.isArray(responseData.pages) && responseData.pages.length > 0
+      ? responseData.pages
+      : [];
+
+    return {
+      questions: sorted,
+      pages: pages
+    };
+  }
+
+  // Fallback: if backend doesn't provide questions array, build from codeQuestions
+  if (responseData?.codeQuestions) {
     const allQuestions: Question[] = [];
+    const questionIdsSet = new Set<string>(); // Track IDs to avoid duplicates
 
-    for (const codeQ of response.data.data.codeQuestions) {
-      // All questions (parent + children) are already in codeQ.questions array
-      // The children field in each question is just metadata (summary)
-      // All actual child questions are already included in the main questions array
+    for (const codeQ of responseData.codeQuestions) {
       if (codeQ.questions && Array.isArray(codeQ.questions)) {
         for (const q of codeQ.questions) {
-          // Remove children field if exists (it's just metadata, actual children are in the main array)
+          // Skip if already added (avoid duplicates)
+          if (questionIdsSet.has(q.id)) {
+            continue;
+          }
+          questionIdsSet.add(q.id);
+          
+          // Remove children field if exists
           const {children, ...questionWithoutChildren} = q;
-          void children; // Explicitly ignore children field
+          void children;
+          
           allQuestions.push({
             ...questionWithoutChildren,
-            questionCode: codeQ.code, // Set questionCode from codeQ.code
+            questionCode: codeQ.code,
+            surveyId: questionWithoutChildren.surveyId || surveyId,
+            codeId: questionWithoutChildren.codeId || codeQ.code,
+            version: questionWithoutChildren.version,
+            createdAt: questionWithoutChildren.createdAt || new Date().toISOString(),
+            updatedAt: questionWithoutChildren.updatedAt || new Date().toISOString(),
           });
         }
       }
     }
 
-    // Sort by sortOrder to maintain order
     const sorted = allQuestions.sort(
       (a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)
     );
 
-    return sorted;
+    const pages: SurveyPage[] = responseData.pages && Array.isArray(responseData.pages) && responseData.pages.length > 0
+      ? responseData.pages
+      : [];
+
+    return {
+      questions: sorted,
+      pages: pages
+    };
   }
 
   // Fallback: return as is if already array
-  return response.data.data?.questions || response.data.data || [];
+  const questions = responseData?.questions || responseData || [];
+  return {
+    questions: Array.isArray(questions) ? questions : [],
+    pages: []
+  };
 };
 
 const createCodeQuestionApi = async (
@@ -370,6 +445,7 @@ export const useSurveys = (params: {
   search?: string;
   status?: string;
   targetRole?: string;
+  public?: boolean; // If true, use public endpoint (no auth required)
 }) => {
   return useQuery<PaginatedResponse<Survey>, Error>({
     queryKey: ['surveys', params],
@@ -377,10 +453,10 @@ export const useSurveys = (params: {
   });
 };
 
-export const useSurvey = (id: string) => {
+export const useSurvey = (id: string, isPublic = false) => {
   return useQuery<Survey, Error>({
-    queryKey: ['survey', id],
-    queryFn: () => getSurveyByIdApi(id),
+    queryKey: ['survey', id, isPublic],
+    queryFn: () => getSurveyByIdApi(id, isPublic),
     enabled: !!id,
   });
 };
@@ -472,10 +548,10 @@ export const useDeleteSurveyRule = () => {
   });
 };
 
-export const useSurveyQuestions = (surveyId: string, codeId?: string) => {
-  return useQuery<Question[], Error>({
-    queryKey: ['surveyQuestions', surveyId, codeId],
-    queryFn: () => getSurveyQuestionsApi(surveyId, codeId),
+export const useSurveyQuestions = (surveyId: string, codeId?: string, isPublic = false) => {
+  return useQuery<SurveyQuestionsResponse, Error>({
+    queryKey: ['surveyQuestions', surveyId, codeId, isPublic],
+    queryFn: () => getSurveyQuestionsApi(surveyId, codeId, isPublic),
     enabled: !!surveyId,
   });
 };

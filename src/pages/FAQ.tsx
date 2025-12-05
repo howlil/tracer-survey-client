@@ -1,51 +1,53 @@
 import { Layout } from "@/components/layout/Layout"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { HelpCircle } from "lucide-react"
+import { useFAQsPublic } from "@/api/faq.api"
 
 interface FAQItem {
   question: string
   answer: string
 }
 
-const faqData: FAQItem[] = [
-  {
-    question: "Apa itu Tracer Study?",
-    answer: "Tracer Study adalah survei yang dilakukan untuk melacak perjalanan karier alumni setelah lulus dari universitas. Survei ini membantu mengukur Indikator Kinerja Utama (IKU) perguruan tinggi sesuai dengan program Merdeka Belajar Kemendikbudristek."
-  },
-  {
-    question: "Siapa yang harus mengisi Tracer Study?",
-    answer: "Tracer Study ditujukan untuk semua lulusan Universitas Andalas tahun 2023, mulai dari program D3, S1, dan program profesi dokter/gigi. Partisipasi semua alumni sangat diharapkan untuk mendapatkan data yang komprehensif."
-  },
-  {
-    question: "Berapa lama waktu yang dibutuhkan untuk mengisi survei?",
-    answer: "Waktu pengerjaan survei bervariasi tergantung jenis survei. Tracer Study membutuhkan waktu sekitar 15-20 menit, sedangkan User Survey membutuhkan waktu sekitar 10-15 menit. Semua pertanyaan dapat diisi secara bertahap dan disimpan sementara."
-  },
-  {
-    question: "Apakah data saya aman dan rahasia?",
-    answer: "Ya, data dan identitas Anda akan dijaga kerahasiaannya. Semua informasi yang Anda berikan hanya akan digunakan untuk keperluan evaluasi internal dan peningkatan kualitas pendidikan. Data tidak akan disebarluaskan kepada pihak ketiga tanpa persetujuan Anda."
-  },
-  {
-    question: "Bagaimana cara mengisi survei?",
-    answer: "Anda dapat mengisi survei dengan mengklik tombol 'Mulai Tracer Study' atau 'User Survey' di halaman utama. Ikuti petunjuk yang diberikan dan isi semua pertanyaan yang wajib diisi. Pastikan koneksi internet Anda stabil selama mengisi survei."
-  },
-  {
-    question: "Apakah survei ini wajib diisi?",
-    answer: "Meskipun tidak wajib secara hukum, partisipasi Anda sangat diharapkan untuk membantu universitas mengumpulkan data yang diperlukan untuk evaluasi dan peningkatan kualitas pendidikan. Data ini juga penting untuk peringkat perguruan tinggi nasional."
-  },
-  {
-    question: "Bagaimana jika saya mengalami kendala teknis?",
-    answer: "Jika Anda mengalami kendala teknis, silakan hubungi tim support melalui email karir@unand.ac.id atau telepon 085161476546. Tim kami siap membantu Anda mengatasi masalah yang dihadapi."
-  },
-  {
-    question: "Kapan survei ini berakhir?",
-    answer: "Tracer Study untuk lulusan 2023 akan berlangsung sepanjang tahun 2024. Namun, kami menyarankan untuk mengisi survei sesegera mungkin agar data dapat segera diproses dan dianalisis untuk keperluan evaluasi."
-  }
-]
-
 function FAQ() {
+  const { data: faqs = [], isLoading } = useFAQsPublic()
+
+  // Convert API data to FAQItem format
+  const faqData: FAQItem[] = faqs.map(faq => ({
+    question: faq.question,
+    answer: faq.answer
+  }))
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="min-h-screen bg-linear-to-br from-background to-muted/20">
+          <div className="container mx-auto px-4 py-8">
+            <div className="text-center py-20">
+              <p className="text-muted-foreground">Memuat FAQ...</p>
+            </div>
+          </div>
+        </div>
+      </Layout>
+    )
+  }
+
+  if (faqData.length === 0) {
+    return (
+      <Layout>
+        <div className="min-h-screen bg-linear-to-br from-background to-muted/20">
+          <div className="container mx-auto px-4 py-8">
+            <div className="text-center py-20">
+              <p className="text-muted-foreground">Belum ada FAQ tersedia</p>
+            </div>
+          </div>
+        </div>
+      </Layout>
+    )
+  }
+
   return (
     <Layout>
-      <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
+      <div className="min-h-screen bg-linear-to-br from-background to-muted/20">
         <div className="container mx-auto px-4 py-8">
           <div className="w-full">
             {/* Header Section */}

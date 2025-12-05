@@ -18,10 +18,6 @@ import {
   type SurveyRule,
 } from '@/api/survey.api';
 import {
-  useFaculties,
-  useMajors as useMajorsByFaculty,
-} from '@/api/major-faculty.api';
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -143,17 +139,6 @@ interface GreetingClosing {
   };
 }
 
-interface Major {
-  id: string;
-  name: string;
-  majorName?: string;
-  faculty: {
-    id: string;
-    name: string;
-    facultyName?: string;
-  };
-}
-
 interface SurveySettingsFormData {
   description: string;
   documentUrl: string;
@@ -182,6 +167,25 @@ interface SurveySettingsFormData {
   contactWebsite: string;
 }
 
+// Helper function untuk format tanggal DD/MM/YYYY
+const formatDate = (dateString: string | null | undefined): string => {
+  if (!dateString) return '-';
+
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      return '-';
+    }
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return '-';
+  }
+};
+
 const SurveySettings: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -198,7 +202,6 @@ const SurveySettings: React.FC = () => {
   const [surveySettings, setSurveySettings] = useState<SurveySettings | null>(
     null
   );
-  const [majors, setMajors] = useState<Major[]>([]);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isRulesSheetOpen, setIsRulesSheetOpen] = useState(false);
   const [deleteRule, setDeleteRule] = useState<SurveyRule | null>(null);
@@ -238,8 +241,6 @@ const SurveySettings: React.FC = () => {
 
   // Survey Rules form data
   const [rulesFormData, setRulesFormData] = useState({
-    facultyId: '',
-    majorId: '',
     degree: 'S1' as 'S1' | 'PASCA' | 'PROFESI' | 'VOKASI',
   });
 
@@ -248,18 +249,9 @@ const SurveySettings: React.FC = () => {
   const {data: rulesData, isLoading: isLoadingRules} = useSurveyRules(
     surveyId || ''
   );
-  const {data: facultiesData} = useFaculties();
-  const {data: majorsData} = useMajorsByFaculty(rulesFormData.facultyId);
   const updateSurveyMutation = useUpdateSurvey();
   const createRuleMutation = useCreateSurveyRule();
   const deleteRuleMutation = useDeleteSurveyRule();
-
-  // Load data from API
-  useEffect(() => {
-    if (majorsData) {
-      setMajors(majorsData);
-    }
-  }, [majorsData]);
 
   useEffect(() => {
     if (!surveyData) return;
@@ -484,22 +476,18 @@ const SurveySettings: React.FC = () => {
   };
 
   const handleAddRule = async () => {
-    if (!surveyId || !rulesFormData.facultyId) return;
+    if (!surveyId || !rulesFormData.degree) return;
 
     try {
       await createRuleMutation.mutateAsync({
         surveyId,
         data: {
-          facultyId: rulesFormData.facultyId,
-          majorId: rulesFormData.majorId || null,
           degree: rulesFormData.degree,
         },
       });
 
       toast.success('Rule berhasil ditambahkan');
       setRulesFormData({
-        facultyId: '',
-        majorId: '',
         degree: 'S1',
       });
       setIsRulesSheetOpen(false);
@@ -742,7 +730,11 @@ const SurveySettings: React.FC = () => {
               <div className='flex items-center space-x-2'>
                 <FileText className='h-4 w-4 text-muted-foreground' />
                 <span className='text-sm'>
-                  {surveyData?.questionCount || 0} Pertanyaan
+                  {(() => {
+                    const count = surveyData?.questionCount || 0;
+                    console.log('[SurveySettings] Survey ID:', surveyData?.id, 'Question Count:', count, 'Full Survey Data:', surveyData);
+                    return count;
+                  })()} Pertanyaan
                 </span>
               </div>
               <div className='flex items-center space-x-2'>
@@ -754,23 +746,13 @@ const SurveySettings: React.FC = () => {
               <div className='flex items-center space-x-2'>
                 <Calendar className='h-4 w-4 text-muted-foreground' />
                 <span className='text-sm'>
-                  Dibuat:{' '}
-                  {surveySettings
-                    ? new Date(surveySettings.createdAt).toLocaleDateString(
-                        'id-ID'
-                      )
-                    : '-'}
+                  Dibuat: {formatDate(surveySettings?.createdAt)}
                 </span>
               </div>
               <div className='flex items-center space-x-2'>
                 <Calendar className='h-4 w-4 text-muted-foreground' />
                 <span className='text-sm'>
-                  Diupdate:{' '}
-                  {surveySettings
-                    ? new Date(surveySettings.updatedAt).toLocaleDateString(
-                        'id-ID'
-                      )
-                    : '-'}
+                  Diupdate: {formatDate(surveySettings?.updatedAt)}
                 </span>
               </div>
             </div>
@@ -799,9 +781,8 @@ const SurveySettings: React.FC = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Fakultas</TableHead>
-                  <TableHead>Jurusan</TableHead>
-                  <TableHead>Tingkat</TableHead>
+                  <TableHead>Tingkat Pendidikan</TableHead>
+                  <TableHead>Deskripsi</TableHead>
                   <TableHead>Tanggal Dibuat</TableHead>
                   <TableHead className='text-right'>Aksi</TableHead>
                 </TableRow>
@@ -810,7 +791,7 @@ const SurveySettings: React.FC = () => {
                 {isLoadingRules ? (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={4}
                       className='text-center'
                     >
                       Loading...
@@ -819,7 +800,7 @@ const SurveySettings: React.FC = () => {
                 ) : surveySettings?.surveyRules?.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={4}
                       className='text-center text-muted-foreground'
                     >
                       Belum ada rule
@@ -829,28 +810,35 @@ const SurveySettings: React.FC = () => {
                   surveySettings?.surveyRules?.map((rule) => (
                     <TableRow key={rule.id}>
                       <TableCell>
-                        {rule.major?.faculty?.facultyName ||
-                          rule.major?.faculty?.name ||
-                          rule.faculty?.facultyName ||
-                          rule.faculty?.name ||
-                          '-'}
+                        <Badge variant='outline' className='text-sm font-medium'>
+                          {rule.degree === 'S1' && 'S1 - Sarjana'}
+                          {rule.degree === 'PASCA' && 'Pasca Sarjana'}
+                          {rule.degree === 'PROFESI' && 'Profesi'}
+                          {rule.degree === 'VOKASI' && 'Vokasi'}
+                        </Badge>
                       </TableCell>
                       <TableCell>
-                        {rule.major
-                          ? rule.major.majorName || rule.major.name
-                          : 'Semua Jurusan'}
+                        <span className='text-sm text-muted-foreground'>
+                          Berlaku untuk semua fakultas dan jurusan dengan tingkat pendidikan{' '}
+                          <span className='font-medium text-foreground'>
+                            {rule.degree === 'S1' && 'Sarjana'}
+                            {rule.degree === 'PASCA' && 'Pasca Sarjana'}
+                            {rule.degree === 'PROFESI' && 'Profesi'}
+                            {rule.degree === 'VOKASI' && 'Vokasi'}
+                          </span>
+                        </span>
                       </TableCell>
                       <TableCell>
-                        <Badge variant='outline'>{rule.degree}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        {new Date(rule.createdAt).toLocaleDateString('id-ID')}
+                        <span className='text-sm'>
+                          {formatDate(rule.createdAt)}
+                        </span>
                       </TableCell>
                       <TableCell className='text-right'>
                         <Button
                           variant='outline'
                           size='sm'
                           onClick={() => setDeleteRule(rule)}
+                          className='hover:bg-destructive hover:text-destructive-foreground'
                         >
                           <Trash2 className='h-4 w-4' />
                         </Button>
@@ -869,7 +857,7 @@ const SurveySettings: React.FC = () => {
           onOpenChange={setIsSheetOpen}
         >
           <SheetContent className='w-[95vw] max-w-[1200px] flex flex-col'>
-            <SheetHeader className='flex-shrink-0'>
+            <SheetHeader className='shrink-0'>
               <SheetTitle>Edit Survey Settings</SheetTitle>
               <SheetDescription>
                 Ubah pengaturan greeting opening dan closing untuk survey ini
@@ -877,7 +865,7 @@ const SurveySettings: React.FC = () => {
             </SheetHeader>
 
             {/* Tab Navigation */}
-            <div className='flex-shrink-0 px-4 border-b overflow-x-scroll [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'>
+            <div className='shrink-0 px-4 border-b overflow-x-scroll [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'>
               <div className='flex space-x-1'>
                 <Button
                   variant={activeTab === 'info' ? 'default' : 'ghost'}
@@ -1416,7 +1404,7 @@ const SurveySettings: React.FC = () => {
             </div>
 
             {/* Actions */}
-            <div className='flex-shrink-0 border-t bg-background px-4 py-4 flex justify-end space-x-2'>
+            <div className='shrink-0 border-t bg-background px-4 py-4 flex justify-end space-x-2'>
               <Button
                 variant='outline'
                 onClick={() => setIsSheetOpen(false)}
@@ -1439,7 +1427,7 @@ const SurveySettings: React.FC = () => {
           open={isRulesSheetOpen}
           onOpenChange={setIsRulesSheetOpen}
         >
-          <SheetContent className='w-[95vw] max-w-[900px] overflow-y-auto'>
+          <SheetContent className='w-[95vw] max-w-[600px] overflow-y-auto'>
             <SheetHeader className='pb-6 border-b'>
               <SheetTitle className='text-2xl font-semibold flex items-center gap-2'>
                 <div className='p-2 bg-primary/10 rounded-lg'>
@@ -1448,92 +1436,15 @@ const SurveySettings: React.FC = () => {
                 Tambah Survey Rule
               </SheetTitle>
               <SheetDescription className='text-base mt-2'>
-                Atur aturan survey berdasarkan fakultas, jurusan, dan tingkat
-                pendidikan
+                Atur aturan survey berdasarkan tingkat pendidikan. Rule ini akan
+                berlaku untuk semua fakultas dan jurusan dengan tingkat
+                pendidikan yang dipilih.
               </SheetDescription>
             </SheetHeader>
 
             <div className='mt-6 space-y-6'>
               {/* Add New Rule */}
               <div className='space-y-6'>
-                <div className='space-y-3'>
-                  <Label className='text-sm font-semibold flex items-center gap-2'>
-                    <Users className='h-4 w-4 text-muted-foreground' />
-                    Fakultas
-                    <span className='text-destructive'>*</span>
-                  </Label>
-                  <Select
-                    value={rulesFormData.facultyId}
-                    onValueChange={(value) => {
-                      setRulesFormData((prev) => ({
-                        ...prev,
-                        facultyId: value,
-                        majorId: '',
-                      }));
-                    }}
-                  >
-                    <SelectTrigger className='h-11'>
-                      <SelectValue placeholder='Pilih fakultas' />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {facultiesData?.map((faculty) => (
-                        <SelectItem
-                          key={faculty.id}
-                          value={faculty.id}
-                        >
-                          {faculty.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className='text-xs text-muted-foreground'>
-                    Pilih fakultas yang akan diatur aturannya
-                  </p>
-                </div>
-
-                <div className='space-y-3'>
-                  <Label className='text-sm font-semibold flex items-center gap-2'>
-                    <FileText className='h-4 w-4 text-muted-foreground' />
-                    Jurusan
-                    <span className='text-xs text-muted-foreground font-normal'>
-                      (Opsional)
-                    </span>
-                  </Label>
-                  <Select
-                    value={rulesFormData.majorId || 'all'}
-                    onValueChange={(value) =>
-                      setRulesFormData((prev) => ({
-                        ...prev,
-                        majorId: value === 'all' ? '' : value,
-                      }))
-                    }
-                    disabled={!rulesFormData.facultyId}
-                  >
-                    <SelectTrigger
-                      className='h-11'
-                      disabled={!rulesFormData.facultyId}
-                    >
-                      <SelectValue placeholder='Semua jurusan' />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value='all'>Semua Jurusan</SelectItem>
-                      {majors.map((major) => (
-                        <SelectItem
-                          key={major.id}
-                          value={major.id}
-                        >
-                          {major.majorName || major.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className='text-xs text-muted-foreground'>
-                    {!rulesFormData.facultyId
-                      ? 'Pilih fakultas terlebih dahulu'
-                      : 'Pilih jurusan spesifik atau biarkan "Semua Jurusan"'}
-                  </p>
-                </div>
-
                 <div className='space-y-3'>
                   <Label className='text-sm font-semibold flex items-center gap-2'>
                     <Calendar className='h-4 w-4 text-muted-foreground' />
@@ -1547,7 +1458,7 @@ const SurveySettings: React.FC = () => {
                     ) => setRulesFormData((prev) => ({...prev, degree: value}))}
                   >
                     <SelectTrigger className='h-11'>
-                      <SelectValue />
+                      <SelectValue placeholder='Pilih tingkat pendidikan' />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value='S1'>S1 - Sarjana</SelectItem>
@@ -1557,8 +1468,36 @@ const SurveySettings: React.FC = () => {
                     </SelectContent>
                   </Select>
                   <p className='text-xs text-muted-foreground'>
-                    Pilih tingkat pendidikan yang akan diatur
+                    Pilih tingkat pendidikan yang akan diatur. Rule ini akan
+                    berlaku untuk semua fakultas dan jurusan dengan tingkat
+                    pendidikan tersebut.
                   </p>
+                </div>
+
+                {/* Info Box */}
+                <div className='bg-blue-50 border border-blue-200 rounded-lg p-4'>
+                  <div className='flex items-start gap-3'>
+                    <div className='p-1.5 bg-blue-100 rounded'>
+                      <Settings className='h-4 w-4 text-blue-600' />
+                    </div>
+                    <div className='flex-1'>
+                      <p className='text-sm font-medium text-blue-900 mb-1'>
+                        Informasi Rule
+                      </p>
+                      <p className='text-xs text-blue-700'>
+                        Rule yang dibuat akan berlaku untuk semua fakultas dan
+                        jurusan yang memiliki tingkat pendidikan{' '}
+                        <span className='font-medium'>
+                          {rulesFormData.degree === 'S1' && 'Sarjana (S1)'}
+                          {rulesFormData.degree === 'PASCA' && 'Pasca Sarjana'}
+                          {rulesFormData.degree === 'PROFESI' && 'Profesi'}
+                          {rulesFormData.degree === 'VOKASI' && 'Vokasi'}
+                        </span>
+                        . Tidak perlu memilih fakultas atau jurusan secara
+                        spesifik.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1566,13 +1505,13 @@ const SurveySettings: React.FC = () => {
                 <div className='flex items-center justify-between'>
                   <div className='text-sm text-muted-foreground'>
                     <p>
-                      Pastikan semua field wajib telah diisi sebelum menambahkan
-                      rule
+                      Pastikan tingkat pendidikan telah dipilih sebelum
+                      menambahkan rule
                     </p>
                   </div>
                   <Button
                     onClick={handleAddRule}
-                    disabled={!rulesFormData.facultyId}
+                    disabled={!rulesFormData.degree}
                     className='min-w-[140px] h-11'
                     size='lg'
                   >
@@ -1595,22 +1534,24 @@ const SurveySettings: React.FC = () => {
               <AlertDialogTitle>Hapus Survey Rule</AlertDialogTitle>
               <AlertDialogDescription asChild>
                 <div>
-                  Apakah Anda yakin ingin menghapus rule untuk{' '}
+                  Apakah Anda yakin ingin menghapus rule untuk tingkat
+                  pendidikan{' '}
                   <strong>
-                    {deleteRule?.major?.faculty?.facultyName ||
-                      deleteRule?.major?.faculty?.name ||
-                      deleteRule?.faculty?.facultyName ||
-                      deleteRule?.faculty?.name ||
-                      '-'}
+                    {deleteRule?.degree === 'S1' && 'S1 - Sarjana'}
+                    {deleteRule?.degree === 'PASCA' && 'Pasca Sarjana'}
+                    {deleteRule?.degree === 'PROFESI' && 'Profesi'}
+                    {deleteRule?.degree === 'VOKASI' && 'Vokasi'}
                   </strong>
-                  {deleteRule?.major &&
-                    ` - ${
-                      deleteRule.major.majorName || deleteRule.major.name
-                    }`}{' '}
-                  - {deleteRule?.degree}?
+                  ?
                   <br />
                   <br />
-                  Tindakan ini tidak dapat dibatalkan.
+                  Rule ini berlaku untuk semua fakultas dan jurusan dengan
+                  tingkat pendidikan tersebut.
+                  <br />
+                  <br />
+                  <span className='font-medium text-destructive'>
+                    Tindakan ini tidak dapat dibatalkan.
+                  </span>
                 </div>
               </AlertDialogDescription>
             </AlertDialogHeader>

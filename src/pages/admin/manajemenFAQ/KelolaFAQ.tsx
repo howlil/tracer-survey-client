@@ -36,7 +36,6 @@ import {
   Plus,
   Edit,
   Trash2,
-  ExternalLink,
   Calendar,
 } from 'lucide-react';
 import {
@@ -58,8 +57,8 @@ import {
 } from '@/api/faq.api';
 
 interface FAQFormData {
-  title: string;
-  link: string;
+  question: string;
+  answer: string;
 }
 
 const KelolaFAQ: React.FC = () => {
@@ -77,15 +76,15 @@ const KelolaFAQ: React.FC = () => {
 
   // Form data
   const [formData, setFormData] = useState<FAQFormData>({
-    title: '',
-    link: '',
+    question: '',
+    answer: '',
   });
 
   // Form handlers
   const resetForm = () => {
     setFormData({
-      title: '',
-      link: '',
+      question: '',
+      answer: '',
     });
     setEditingFAQ(null);
     setFormErrors({});
@@ -105,13 +104,8 @@ const KelolaFAQ: React.FC = () => {
   const handleSaveFAQ = async () => {
     setFormErrors({});
 
-    if (!formData.title.trim() || !formData.link.trim()) {
-      toast.error('Judul dan Link wajib diisi');
-      return;
-    }
-
-    if (!isValidUrl(formData.link)) {
-      setFormErrors({link: 'Format URL tidak valid'});
+    if (!formData.question.trim() || !formData.answer.trim()) {
+      toast.error('Pertanyaan dan Jawaban wajib diisi');
       return;
     }
 
@@ -171,20 +165,11 @@ const KelolaFAQ: React.FC = () => {
 
   const handleEditFAQ = (faq: FAQ) => {
     setFormData({
-      title: faq.title,
-      link: faq.link,
+      question: faq.question,
+      answer: faq.answer,
     });
     setEditingFAQ(faq);
     setIsSheetOpen(true);
-  };
-
-  const isValidUrl = (string: string) => {
-    try {
-      new URL(string);
-      return true;
-    } catch {
-      return false;
-    }
   };
 
   return (
@@ -232,8 +217,8 @@ const KelolaFAQ: React.FC = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Judul FAQ</TableHead>
-                  <TableHead>Link</TableHead>
+                  <TableHead>Pertanyaan</TableHead>
+                  <TableHead>Jawaban</TableHead>
                   <TableHead>Tanggal Dibuat</TableHead>
                   <TableHead className='text-right'>Aksi</TableHead>
                 </TableRow>
@@ -260,21 +245,13 @@ const KelolaFAQ: React.FC = () => {
                 ) : (
                   faqs.map((faq) => (
                     <TableRow key={faq.id}>
-                      <TableCell className='font-medium'>{faq.title}</TableCell>
-                      <TableCell>
-                        <div className='flex items-center space-x-2'>
-                          <span className='text-sm text-muted-foreground max-w-xs truncate'>
-                            {faq.link}
-                          </span>
-                          <Button
-                            variant='ghost'
-                            size='sm'
-                            onClick={() => window.open(faq.link, '_blank')}
-                            className='h-6 w-6 p-0'
-                          >
-                            <ExternalLink className='h-3 w-3' />
-                          </Button>
-                        </div>
+                      <TableCell className='font-medium max-w-md'>
+                        <p className='line-clamp-2'>{faq.question}</p>
+                      </TableCell>
+                      <TableCell className='max-w-md'>
+                        <p className='text-sm text-muted-foreground line-clamp-2'>
+                          {faq.answer}
+                        </p>
                       </TableCell>
                       <TableCell>
                         {faq.createdAt ? (
@@ -331,25 +308,25 @@ const KelolaFAQ: React.FC = () => {
               </SheetDescription>
             </SheetHeader>
 
-            <div className='px-4 space-y-8'>
+              <div className='px-4 space-y-8'>
               {/* Basic Info Section */}
               <div className='space-y-4'>
                 <div className='space-y-2'>
                   <Label
-                    htmlFor='title'
+                    htmlFor='question'
                     className='text-sm font-medium'
                   >
-                    Judul FAQ *
+                    Pertanyaan *
                   </Label>
                   <Input
-                    id='title'
-                    value={formData.title}
-                    onChange={(e) => handleInputChange('title', e.target.value)}
-                    placeholder='Bagaimana cara mengisi survey Tracer Study?'
-                    className={`text-sm ${formErrors.title ? 'border-red-500' : ''}`}
+                    id='question'
+                    value={formData.question}
+                    onChange={(e) => handleInputChange('question', e.target.value)}
+                    placeholder='Apa itu Tracer Study?'
+                    className={`text-sm ${formErrors.question ? 'border-red-500' : ''}`}
                   />
-                  {formErrors.title ? (
-                    <p className='text-xs text-red-500'>{formErrors.title}</p>
+                  {formErrors.question ? (
+                    <p className='text-xs text-red-500'>{formErrors.question}</p>
                   ) : (
                     <p className='text-xs text-gray-500'>
                       Pertanyaan yang sering diajukan pengguna
@@ -359,28 +336,24 @@ const KelolaFAQ: React.FC = () => {
 
                 <div className='space-y-2'>
                   <Label
-                    htmlFor='link'
+                    htmlFor='answer'
                     className='text-sm font-medium'
                   >
-                    Link Jawaban *
+                    Jawaban *
                   </Label>
-                  <Input
-                    id='link'
-                    value={formData.link}
-                    onChange={(e) => handleInputChange('link', e.target.value)}
-                    placeholder='https://help.unand.ac.id/tracer-study-guide'
-                    className={`text-sm ${formErrors.link ? 'border-red-500' : ''}`}
+                  <textarea
+                    id='answer'
+                    value={formData.answer}
+                    onChange={(e) => handleInputChange('answer', e.target.value)}
+                    placeholder='Tracer Study adalah survei yang dilakukan untuk melacak perjalanan karier alumni setelah lulus dari universitas...'
+                    className={`flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${formErrors.answer ? 'border-red-500' : ''}`}
+                    rows={5}
                   />
-                  {formErrors.link ? (
-                    <p className='text-xs text-red-500'>{formErrors.link}</p>
-                  ) : formData.link && !isValidUrl(formData.link) ? (
-                    <p className='text-xs text-red-500'>
-                      Format URL tidak valid. Pastikan URL dimulai dengan
-                      http:// atau https://
-                    </p>
+                  {formErrors.answer ? (
+                    <p className='text-xs text-red-500'>{formErrors.answer}</p>
                   ) : (
                     <p className='text-xs text-gray-500'>
-                      URL yang mengarah ke halaman jawaban atau panduan
+                      Jawaban lengkap untuk pertanyaan di atas
                     </p>
                   )}
                 </div>
@@ -399,8 +372,8 @@ const KelolaFAQ: React.FC = () => {
                   disabled={
                     createFAQMutation.isPending ||
                     updateFAQMutation.isPending ||
-                    !formData.title ||
-                    !formData.link
+                    !formData.question ||
+                    !formData.answer
                   }
                 >
                   {createFAQMutation.isPending || updateFAQMutation.isPending
@@ -425,7 +398,7 @@ const KelolaFAQ: React.FC = () => {
               <AlertDialogDescription asChild>
                 <div>
                   Apakah Anda yakin ingin menghapus FAQ{' '}
-                  <strong>{deleteFAQ?.title}</strong>?
+                  <strong>{deleteFAQ?.question}</strong>?
                   <br />
                   <br />
                   Tindakan ini tidak dapat dibatalkan dan akan menghapus FAQ

@@ -15,6 +15,7 @@ export interface Alumni {
     | 'WISUDA_V'
     | 'WISUDA_VI';
   degree: 'S1' | 'S2' | 'S3' | 'D3' | 'VOKASI' | 'PROFESI' | 'PASCA';
+  pin?: string; // PIN yang di-generate otomatis saat create alumni
   respondent: {
     id: string;
     fullName: string;
@@ -24,10 +25,12 @@ export interface Alumni {
   };
   major: {
     id: string;
-    name: string;
+    name?: string; // For list view (findManyWithPagination) - maps to majorName
+    majorName: string; // Primary field - always present, maps to major.majorName from backend
     faculty: {
       id: string;
-      name: string;
+      name?: string; // For list view (findManyWithPagination) - maps to facultyName
+      facultyName: string; // Primary field - always present, maps to major.faculty.facultyName from backend
     };
   };
   createdAt: string;
@@ -184,4 +187,38 @@ export const importAlumniApi = async (file: File) => {
     throw new Error(response.data.message || 'Gagal mengimpor alumni');
   }
   return response.data.data;
+};
+
+export type UpdateAlumniPayload = Partial<CreateAlumniPayload>;
+
+export const updateAlumniApi = async (
+  id: string,
+  payload: UpdateAlumniPayload
+) => {
+  const response = await axiosInstance.patch<ApiResponse<Alumni>>(
+    `/v1/alumni/${id}`,
+    payload
+  );
+  if (!response.data.success) {
+    throw new Error(response.data.message || 'Gagal mengupdate alumni');
+  }
+  return response.data.data;
+};
+
+export const getCurrentAlumniProfileApi = async (): Promise<Alumni> => {
+  const response = await axiosInstance.get<ApiResponse<Alumni>>(
+    '/v1/alumni/profile/me'
+  );
+  if (!response.data.success) {
+    throw new Error(response.data.message || 'Gagal mendapatkan profil alumni');
+  }
+  return response.data.data;
+};
+
+export const useCurrentAlumniProfile = () => {
+  return useQuery({
+    queryKey: ['currentAlumniProfile'],
+    queryFn: getCurrentAlumniProfileApi,
+    enabled: true,
+  });
 };

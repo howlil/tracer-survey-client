@@ -22,6 +22,7 @@ interface SurveyFormProps {
   onSubmit?: (answers: Record<string, unknown>) => void;
   onNextPage?: () => void;
   onPreviousPage?: () => void;
+  onSaveDraft?: () => void;
   onValidate?: (questionId: string, value: unknown) => string | null;
   className?: string;
   submitButtonText?: string;
@@ -41,6 +42,7 @@ function SurveyForm({
   onSubmit,
   onNextPage,
   onPreviousPage,
+  onSaveDraft,
   onValidate,
   className,
   submitButtonText = 'Submit Survey',
@@ -299,8 +301,15 @@ function SurveyForm({
                 ...item,
                 opsiComboBox: item.options,
               }))}
-              values={answers as Record<string, string>}
-              onChange={handleValueChange}
+              values={(answers[question.id] as Record<string, string>) || {}}
+              onChange={(comboboxItemId, optionValue) => {
+                // For combobox, store as object with comboboxItemId as key
+                const currentValue = (answers[question.id] as Record<string, string>) || {};
+                handleValueChange(question.id, {
+                  ...currentValue,
+                  [comboboxItemId]: optionValue,
+                });
+              }}
               layout={question.layout}
             />
           );
@@ -312,7 +321,11 @@ function SurveyForm({
               ratingItems={question.ratingItems}
               ratingOptions={question.ratingOptions}
               values={answers as Record<string, string>}
-              onChange={handleValueChange}
+              onChange={(itemId: string, value: string) => {
+                // For rating questions, store answers with children question IDs as keys
+                // itemId is the children question ID (rating item ID)
+                setAnswer({questionId: itemId, value});
+              }}
               tableClassName={question.tableClassName}
               headerClassName={question.headerClassName}
               cellClassName={question.cellClassName}
@@ -404,6 +417,16 @@ function SurveyForm({
         </Button>
 
         <div className='flex items-center space-x-2'>
+          {onSaveDraft && (
+            <Button
+              variant='outline'
+              onClick={onSaveDraft}
+              disabled={isSubmitting}
+              className='flex items-center space-x-2'
+            >
+              <span>Simpan Sementara</span>
+            </Button>
+          )}
           {showSubmitButton && (
             <Button
               onClick={handleNext}

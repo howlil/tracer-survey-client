@@ -100,6 +100,7 @@ type ExtendedQuestion = Question & {
   groupQuestionId?: string;
   placeholder?: string;
   searchplaceholder?: string;
+  pageNumber?: number; // Nomor halaman untuk struktur data yang lebih terstruktur
   questionTree?: Array<{
     answerQuestionTriggerId: string;
     questionPointerToId: string;
@@ -251,9 +252,13 @@ function SurveyBuilder() {
 
   // API Hooks
   const saveBuilderMutation = useSaveBuilder();
-  const {data: apiQuestions, isLoading: isLoadingQuestions} =
+  const {data: surveyQuestionsData, isLoading: isLoadingQuestions} =
     useSurveyQuestions(surveyId || '');
   const {mutateAsync: reorderQuestions} = useReorderQuestions();
+  
+  // Extract questions array and pages from response (new structure: { questions, pages })
+  const apiQuestions = surveyQuestionsData?.questions || [];
+  const apiPages = surveyQuestionsData?.pages || [];
 
   const activeQuestion = questions.find((q) => q.id === activeQuestionId);
 
@@ -478,20 +483,32 @@ function SurveyBuilder() {
           questionTree = treeData
             .map((tree) => {
               // Skip if questionPointerToId is empty (user checked trigger but didn't select question yet)
-              if (!tree.questionPointerToId) return null;
+              if (!tree.questionPointerToId) {
+                return null;
+              }
 
               // Find the option by value
               const option = singleQ.options?.find(
                 (opt) => opt.value === tree.answerQuestionTriggerId
               );
-              if (!option) return null;
+              if (!option) {
+                return null;
+              }
 
               // Find the answer option by answerText and sortOrder
               const answerOption = answerOptions.find(
                 (ao, idx) =>
                   ao.answerText === option.label && ao.sortOrder === idx
               );
-              if (!answerOption) return null;
+              if (!answerOption) {
+                return null;
+              }
+
+              // Verify that child question exists
+              const childQuestionExists = questions.some((cq) => cq.id === tree.questionPointerToId);
+              if (!childQuestionExists) {
+                return null;
+              }
 
               // If answerOption has ID, use it; otherwise use answerText and sortOrder as temporary identifier
               return {
@@ -506,7 +523,7 @@ function SurveyBuilder() {
             .filter((t): t is NonNullable<typeof t> => t !== null);
         }
 
-        return {
+        const transformed = {
           ...(questionId ? {id: questionId} : {}),
           codeId,
           parentId: extQ.parentId || null,
@@ -522,6 +539,8 @@ function SurveyBuilder() {
           answerQuestion: answerOptions,
           ...(questionTree && questionTree.length > 0 ? {questionTree} : {}),
         };
+
+        return transformed;
       });
 
       // Filter pages yang tidak memiliki questions (group question kosong)
@@ -553,9 +572,27 @@ function SurveyBuilder() {
       const validCodeIds = new Set(
         filteredPages.flatMap((page) => page.codeIds)
       );
-      const filteredQuestions = transformedQuestions.filter((q) =>
-        validCodeIds.has(q.codeId)
-      );
+      
+      // IMPORTANT: Include ALL questions (parent + child) even if their codeId is not in filteredPages
+      // Child questions should be included because they are part of parent questions
+      const filteredQuestions = transformedQuestions.filter((q) => {
+        // Include if codeId is in validCodeIds (parent questions)
+        if (validCodeIds.has(q.codeId)) {
+          return true;
+        }
+        // Include child questions (they have parentId) even if codeId not in filteredPages
+        // because they are part of parent questions
+        if (q.parentId) {
+          // Check if parent question is in validCodeIds
+          const parentQuestion = transformedQuestions.find(
+            (pq) => pq.id === q.parentId && validCodeIds.has(pq.codeId)
+          );
+          if (parentQuestion) {
+            return true;
+          }
+        }
+        return false;
+      });
 
       await saveBuilderMutation.mutateAsync({
         surveyId,
@@ -660,13 +697,21 @@ function SurveyBuilder() {
         }
       }
     } else if (builderType === 'combobox') {
-      // For combobox, group answer options by combobox item
-      // This is simplified - actual implementation may need more logic
-      const items = (apiQ.answerQuestion || []).map((opt) => ({
-        id: uuidv4(),
+      // For combobox, all answer options become dropdown options in a single combobox item
+      const options = (apiQ.answerQuestion || []).map((opt) => ({
+        value: opt.id || uuidv4(),
         label: opt.answerText,
-        options: [{value: uuidv4(), label: opt.answerText}],
       }));
+      const items = [
+        {
+          id: apiQ.id || uuidv4(),
+          label: apiQ.questionText || 'Item 1',
+          placeholder: apiQ.placeholder || 'Pilih...',
+          searchPlaceholder: apiQ.searchplaceholder || 'Cari...',
+          required: apiQ.isRequired || false,
+          options: options,
+        },
+      ];
       (baseQuestion as ComboBoxQuestion).comboboxItems = items;
       (baseQuestion as ComboBoxQuestion).layout = 'vertical';
     } else if (builderType === 'rating') {
@@ -697,6 +742,7 @@ function SurveyBuilder() {
       groupQuestionId: apiQ.groupQuestionId || apiQ.id,
       placeholder: apiQ.placeholder || '',
       searchplaceholder: apiQ.searchplaceholder || '',
+      pageNumber: (apiQ as APIQuestion & {pageNumber?: number}).pageNumber, // Include pageNumber from API
       questionTree: apiQ.questionTree?.map((tree) => ({
         answerQuestionTriggerId: tree.answerQuestionTriggerId,
         questionPointerToId: tree.questionPointerToId,
@@ -705,6 +751,7 @@ function SurveyBuilder() {
       order: number;
       status: 'saved';
       questionCode?: string;
+      pageNumber?: number;
     };
   };
 
@@ -725,7 +772,8 @@ function SurveyBuilder() {
       return;
     }
 
-    if (!apiQuestions || apiQuestions.length === 0) {
+    // Check if we have questions array
+    if (!Array.isArray(apiQuestions) || apiQuestions.length === 0) {
       // If no questions from API, reset store to empty
       loadQuestionsFromAPI(
         [],
@@ -794,27 +842,60 @@ function SurveyBuilder() {
       // Sort all questions by sortOrder to maintain proper order
       allQuestions.sort((a, b) => (a.order || 0) - (b.order || 0));
 
-      // Group ALL questions (parents + children) by questionCode for pages
-      // questionCode is already set from API in getSurveyQuestionsApi
-      const questionsByCode = allQuestions.reduce((acc, q) => {
-        const codeId = q.questionCode || 'A';
-        if (!acc[codeId]) {
-          acc[codeId] = [];
+      // Group questions by pageNumber (from backend) for structured data
+      // Setiap pertanyaan sudah memiliki pageNumber dari backend
+      const questionsByPage = allQuestions.reduce((acc, q) => {
+        // Extract pageNumber from transformed question (already includes pageNumber from API)
+        const pageNumber = (q as ExtendedQuestion)?.pageNumber || 1;
+        
+        if (!acc[pageNumber]) {
+          acc[pageNumber] = [];
         }
-        acc[codeId].push(q);
+        acc[pageNumber].push(q);
         return acc;
-      }, {} as Record<string, typeof allQuestions>);
+      }, {} as Record<number, typeof allQuestions>);
 
-      // Create pages from codeIds (sorted by question order)
-      const codeIds = Object.keys(questionsByCode).sort();
-      const newPages = codeIds.map((codeId, idx) => ({
-        id: uuidv4(),
-        title: `Halaman ${idx + 1}`,
-        description: `Pertanyaan ${codeId}`,
-        questionIds: questionsByCode[codeId]
+      // Create pages from pageNumber groups
+      const pageNumbers = Object.keys(questionsByPage)
+        .map(Number)
+        .sort((a, b) => a - b);
+      
+      let newPages: Array<{id: string; title: string; description: string; questionIds: string[]}>;
+      
+      if (apiPages && apiPages.length > 0) {
+        // Use pages from backend, but ensure questionIds match pageNumber grouping
+        newPages = apiPages.map((page) => {
+          // Get questions for this page number
+          const pageQuestions = questionsByPage[page.page] || [];
+          const questionIds = pageQuestions
+            .filter(q => !(q as ExtendedQuestion).parentId) // Only parent questions
           .sort((a, b) => (a.order || 0) - (b.order || 0))
-          .map((q) => q.id),
-      }));
+            .map((q) => q.id);
+          
+          return {
+            id: uuidv4(), // Generate new UUID for frontend
+            title: page.title || `Halaman ${page.page}`,
+            description: page.description || `Pertanyaan ${page.codeId || ''}`,
+            questionIds: questionIds.length > 0 ? questionIds : (page.questionIds || []),
+          };
+        });
+      } else {
+        // Fallback: Create pages from pageNumber groups
+        newPages = pageNumbers.map((pageNum) => {
+          const pageQuestions = questionsByPage[pageNum] || [];
+          const questionIds = pageQuestions
+            .filter(q => !(q as ExtendedQuestion).parentId) // Only parent questions
+            .sort((a, b) => (a.order || 0) - (b.order || 0))
+            .map((q) => q.id);
+          
+          return {
+            id: uuidv4(),
+            title: `Halaman ${pageNum}`,
+            description: `Halaman ${pageNum}`,
+            questionIds: questionIds,
+          };
+        });
+      }
 
       // Load questions and pages into store
       loadQuestionsFromAPI(allQuestions, newPages);
@@ -833,7 +914,7 @@ function SurveyBuilder() {
       setHasLoadedQuestions(true); // Set to true even on error to prevent infinite retry
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [surveyId, apiQuestions, isLoadingQuestions, hasLoadedQuestions]);
+  }, [surveyId, surveyQuestionsData, isLoadingQuestions, hasLoadedQuestions]);
 
   const mapQuestionTypeToAPI = (type: Question['type']): string => {
     const mapping: Record<string, string> = {
@@ -853,36 +934,58 @@ function SurveyBuilder() {
         (question as SingleChoiceQuestion | MultipleChoiceQuestion).options ||
         [];
       return options.map(
-        (opt, idx): AnswerOption => ({
-          answerText: opt.label,
-          sortOrder: idx,
-          otherOptionPlaceholder: '',
-          isTriggered: false,
-        })
+        (opt, idx): AnswerOption => {
+          // The value in options should be the answerOptionQuestion ID if it exists
+          // UUIDs are typically 36 chars, so check if value looks like a UUID
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          const answerOptionId = opt.value && uuidRegex.test(opt.value) ? opt.value : undefined;
+          
+          return {
+            id: answerOptionId, // Include ID if available (from existing options)
+            answerText: opt.label,
+            sortOrder: idx,
+            otherOptionPlaceholder: (question as SingleChoiceQuestion | MultipleChoiceQuestion).otherInputPlaceholder || '',
+            isTriggered: false,
+          };
+        }
       );
     }
     if (question.type === 'combobox') {
       const items = (question as ComboBoxQuestion).comboboxItems || [];
       return items.flatMap((item, itemIdx) =>
         (item.options || []).map(
-          (opt, optIdx): AnswerOption => ({
-            answerText: opt.label,
-            sortOrder: itemIdx * 100 + optIdx,
-            otherOptionPlaceholder: '',
-            isTriggered: false,
-          })
+          (opt, optIdx): AnswerOption => {
+            // The value in options should be the answerOptionQuestion ID if it exists
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            const answerOptionId = opt.value && uuidRegex.test(opt.value) ? opt.value : undefined;
+            
+            return {
+              id: answerOptionId, // Include ID if available
+              answerText: opt.label,
+              sortOrder: itemIdx * 100 + optIdx,
+              otherOptionPlaceholder: '',
+              isTriggered: false,
+            };
+          }
         )
       );
     }
     if (question.type === 'rating') {
       const options = (question as RatingQuestion).ratingOptions || [];
       return options.map(
-        (opt, idx): AnswerOption => ({
-          answerText: opt.label,
-          sortOrder: idx,
-          otherOptionPlaceholder: '',
-          isTriggered: false,
-        })
+        (opt, idx): AnswerOption => {
+          // The value in options should be the answerOptionQuestion ID if it exists
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          const answerOptionId = opt.value && uuidRegex.test(opt.value) ? opt.value : undefined;
+          
+          return {
+            id: answerOptionId, // Include ID if available
+            answerText: opt.label,
+            sortOrder: idx,
+            otherOptionPlaceholder: '',
+            isTriggered: false,
+          };
+        }
       );
     }
     return [];
@@ -896,9 +999,9 @@ function SurveyBuilder() {
     <AdminLayout>
       <div className='h-[calc(100vh-4rem)] p-6'>
         {/* Header */}
-        <div className='mb-6 relative'>
+        <div className='mb-8 relative'>
           {/* Breadcrumb */}
-          <Breadcrumb>
+          <Breadcrumb className='mb-4'>
             <BreadcrumbList>
               <BreadcrumbItem>
                 <BreadcrumbLink
@@ -969,7 +1072,7 @@ function SurveyBuilder() {
         </div>
 
         {/* Resizable Card Container */}
-        <div className='h-[calc(100%-5rem)]'>
+        <div className='h-[calc(100%-7rem)]'>
           <ResizableCard className='gap-4'>
             {/* Panel Kiri - Jenis Soal - Hanya muncul saat edit mode */}
             {isEditMode && (
@@ -981,7 +1084,7 @@ function SurveyBuilder() {
                 className='animate-in slide-in-from-left duration-300'
               >
                 <Card className='h-full flex flex-col'>
-                  <CardHeader className='p-3 flex-shrink-0'>
+                  <CardHeader className='p-3 shrink-0'>
                     <CardTitle className='text-md'>Jenis Soal</CardTitle>
                   </CardHeader>
                   <CardContent className='flex-1 overflow-y-auto space-y-3 p-4'>
@@ -1037,7 +1140,7 @@ function SurveyBuilder() {
             {/* Panel Tengah - Preview Form */}
             <ResizableContent>
               <Card className='h-full flex flex-col'>
-                <CardHeader className='p-3 flex-shrink-0'>
+                <CardHeader className='p-3 shrink-0'>
                   <div className='flex items-center justify-between gap-4'>
                     <Button
                       variant='outline'
@@ -1203,6 +1306,7 @@ function SurveyBuilder() {
                     );
 
                     // Helper function to get child questions from questionTree
+                    // Returns unique child question IDs (no duplicates even if multiple QuestionTree entries point to same question)
                     const getChildQuestions = (parentId: string): string[] => {
                       const parentQ = displayQuestions.find(
                         (q) => q.id === parentId
@@ -1210,16 +1314,32 @@ function SurveyBuilder() {
                       if (!parentQ) return [];
                       const extQ = parentQ as ExtendedQuestion;
                       const questionTree = extQ.questionTree || [];
-                      return questionTree
+                      const childIds = questionTree
                         .map((tree) => tree.questionPointerToId)
                         .filter(Boolean)
                         .filter((childId) =>
                           displayQuestions.some((q) => q.id === childId)
                         );
+                      // Remove duplicates using Set
+                      return Array.from(new Set(childIds));
                     };
+
+                    // Get all question IDs that appear as questionPointerToId in any QuestionTree
+                    // These are conditional questions that should only appear through QuestionTree
+                    const conditionalQuestionIds = new Set<string>();
+                    displayQuestions.forEach((q) => {
+                      const extQ = q as ExtendedQuestion;
+                      const questionTree = extQ.questionTree || [];
+                      questionTree.forEach((tree) => {
+                        if (tree.questionPointerToId) {
+                          conditionalQuestionIds.add(tree.questionPointerToId);
+                        }
+                      });
+                    });
 
                     // Separate parent and child questions - remove duplicates
                     // Only render parent questions that are NOT children of other questions
+                    // AND are NOT conditional questions (only appear through QuestionTree)
                     // Remove duplicates by using Set and filter by parentId
                     const seenIds = new Set<string>();
                     const parentQuestionIds = displayQuestionIds.filter(
@@ -1234,9 +1354,20 @@ function SurveyBuilder() {
                         const q = displayQuestions.find((qq) => qq.id === qid);
                         if (!q) return false;
 
-                        // Only include if it's not a child question (parentId is null/undefined)
                         const extQ = q as ExtendedQuestion;
-                        return !extQ.parentId;
+                        
+                        // Exclude if it's a child question (parentId is not null/undefined)
+                        if (extQ.parentId) return false;
+                        
+                        // Exclude if it's a conditional question (only appears through QuestionTree)
+                        // Conditional questions should only appear when their trigger condition is met
+                        // They should not appear in the regular question list
+                        if (conditionalQuestionIds.has(qid)) {
+                          // This question only appears through QuestionTree, exclude it from regular list
+                          return false;
+                        }
+                        
+                        return true;
                       }
                     );
 
@@ -1387,7 +1518,7 @@ function SurveyBuilder() {
 
                             {/* Question number */}
                             <div
-                              className={`mt-2 w-7 h-7 rounded-full border flex items-center justify-center text-xs flex-shrink-0 ${
+                              className={`mt-2 w-7 h-7 rounded-full border flex items-center justify-center text-xs shrink-0 ${
                                 isActive
                                   ? 'border-primary text-primary'
                                   : 'text-muted-foreground'
@@ -1705,7 +1836,7 @@ function SurveyBuilder() {
                 className='animate-in slide-in-from-right duration-300'
               >
                 <Card className='h-full flex flex-col'>
-                  <CardHeader className='p-3 flex-shrink-0'>
+                  <CardHeader className='p-3 shrink-0'>
                     <CardTitle className='text-md'>Detail per Soal</CardTitle>
                   </CardHeader>
                   <CardContent className='flex-1 overflow-y-auto space-y-4 p-4'>
@@ -2277,6 +2408,95 @@ function SurveyBuilder() {
                                     }}
                                     placeholder='Placeholder'
                                   />
+                                  <div className='space-y-2 pt-2 border-t'>
+                                    <div className='flex items-center justify-between'>
+                                      <label className='text-xs font-medium text-muted-foreground'>
+                                        Opsi Dropdown
+                                      </label>
+                                      <Button
+                                        size='sm'
+                                        variant='ghost'
+                                        className='h-7 text-xs'
+                                        onClick={() => {
+                                          const currentItems =
+                                            (activeQuestion as ComboBoxQuestion)
+                                              .comboboxItems || [];
+                                          const newItems = [...currentItems];
+                                          const currentOptions = newItems[i].options || [];
+                                          newItems[i] = {
+                                            ...item,
+                                            options: [
+                                              ...currentOptions,
+                                              {
+                                                value: uuidv4(),
+                                                label: 'Opsi Baru',
+                                              },
+                                            ],
+                                          };
+                                          patchActive({comboboxItems: newItems});
+                                        }}
+                                      >
+                                        <Plus className='h-3 w-3 mr-1' />
+                                        Tambah Opsi
+                                      </Button>
+                                    </div>
+                                    <div className='space-y-1 max-h-[200px] overflow-y-auto'>
+                                      {(item.options || []).map((option, optIdx) => (
+                                        <div
+                                          key={option.value}
+                                          className='flex items-center gap-2 p-2 bg-muted/50 rounded border'
+                                        >
+                                          <Input
+                                            value={option.label}
+                                            onChange={(e) => {
+                                              const currentItems =
+                                                (activeQuestion as ComboBoxQuestion)
+                                                  .comboboxItems || [];
+                                              const newItems = [...currentItems];
+                                              const updatedOptions = [...(newItems[i].options || [])];
+                                              updatedOptions[optIdx] = {
+                                                ...option,
+                                                label: e.target.value,
+                                              };
+                                              newItems[i] = {
+                                                ...item,
+                                                options: updatedOptions,
+                                              };
+                                              patchActive({comboboxItems: newItems});
+                                            }}
+                                            placeholder='Nama opsi'
+                                            className='h-8 text-xs'
+                                          />
+                                          <Button
+                                            size='icon'
+                                            variant='ghost'
+                                            className='h-7 w-7'
+                                            onClick={() => {
+                                              const currentItems =
+                                                (activeQuestion as ComboBoxQuestion)
+                                                  .comboboxItems || [];
+                                              const newItems = [...currentItems];
+                                              const updatedOptions = (newItems[i].options || []).filter(
+                                                (_, idx) => idx !== optIdx
+                                              );
+                                              newItems[i] = {
+                                                ...item,
+                                                options: updatedOptions,
+                                              };
+                                              patchActive({comboboxItems: newItems});
+                                            }}
+                                          >
+                                            <Trash2 className='h-3 w-3 text-destructive' />
+                                          </Button>
+                                </div>
+                              ))}
+                                      {(!item.options || item.options.length === 0) && (
+                                        <div className='text-xs text-muted-foreground text-center py-2'>
+                                          Belum ada opsi. Klik "Tambah Opsi" untuk menambahkan.
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
                               ))}
                             </div>
